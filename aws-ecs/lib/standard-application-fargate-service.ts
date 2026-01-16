@@ -19,6 +19,7 @@ import {ARecord, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
 import {DomainName} from '../../aws-route53';
 import {LoadBalancerTarget} from 'aws-cdk-lib/aws-route53-targets';
 import {MetricOptions} from 'aws-cdk-lib/aws-cloudwatch';
+import {PriorityAllocator} from './priority-allocator';
 
 /**
  * Properties for StandardApplicationFargateService
@@ -174,8 +175,12 @@ export interface StandardApplicationFargateServiceProps extends StandardFargateS
 
   /**
    * The priority to give the target group on the ALB.
+   * If not specified, a unique priority is automatically allocated using
+   * the PriorityAllocator, which coordinates with other services across
+   * multiple teams and tools (CDK, Terraform, manual) to find the lowest
+   * available priority.
    *
-   * @default - 1
+   * @default - Automatically allocated (recommended for most use cases)
    */
   readonly targetGroupPriority?: number;
 
@@ -301,10 +306,23 @@ export class StandardApplicationFargateService extends StandardFargateService {
         listenerProtocol: ApplicationProtocol.HTTPS,
       });
 
+    // Determine priority: use explicit value, or allocate automatically
+    let priority: number;
+    if (props.targetGroupPriority !== undefined) {
+      // Manual priority specified - use it directly
+      priority = props.targetGroupPriority;
+    } else {
+      // No priority specified - use automatic allocation
+      const allocator = new PriorityAllocator(this, 'PriorityAllocator', {
+        listenerArn: listener.listenerArn,
+      });
+      priority = allocator.priority;
+    }
+
     listener.addTargetGroups(`${id}TargetGroups`, {
       targetGroups: [targetGroup],
       conditions: targetGroupConditions,
-      priority: props.targetGroupPriority ?? 1,
+      priority,
     });
 
     if (
