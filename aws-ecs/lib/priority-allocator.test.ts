@@ -31,30 +31,9 @@ describe('PriorityAllocator', () => {
 
     const template = Template.fromStack(stack);
 
-    // Verify DynamoDB table
-    template.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'alb-listener-priorities',
-      BillingMode: 'PAY_PER_REQUEST',
-      AttributeDefinitions: [
-        {AttributeName: 'ListenerArn', AttributeType: 'S'},
-        {AttributeName: 'Priority', AttributeType: 'N'},
-        {AttributeName: 'ServiceIdentifier', AttributeType: 'S'},
-      ],
-      KeySchema: [
-        {AttributeName: 'ListenerArn', KeyType: 'HASH'},
-        {AttributeName: 'Priority', KeyType: 'RANGE'},
-      ],
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: 'ServiceIdentifierIndex',
-          KeySchema: [
-            {AttributeName: 'ServiceIdentifier', KeyType: 'HASH'},
-            {AttributeName: 'ListenerArn', KeyType: 'RANGE'},
-          ],
-          Projection: {ProjectionType: 'ALL'},
-        },
-      ],
-    });
+    // Verify DynamoDB table ensurer (AwsCustomResource that creates table)
+    template.resourceCountIs('Custom::AWS', 1);
+    // The table is created/imported via AwsCustomResource, not directly as CloudFormation resource
 
     // Verify Lambda function (check by unique properties, VPC creates other Lambdas)
     template.hasResourceProperties('AWS::Lambda::Function', {
@@ -193,7 +172,7 @@ describe('PriorityAllocator', () => {
     const template = Template.fromStack(stack);
 
     // Should only have ONE PriorityAllocator Lambda (identified by name)
-    // ONE DynamoDB table, but THREE Custom Resources
+    // ONE table ensurer (Custom::AWS), but THREE priority allocation Custom Resources
     const lambdas = template.findResources('AWS::Lambda::Function', {
       Properties: {
         FunctionName: 'priority-allocator-singleton',
@@ -201,8 +180,8 @@ describe('PriorityAllocator', () => {
     });
     expect(Object.keys(lambdas).length).toBe(1);
 
-    template.resourceCountIs('AWS::DynamoDB::Table', 1);
-    template.resourceCountIs('AWS::CloudFormation::CustomResource', 3);
+    template.resourceCountIs('Custom::AWS', 1); // Table ensurer
+    template.resourceCountIs('AWS::CloudFormation::CustomResource', 3); // Priority allocators
   });
 
   test('Different stacks create separate resources (not singleton across stacks)', () => {
@@ -244,19 +223,15 @@ describe('PriorityAllocator', () => {
     const template2 = Template.fromStack(stack2);
 
     // Each stack should have its own PriorityAllocator resources
-    // (verify by checking for the unique function name and table name)
+    // (verify by checking for the unique function name and table ensurer)
     template1.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'priority-allocator-singleton',
     });
-    template1.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'alb-listener-priorities',
-    });
+    template1.resourceCountIs('Custom::AWS', 1); // Table ensurer
     template2.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'priority-allocator-singleton',
     });
-    template2.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'alb-listener-priorities',
-    });
+    template2.resourceCountIs('Custom::AWS', 1); // Table ensurer
   });
 
   test('Service identifier is deterministic and includes stack name', () => {
@@ -281,7 +256,7 @@ describe('PriorityAllocator', () => {
     expect(allocator.serviceIdentifier).toMatch(/^teststack-[a-f0-9]{12}$/);
   });
 
-  test('DynamoDB table has RETAIN removal policy', () => {
+  test('DynamoDB table ensurer has RETAIN removal policy', () => {
     const stack = HelperTest.stack();
     const vpc = new Vpc(stack, 'Vpc');
     const alb = new ApplicationLoadBalancer(stack, 'ALB', {vpc});
@@ -301,7 +276,8 @@ describe('PriorityAllocator', () => {
 
     const template = Template.fromStack(stack);
 
-    template.hasResource('AWS::DynamoDB::Table', {
+    // The table ensurer (Custom::AWS) has RETAIN policy
+    template.hasResource('Custom::AWS', {
       DeletionPolicy: 'Retain',
       UpdateReplacePolicy: 'Retain',
     });
