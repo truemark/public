@@ -36,12 +36,15 @@ describe('PriorityAllocator', () => {
     // The table is created/imported via AwsCustomResource, not directly as CloudFormation resource
 
     // Verify Lambda function (check by unique properties, VPC creates other Lambdas)
+    // Note: FunctionName is now stack-scoped to prevent conflicts across stacks
     template.hasResourceProperties('AWS::Lambda::Function', {
       Runtime: 'nodejs20.x',
       Handler: 'index.handler',
-      FunctionName: 'priority-allocator-singleton',
+      FunctionName: 'priority-allocator-TestStack',
       Timeout: 30,
       MemorySize: 256,
+      Description:
+        'Allocates unique priorities for ALB listener rules (TestStack)',
     });
 
     // Verify Custom Resource
@@ -171,11 +174,11 @@ describe('PriorityAllocator', () => {
 
     const template = Template.fromStack(stack);
 
-    // Should only have ONE PriorityAllocator Lambda (identified by name)
+    // Should only have ONE PriorityAllocator Lambda (identified by stack-scoped name)
     // ONE table ensurer (Custom::AWS), but THREE priority allocation Custom Resources
     const lambdas = template.findResources('AWS::Lambda::Function', {
       Properties: {
-        FunctionName: 'priority-allocator-singleton',
+        FunctionName: 'priority-allocator-TestStack',
       },
     });
     expect(Object.keys(lambdas).length).toBe(1);
@@ -222,14 +225,14 @@ describe('PriorityAllocator', () => {
     const template1 = Template.fromStack(stack1);
     const template2 = Template.fromStack(stack2);
 
-    // Each stack should have its own PriorityAllocator resources
+    // Each stack should have its own PriorityAllocator resources with stack-scoped names
     // (verify by checking for the unique function name and table ensurer)
     template1.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: 'priority-allocator-singleton',
+      FunctionName: 'priority-allocator-Stack1',
     });
     template1.resourceCountIs('Custom::AWS', 1); // Table ensurer
     template2.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: 'priority-allocator-singleton',
+      FunctionName: 'priority-allocator-Stack2',
     });
     template2.resourceCountIs('Custom::AWS', 1); // Table ensurer
   });
