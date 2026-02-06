@@ -11,7 +11,7 @@ import {
 import {Vpc} from 'aws-cdk-lib/aws-ec2';
 
 describe('PriorityAllocator', () => {
-  test('Creates DynamoDB table, Lambda function, and Custom Resource', () => {
+  test('Creates Lambda function and Custom Resource', () => {
     const stack = HelperTest.stack();
     const vpc = new Vpc(stack, 'Vpc');
     const alb = new ApplicationLoadBalancer(stack, 'ALB', {vpc});
@@ -31,10 +31,6 @@ describe('PriorityAllocator', () => {
 
     const template = Template.fromStack(stack);
 
-    // Verify DynamoDB table ensurer (AwsCustomResource that creates table)
-    template.resourceCountIs('Custom::AWS', 1);
-    // The table is created/imported via AwsCustomResource, not directly as CloudFormation resource
-
     // Verify Lambda function (check by unique properties, VPC creates other Lambdas)
     // Note: FunctionName is now stack-scoped to prevent conflicts across stacks
     template.hasResourceProperties('AWS::Lambda::Function', {
@@ -52,10 +48,9 @@ describe('PriorityAllocator', () => {
     template.hasResourceProperties('AWS::CloudFormation::CustomResource', {
       ListenerArn: Match.anyValue(),
       ServiceIdentifier: Match.stringLikeRegexp('teststack-.*'),
-      TableName: 'alb-listener-priorities',
     });
 
-    // Verify Lambda IAM permissions
+    // Verify Lambda IAM permissions (only ALB read permissions needed now)
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
@@ -66,15 +61,6 @@ describe('PriorityAllocator', () => {
             ],
             Effect: 'Allow',
             Resource: '*',
-          }),
-          Match.objectLike({
-            Action: [
-              'dynamodb:Query',
-              'dynamodb:GetItem',
-              'dynamodb:PutItem',
-              'dynamodb:DeleteItem',
-            ],
-            Effect: 'Allow',
           }),
         ]),
       },
@@ -147,7 +133,7 @@ describe('PriorityAllocator', () => {
     });
   });
 
-  test('Singleton pattern - multiple allocators share Lambda and DynamoDB', () => {
+  test('Singleton pattern - multiple allocators share Lambda', () => {
     const stack = HelperTest.stack();
     const vpc = new Vpc(stack, 'Vpc');
     const alb = new ApplicationLoadBalancer(stack, 'ALB', {vpc});
@@ -175,7 +161,7 @@ describe('PriorityAllocator', () => {
     const template = Template.fromStack(stack);
 
     // Should only have ONE PriorityAllocator Lambda (identified by stack-scoped name)
-    // ONE table ensurer (Custom::AWS), but THREE priority allocation Custom Resources
+    // but THREE priority allocation Custom Resources
     const lambdas = template.findResources('AWS::Lambda::Function', {
       Properties: {
         FunctionName: 'priority-allocator-TestStack',
@@ -183,7 +169,6 @@ describe('PriorityAllocator', () => {
     });
     expect(Object.keys(lambdas).length).toBe(1);
 
-    template.resourceCountIs('Custom::AWS', 1); // Table ensurer
     template.resourceCountIs('AWS::CloudFormation::CustomResource', 3); // Priority allocators
   });
 
@@ -225,16 +210,13 @@ describe('PriorityAllocator', () => {
     const template1 = Template.fromStack(stack1);
     const template2 = Template.fromStack(stack2);
 
-    // Each stack should have its own PriorityAllocator resources with stack-scoped names
-    // (verify by checking for the unique function name and table ensurer)
+    // Each stack should have its own PriorityAllocator Lambda with stack-scoped names
     template1.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'priority-allocator-Stack1',
     });
-    template1.resourceCountIs('Custom::AWS', 1); // Table ensurer
     template2.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: 'priority-allocator-Stack2',
     });
-    template2.resourceCountIs('Custom::AWS', 1); // Table ensurer
   });
 
   test('Service identifier is deterministic and includes stack name', () => {
@@ -257,33 +239,6 @@ describe('PriorityAllocator', () => {
 
     // Service identifier should include stack name and hash
     expect(allocator.serviceIdentifier).toMatch(/^teststack-[a-f0-9]{12}$/);
-  });
-
-  test('DynamoDB table ensurer has RETAIN removal policy', () => {
-    const stack = HelperTest.stack();
-    const vpc = new Vpc(stack, 'Vpc');
-    const alb = new ApplicationLoadBalancer(stack, 'ALB', {vpc});
-    const listener = new ApplicationListener(stack, 'Listener', {
-      loadBalancer: alb,
-      port: 80,
-      protocol: ApplicationProtocol.HTTP,
-      defaultAction: ListenerAction.fixedResponse(200, {
-        contentType: 'text/plain',
-        messageBody: 'OK',
-      }),
-    });
-
-    new PriorityAllocator(stack, 'PriorityAllocator', {
-      listenerArn: listener.listenerArn,
-    });
-
-    const template = Template.fromStack(stack);
-
-    // The table ensurer (Custom::AWS) has RETAIN policy
-    template.hasResource('Custom::AWS', {
-      DeletionPolicy: 'Retain',
-      UpdateReplacePolicy: 'Retain',
-    });
   });
 
   test('Priority is extracted from custom resource', () => {

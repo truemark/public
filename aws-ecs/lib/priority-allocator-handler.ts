@@ -3,16 +3,6 @@ import {
   DescribeRulesCommand,
   type DescribeRulesCommandOutput,
 } from '@aws-sdk/client-elastic-load-balancing-v2';
-import {
-  DynamoDBClient,
-  PutItemCommand,
-  QueryCommand,
-  DeleteItemCommand,
-  ConditionalCheckFailedException,
-  type QueryCommandOutput,
-  type AttributeValue,
-} from '@aws-sdk/client-dynamodb';
-import * as crypto from 'node:crypto';
 
 // CloudFormation Custom Resource event interface
 interface CustomResourceEvent {
@@ -26,14 +16,13 @@ interface CustomResourceEvent {
   readonly ResourceProperties: {
     readonly ListenerArn: string;
     readonly ServiceIdentifier: string;
-    readonly TableName: string;
     readonly PreferredPriority?: string;
   };
   readonly OldResourceProperties?: {
     readonly ListenerArn: string;
     readonly ServiceIdentifier: string;
-    readonly TableName: string;
     readonly PreferredPriority?: string;
+    readonly Priority?: string;
   };
 }
 
@@ -51,17 +40,8 @@ interface CustomResourceResponse {
 }
 
 const elbv2Client = new ElasticLoadBalancingV2Client({});
-const dynamoClient = new DynamoDBClient({});
 
 const MAX_PRIORITY = 50000;
-const MAX_RETRIES = 10;
-
-/**
- * Creates a deterministic hash of the service identifier
- */
-function hashServiceIdentifier(serviceIdentifier: string): string {
-  return crypto.createHash('sha256').update(serviceIdentifier).digest('hex');
-}
 
 /**
  * Creates a success response
@@ -124,7 +104,8 @@ function formatPrioritiesForLog(priorities: Set<number>): string {
 }
 
 /**
- * Gets all priorities currently in use on the ALB listener
+ * Gets all priorities currently in use on the ALB listener.
+ * The ALB is the single source of truth for priority allocation.
  */
 async function getAlbListenerPriorities(
   listenerArn: string,
@@ -168,216 +149,35 @@ async function getAlbListenerPriorities(
 }
 
 /**
- * Extracts valid priority from a DynamoDB item
+ * Finds the lowest available priority (gap filling).
+ * If preferredPriority is specified and available, uses that instead.
  */
-function extractPriorityFromDynamoItem(
-  item: Record<string, AttributeValue>,
-): number | null {
-  if (!item.Priority?.N) {
-    return null;
-  }
-  const priority = Number.parseInt(item.Priority.N, 10);
-  return Number.isNaN(priority) ? null : priority;
-}
-
-/**
- * Gets all priorities tracked in DynamoDB for this listener
- */
-async function getDynamoDbPriorities(
-  tableName: string,
-  listenerArn: string,
-): Promise<Set<number>> {
-  const priorities = new Set<number>();
-
-  try {
-    let lastEvaluatedKey: Record<string, AttributeValue> | undefined =
-      undefined;
-
-    do {
-      const command = new QueryCommand({
-        TableName: tableName,
-        KeyConditionExpression: 'ListenerArn = :arn',
-        ExpressionAttributeValues: {
-          ':arn': {S: listenerArn},
-        },
-        ExclusiveStartKey: lastEvaluatedKey,
-      });
-
-      const response: QueryCommandOutput = await dynamoClient.send(command);
-
-      if (response.Items) {
-        for (const item of response.Items) {
-          const priority = extractPriorityFromDynamoItem(item);
-          if (priority !== null) {
-            priorities.add(priority);
-          }
-        }
-      }
-
-      lastEvaluatedKey = response.LastEvaluatedKey;
-    } while (lastEvaluatedKey);
-
-    console.log(
-      `Found ${priorities.size} priorities tracked in DynamoDB for listener`,
-    );
-  } catch (error) {
-    console.error('Error fetching DynamoDB priorities:', error);
-    throw error;
-  }
-
-  return priorities;
-}
-
-/**
- * Checks if the service already has an allocated priority (for idempotency)
- */
-async function getExistingAllocation(
-  tableName: string,
-  listenerArn: string,
-  serviceIdentifier: string,
-): Promise<number | null> {
-  try {
-    const command = new QueryCommand({
-      TableName: tableName,
-      IndexName: 'ServiceIdentifierIndex',
-      KeyConditionExpression: 'ServiceIdentifier = :sid AND ListenerArn = :arn',
-      ExpressionAttributeValues: {
-        ':sid': {S: serviceIdentifier},
-        ':arn': {S: listenerArn},
-      },
-    });
-
-    const response: QueryCommandOutput = await dynamoClient.send(command);
-
-    if (response.Items?.[0]) {
-      const item = response.Items[0];
-      if (item.Priority?.N) {
-        const priority = Number.parseInt(item.Priority.N, 10);
-        console.log(
-          `Found existing allocation: priority ${priority} for service ${serviceIdentifier}`,
-        );
-        return priority;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error checking existing allocation:', error);
-    throw error;
-  }
-}
-
-/**
- * Attempts to allocate a specific priority atomically
- */
-async function tryAllocatePriority(
-  tableName: string,
-  listenerArn: string,
-  serviceIdentifier: string,
-  priority: number,
-): Promise<boolean> {
-  try {
-    const now = new Date().toISOString();
-
-    const command = new PutItemCommand({
-      TableName: tableName,
-      Item: {
-        ListenerArn: {S: listenerArn},
-        Priority: {N: priority.toString()},
-        ServiceIdentifier: {S: serviceIdentifier},
-        AllocatedAt: {S: now},
-        Source: {S: 'CDK'},
-      },
-      ConditionExpression: 'attribute_not_exists(ListenerArn)',
-    });
-
-    await dynamoClient.send(command);
-    console.log(
-      `Successfully allocated priority ${priority} for service ${serviceIdentifier}`,
-    );
-    return true;
-  } catch (error) {
-    if (error instanceof ConditionalCheckFailedException) {
-      console.log(
-        `Priority ${priority} already taken (race condition), will try next available`,
-      );
-      return false;
-    }
-    console.error('Error allocating priority:', error);
-    throw error;
-  }
-}
-
-/**
- * Validates if a priority is within valid range
- */
-function isValidPriorityRange(priority: number): boolean {
-  return priority >= 1 && priority <= MAX_PRIORITY;
-}
-
-/**
- * Attempts to allocate preferred priority if available
- */
-async function tryPreferredPriority(
-  tableName: string,
-  listenerArn: string,
-  serviceIdentifier: string,
-  preferredPriority: number,
+function findNextAvailablePriority(
   usedPriorities: Set<number>,
-): Promise<number | null> {
-  if (!isValidPriorityRange(preferredPriority)) {
-    return null;
+  preferredPriority?: number,
+): number {
+  // Try preferred priority first if specified
+  if (
+    preferredPriority &&
+    preferredPriority >= 1 &&
+    preferredPriority <= MAX_PRIORITY &&
+    !usedPriorities.has(preferredPriority)
+  ) {
+    console.log(`Using preferred priority: ${preferredPriority}`);
+    return preferredPriority;
   }
 
-  if (usedPriorities.has(preferredPriority)) {
+  if (preferredPriority) {
     console.log(
-      `Preferred priority ${preferredPriority} is already in use, finding next available`,
+      `Preferred priority ${preferredPriority} is not available, finding next available`,
     );
-    return null;
   }
 
-  const allocated = await tryAllocatePriority(
-    tableName,
-    listenerArn,
-    serviceIdentifier,
-    preferredPriority,
-  );
-  return allocated ? preferredPriority : null;
-}
-
-/**
- * Finds lowest available priority with gap filling
- */
-async function findLowestAvailablePriority(
-  tableName: string,
-  listenerArn: string,
-  serviceIdentifier: string,
-  usedPriorities: Set<number>,
-): Promise<number> {
-  let retries = 0;
-
+  // Find lowest available priority (gap filling)
   for (let priority = 1; priority <= MAX_PRIORITY; priority++) {
-    if (usedPriorities.has(priority)) {
-      continue;
-    }
-
-    const allocated = await tryAllocatePriority(
-      tableName,
-      listenerArn,
-      serviceIdentifier,
-      priority,
-    );
-
-    if (allocated) {
+    if (!usedPriorities.has(priority)) {
+      console.log(`Allocated priority: ${priority}`);
       return priority;
-    }
-
-    // Race condition: someone else took this priority, try next
-    retries++;
-    if (retries >= MAX_RETRIES) {
-      throw new Error(
-        `Failed to allocate priority after ${MAX_RETRIES} retries due to race conditions`,
-      );
     }
   }
 
@@ -385,154 +185,93 @@ async function findLowestAvailablePriority(
 }
 
 /**
- * Finds the lowest available priority and allocates it
+ * Handles Create request - allocates a new priority
  */
-async function allocatePriority(
-  tableName: string,
-  listenerArn: string,
-  serviceIdentifier: string,
-  preferredPriority?: number,
-): Promise<number> {
-  // Step 1: Check if service already has an allocation (idempotency)
-  const existingPriority = await getExistingAllocation(
-    tableName,
-    listenerArn,
-    serviceIdentifier,
-  );
-  if (existingPriority !== null) {
-    return existingPriority;
-  }
+async function handleCreate(event: CustomResourceEvent): Promise<number> {
+  const listenerArn = event.ResourceProperties.ListenerArn;
+  const preferredPriority = event.ResourceProperties.PreferredPriority
+    ? Number.parseInt(event.ResourceProperties.PreferredPriority, 10)
+    : undefined;
 
-  // Step 2: Get all used priorities from ALB
-  const albPriorities = await getAlbListenerPriorities(listenerArn);
+  console.log('Handling CREATE request - allocating priority');
 
-  // Step 3: Get all tracked priorities from DynamoDB
-  const dynamoPriorities = await getDynamoDbPriorities(tableName, listenerArn);
+  // Query ALB for currently used priorities
+  const usedPriorities = await getAlbListenerPriorities(listenerArn);
 
-  // Step 4: Merge both sources to get complete picture
-  const allUsedPriorities = new Set([...albPriorities, ...dynamoPriorities]);
+  // Find next available priority
+  const priority = findNextAvailablePriority(usedPriorities, preferredPriority);
 
   console.log(
-    `Total priorities in use (ALB + DynamoDB): ${allUsedPriorities.size}`,
+    `Successfully allocated priority ${priority} for service ${event.ResourceProperties.ServiceIdentifier}`,
   );
 
-  // Step 5: Try preferred priority first if provided
-  if (preferredPriority) {
-    const result = await tryPreferredPriority(
-      tableName,
-      listenerArn,
-      serviceIdentifier,
-      preferredPriority,
-      allUsedPriorities,
-    );
-    if (result !== null) {
-      return result;
-    }
-  }
-
-  // Step 6: Find lowest available priority (gap filling)
-  return findLowestAvailablePriority(
-    tableName,
-    listenerArn,
-    serviceIdentifier,
-    allUsedPriorities,
-  );
+  return priority;
 }
 
 /**
- * Deletes a priority allocation from DynamoDB
+ * Handles Update request - returns same priority if ServiceIdentifier unchanged
  */
-async function deletePriorityAllocation(
-  tableName: string,
-  listenerArn: string,
-  serviceIdentifier: string,
-): Promise<void> {
-  try {
-    // Find the priority allocated to this service
-    const command = new QueryCommand({
-      TableName: tableName,
-      IndexName: 'ServiceIdentifierIndex',
-      KeyConditionExpression: 'ServiceIdentifier = :sid AND ListenerArn = :arn',
-      ExpressionAttributeValues: {
-        ':sid': {S: serviceIdentifier},
-        ':arn': {S: listenerArn},
-      },
-    });
+async function handleUpdate(event: CustomResourceEvent): Promise<number> {
+  const oldServiceId = event.OldResourceProperties?.ServiceIdentifier;
+  const newServiceId = event.ResourceProperties.ServiceIdentifier;
 
-    const response = await dynamoClient.send(command);
+  // If ServiceIdentifier hasn't changed, keep the same priority (idempotency)
+  if (oldServiceId === newServiceId) {
+    // Get the previously allocated priority from old properties
+    const oldPriority = event.OldResourceProperties?.Priority
+      ? Number.parseInt(event.OldResourceProperties.Priority, 10)
+      : undefined;
 
-    if (!response.Items || response.Items.length === 0) {
+    if (oldPriority) {
       console.log(
-        `No priority found for service ${serviceIdentifier}, nothing to delete`,
+        `ServiceIdentifier unchanged - keeping existing priority: ${oldPriority}`,
       );
-      return;
+      return oldPriority;
     }
-
-    const item = response.Items[0];
-    const priorityValue = item.Priority?.N;
-    if (!priorityValue) {
-      console.error('Priority not found in item:', item);
-      return;
-    }
-
-    const priority = Number.parseInt(priorityValue, 10);
-
-    // Delete the allocation
-    const deleteCommand = new DeleteItemCommand({
-      TableName: tableName,
-      Key: {
-        ListenerArn: {S: listenerArn},
-        Priority: {N: priority.toString()},
-      },
-    });
-
-    await dynamoClient.send(deleteCommand);
-    console.log(
-      `Successfully deleted priority ${priority} for service ${serviceIdentifier}`,
-    );
-  } catch (error) {
-    console.error('Error deleting priority allocation:', error);
-    throw error;
   }
+
+  // ServiceIdentifier changed - allocate a new priority
+  console.log('ServiceIdentifier changed - allocating new priority');
+  return handleCreate(event);
 }
 
 /**
- * Main Lambda handler for the Custom Resource
+ * Handles Delete request - no-op since CloudFormation deletes the listener rule
+ */
+function handleDelete(): number {
+  console.log('Handling DELETE request - no cleanup needed');
+  console.log(
+    'CloudFormation will delete the listener rule, which automatically frees the priority',
+  );
+  // Return 0 as placeholder (doesn't matter for delete)
+  return 0;
+}
+
+/**
+ * Main Lambda handler for the Custom Resource.
+ * Allocates unique priorities for ALB listener rules using the ALB as the source of truth.
  */
 export async function handler(
   event: CustomResourceEvent,
 ): Promise<CustomResourceResponse> {
   console.log('Received event:', JSON.stringify(event, null, 2));
 
-  const listenerArn = event.ResourceProperties.ListenerArn;
   const serviceIdentifier = event.ResourceProperties.ServiceIdentifier;
-  const tableName = event.ResourceProperties.TableName;
-  const preferredPriority = event.ResourceProperties.PreferredPriority
-    ? Number.parseInt(event.ResourceProperties.PreferredPriority, 10)
-    : undefined;
 
-  // Physical resource ID is based on listener ARN and service identifier
-  const physicalResourceId = hashServiceIdentifier(
-    `${listenerArn}/${serviceIdentifier}`,
-  );
+  // Physical resource ID is based on service identifier
+  const physicalResourceId = `alb-priority-${serviceIdentifier}`;
 
   try {
-    // Handle Delete operation
-    if (event.RequestType === 'Delete') {
-      console.log('Handling DELETE request - removing priority allocation');
-      await deletePriorityAllocation(tableName, listenerArn, serviceIdentifier);
-      // Return success with priority 0 (doesn't matter for delete)
-      return success(event, physicalResourceId, 0);
-    }
+    let priority: number;
 
-    // Handle Create and Update operations
-    console.log(`Handling ${event.RequestType} request - allocating priority`);
-    const priority = await allocatePriority(
-      tableName,
-      listenerArn,
-      serviceIdentifier,
-      preferredPriority,
-    );
+    if (event.RequestType === 'Delete') {
+      priority = handleDelete();
+    } else if (event.RequestType === 'Update') {
+      priority = await handleUpdate(event);
+    } else {
+      // Create
+      priority = await handleCreate(event);
+    }
 
     return success(event, physicalResourceId, priority);
   } catch (error) {
