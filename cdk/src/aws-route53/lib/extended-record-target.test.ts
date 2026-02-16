@@ -1,3 +1,4 @@
+import {test, expect} from 'vitest';
 import {ExtendedRecordTarget, LatencyARecord, WeightedARecord} from '../index';
 import {
   AliasRecordTargetConfig,

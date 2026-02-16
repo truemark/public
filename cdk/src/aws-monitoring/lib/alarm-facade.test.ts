@@ -1,3 +1,4 @@
+import {test, expect} from 'vitest';
 import {AlarmFacade} from '../index';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as actions from 'aws-cdk-lib/aws-cloudwatch-actions';

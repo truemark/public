@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import * as path from 'path';
 import {ResourceType, HelperTest} from '../../helper.test';
 import {ExtendedGoFunction} from '../index';

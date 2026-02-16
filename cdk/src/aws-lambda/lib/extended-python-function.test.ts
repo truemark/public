@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 test('Test PythonFunctionAlpha', () => {
   // const stack = HelperTest.stack();
   // TODO Need to fix failure

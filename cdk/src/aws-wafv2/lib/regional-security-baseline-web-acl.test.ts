@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {RegionalSecurityBaselineWebAcl} from './regional-security-baseline-web-acl';
 import {HelperTest} from '../../helper.test';
 import {Template} from 'aws-cdk-lib/assertions';

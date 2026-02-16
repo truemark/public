@@ -1,3 +1,4 @@
+import {test, expect} from 'vitest';
 import {StandardQueue} from '../index';
 import {Template} from 'aws-cdk-lib/assertions';
 import {HelperTest} from '../../helper.test';

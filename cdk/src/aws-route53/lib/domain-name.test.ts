@@ -1,3 +1,4 @@
+import {test, expect} from 'vitest';
 import {DomainName} from '../index';
 
 test('Test propsMatch', () => {

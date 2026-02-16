@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {DistributionBuilder} from './distribution-builder';
 import {Bucket} from 'aws-cdk-lib/aws-s3';

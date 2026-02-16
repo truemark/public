@@ -1,5 +1,5 @@
+import {test} from 'vitest';
 import {HelperTest, ResourceType} from '../../helper.test';
-
 import {marshall} from '@aws-sdk/util-dynamodb';
 import {PutItem} from './put-item';
 import {Template} from 'aws-cdk-lib/assertions';

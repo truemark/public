@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import * as path from 'path';
 import {Template} from 'aws-cdk-lib/assertions';
 import {App, ResourceEnvironment, Stack, Stage} from 'aws-cdk-lib';

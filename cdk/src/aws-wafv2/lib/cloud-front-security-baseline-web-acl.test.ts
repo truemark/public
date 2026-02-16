@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {Template} from 'aws-cdk-lib/assertions';
 import {HelperTest} from '../../helper.test';
 import {CloudFrontSecurityBaselineWebAcl} from './cloud-front-security-baseline-web-acl';

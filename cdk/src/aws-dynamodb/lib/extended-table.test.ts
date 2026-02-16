@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {ExtendedTable} from '../index';
 import {Template} from 'aws-cdk-lib/assertions';
 import {AttributeType, BillingMode} from 'aws-cdk-lib/aws-dynamodb';

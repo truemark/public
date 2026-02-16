@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {ResourceType, HelperTest} from '../../helper.test';
 import {ExtendedNodejsFunction} from '../index';
 import * as path from 'path';

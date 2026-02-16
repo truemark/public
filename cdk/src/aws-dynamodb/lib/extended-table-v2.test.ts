@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {Template} from 'aws-cdk-lib/assertions';
 import {AttributeType, Billing} from 'aws-cdk-lib/aws-dynamodb';
 import {ResourceType, HelperTest} from '../../helper.test';

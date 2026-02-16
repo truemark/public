@@ -23,12 +23,5 @@
     "typeRoots": ["./node_modules/@types"]
   },
   "include": ["src"],
-  "exclude": [
-    "dist",
-    "test-files",
-    "node_modules",
-    "cdk.out",
-    "test/aws-website/angular-website",
-    "test/aws-lambda/typescript-lambda"
-  ]
+  "exclude": ["**/*.test.ts"]
 }

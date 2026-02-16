@@ -1,25 +1,26 @@
+import {describe, it, expect, beforeEach, vi} from 'vitest';
 import {App, Stack} from 'aws-cdk-lib';
 import {StringParameter} from 'aws-cdk-lib/aws-ssm';
 import * as fs from 'fs';
 import {initializeOtelConfigDataFromSSM} from './otel-collector-layer-utils';
 
-jest.mock('aws-cdk-lib/aws-ssm', () => ({
+vi.mock('aws-cdk-lib/aws-ssm', () => ({
   StringParameter: {
-    valueFromLookup: jest.fn(),
+    valueFromLookup: vi.fn(),
   },
 }));
-jest.mock('fs');
-jest.mock('path', () => ({
-  join: jest.fn((...args) => args.join('/')),
-  resolve: jest.fn((...args) => args.join('/')),
+vi.mock('fs');
+vi.mock('path', () => ({
+  join: vi.fn((...args) => args.join('/')),
+  resolve: vi.fn((...args) => args.join('/')),
 }));
-jest.mock('aws-cdk-lib/aws-lambda', () => ({
-  LayerVersion: jest.fn(),
+vi.mock('aws-cdk-lib/aws-lambda', () => ({
+  LayerVersion: vi.fn(),
   Architecture: {ARM_64: 'arm64', X86_64: 'x86_64'},
-  Code: {fromAsset: jest.fn()},
+  Code: {fromAsset: vi.fn()},
 }));
-jest.mock('aws-cdk-lib/aws-s3-assets', () => ({
-  Asset: jest.fn(),
+vi.mock('aws-cdk-lib/aws-s3-assets', () => ({
+  Asset: vi.fn(),
 }));
 
 describe('initializeOtelConfigDataFromSSM', () => {
@@ -80,8 +81,10 @@ service:
 `;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (StringParameter.valueFromLookup as jest.Mock).mockReturnValue(yamlContent);
+    vi.clearAllMocks();
+    (
+      StringParameter.valueFromLookup as ReturnType<typeof vi.fn>
+    ).mockReturnValue(yamlContent);
   });
 
   it('replaces placeholders and extracts workspaceId', () => {
@@ -97,7 +100,8 @@ service:
     );
 
     expect(result.workspaceId).toBe('ws-123456');
-    const writtenContent = (fs.writeFileSync as jest.Mock).mock.calls[0][1];
+    const writtenContent = (fs.writeFileSync as ReturnType<typeof vi.fn>).mock
+      .calls[0][1];
     expect(writtenContent).not.toContain('APPLICATION_METRICS_NAMESPACE');
     expect(writtenContent).not.toContain('SERVICE_NAME');
   });
@@ -114,7 +118,8 @@ service:
       // applicationMetricsNamespace is undefined
     );
 
-    const writtenContent = (fs.writeFileSync as jest.Mock).mock.calls[0][1];
+    const writtenContent = (fs.writeFileSync as ReturnType<typeof vi.fn>).mock
+      .calls[0][1];
     expect(writtenContent).not.toContain('APPLICATION_METRICS_NAMESPACE');
     expect(writtenContent).not.toContain('SERVICE_NAME');
     expect(writtenContent).toContain(
@@ -123,7 +128,9 @@ service:
   });
 
   it('returns undefined workspaceId if endpoint is missing', () => {
-    (StringParameter.valueFromLookup as jest.Mock).mockReturnValue(
+    (
+      StringParameter.valueFromLookup as ReturnType<typeof vi.fn>
+    ).mockReturnValue(
       'exporters:\n  prometheusremotewrite:\n    endpoint: none',
     );
     const app = new App();

@@ -1,3 +1,4 @@
+import {test} from 'vitest';
 import {ResourceType, HelperTest} from '../../helper.test';
 import {ParameterStore} from '../index';
 import {Template} from 'aws-cdk-lib/assertions';

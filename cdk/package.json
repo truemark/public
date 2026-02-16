@@ -20,26 +20,23 @@
     "prebuild": "prettier --check . && eslint .",
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
-    "clean": "./clean.sh",
-    "fmt": "prettier --write .",
-    "dryrun": "pnpm publish --dry-run --no-git-checks"
+    "test": "vitest run src/*",
+    "clean": "rm -rf dist",
+    "fmt": "prettier --write ."
   },
   "devDependencies": {
+    "@aws-sdk/util-dynamodb": "catalog:",
+    "@aws-sdk/client-dynamodb": "catalog:",
     "@eslint/js": "catalog:",
-    "@types/jest": "catalog:",
+    "@opensearch-project/opensearch": "catalog:",
     "@types/node": "catalog:",
     "esbuild": "catalog:",
     "eslint": "catalog:",
-    "jest": "catalog:",
     "prettier": "catalog:",
-    "ts-jest": "catalog:",
     "ts-node": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
-    "@aws-sdk/util-dynamodb": "catalog:",
-    "@aws-sdk/client-dynamodb": "catalog:",
-    "@opensearch-project/opensearch": "catalog:"
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "@aws-sdk/credential-provider-node": "catalog:",
@@ -76,10 +73,5 @@
     "./aws-vpc": "./dist/aws-vpc/index.js",
     "./aws-wafv2": "./dist/aws-wafv2/index.js",
     "./helpers": "./dist/helpers/index.js"
-  },
-  "exclude": [
-    "node_modules",
-    "coverage",
-    "test-files"
-  ]
+  }
 }
