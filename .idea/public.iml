@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/cdk/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/cdk/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/cdk/test-files/angular-website/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/cdk/test-files/angular-website/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/node_modules" />
+      <excludePattern pattern="lib/**/*.js" />
+      <excludePattern pattern="lib/**/*.d.ts" />
+      <excludePattern pattern="lib/**/*.map" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

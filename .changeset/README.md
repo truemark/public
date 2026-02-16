@@ -6,4 +6,30 @@ find the full documentation for it [in our repository](https://github.com/change
 
 We have a quick list of common questions to get you started engaging with this project in
 [our documentation](https://github.com/changesets/changesets/blob/main/docs/common-questions.md)
-x
+
+
+## Publish a new library
+
+```bash
+pnpm -r i 
+pnpm -r build
+pnpx @changesets/cli
+git add <changesetfile and other files>
+git commit
+pnpx @changesets/cli version --snapshot snapshot
+pnpm -r build
+pnpm -r test
+pnpx @changesets/cli publish --tag snapshot --no-git-tag
+git reset --hard HEAD
+```
+
+## Inside npmjs.com
+
+| Field                | Value       |
+|----------------------|-------------|
+| Organization or user | truemark    |
+| Repository           | public      |
+| Workflow filename    | publish.yml |
+
+Then update package settings to "Require two-factor authentication and disallow tokens"
+

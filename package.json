@@ -1,102 +1,23 @@
 {
-  "name": "truemark-cdk-lib",
-  "description": "AWS CDK constructs created by TrueMark",
-  "version": "1.21.2",
-  "packageManager": "pnpm@10.19.0",
-  "main": "index.js",
-  "types": "index.d.ts",
-  "author": "TrueMark Technologies, Inc.",
-  "publishConfig": {
-    "access": "public"
+  "name": "public",
+  "description": "DO NOT ADD DEPENDENCIES HERE",
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8"
   },
-  "license": "BSD-3-Clause",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/truemark/cdk.git"
-  },
-  "files": [
-    "/**/*.d.ts",
-    "/**/*.js",
-    "/**/*.js.map",
-    "!/**/*.test.*",
-    "/**/*.sh"
-  ],
   "scripts": {
-    "prebuild": "prettier --check . && eslint .",
-    "build": "tsc",
-    "watch": "tsc -w",
-    "test": "jest",
-    "clean": "./clean.sh",
-    "fmt": "prettier --write .",
-    "dryrun": "pnpm publish --dry-run --no-git-checks",
     "changeset": "pnpx @changesets/cli"
   },
-  "devDependencies": {
-    "@changesets/cli": "^2.29.8",
-    "@eslint/js": "^9.39.1",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.19.2",
-    "esbuild": "^0.27.1",
-    "eslint": "^9.39.1",
-    "jest": "^29.7.0",
-    "prettier": "^3.7.4",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.49.0",
-    "@aws-sdk/util-dynamodb": "^3.947.0",
-    "@aws-sdk/client-dynamodb": "^3.947.0"
-  },
-  "dependencies": {
-    "@aws-cdk/aws-lambda-go-alpha": "^2.232.1-alpha.0",
-    "@aws-cdk/aws-lambda-python-alpha": "^2.232.1-alpha.0",
-    "@aws-cdk/aws-redshift-alpha": "^2.232.1-alpha.0",
-    "@aws-sdk/credential-provider-node": "^3.947.0",
-    "@opensearch-project/opensearch": "^2.13.0",
-    "aws-cdk-lib": "2.232.1",
-    "cdk-monitoring-constructs": "9.17.1",
-    "constructs": "^10.4.3",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.49.0"
-  },
-  "peerDependencies": {
-    "@aws-cdk/aws-lambda-go-alpha": "^2.232.1-alpha.0",
-    "@aws-cdk/aws-lambda-python-alpha": "^2.232.1-alpha.0",
-    "@aws-cdk/aws-redshift-alpha": "^2.232.1-alpha.0",
-    "aws-cdk-lib": "^2.232.1",
-    "cdk-monitoring-constructs": "^9.17.1",
-    "constructs": "^10.4.3"
-  },
-  "exports": {
-    ".": "./index.js",
-    "./package.json": "./package.json",
-    "./aws-apigatewayv2": "./aws-apigatewayv2/index.js",
-    "./aws-bedrock": "./aws-bedrock/index.js",
-    "./aws-cdk": "./aws-cdk/index.js",
-    "./aws-centergauge": "./aws-centergauge/index.js",
-    "./aws-cloudfront": "./aws-cloudfront/index.js",
-    "./aws-cloudwatch": "./aws-cloudwatch/index.js",
-    "./aws-codepipeline": "./aws-codepipeline/index.js",
-    "./aws-dynamodb": "./aws-dynamodb/index.js",
-    "./aws-ecs": "./aws-ecs/index.js",
-    "./aws-lambda": "./aws-lambda/index.js",
-    "./aws-monitoring": "./aws-monitoring/index.js",
-    "./aws-patterns-domain-redirect": "./aws-patterns-domain-redirect/index.js",
-    "./aws-patterns-website": "./aws-patterns-website/index.js",
-    "./aws-patterns-wordpress": "./aws-patterns-wordpress/index.js",
-    "./aws-route53": "./aws-route53/index.js",
-    "./aws-s3": "./aws-s3/index.js",
-    "./aws-ses": "./aws-ses/index.js",
-    "./aws-sqs": "./aws-sqs/index.js",
-    "./aws-ssm": "./aws-ssm/index.js",
-    "./aws-tags": "./aws-tags/index.js",
-    "./aws-vpc": "./aws-vpc/index.js",
-    "./aws-wafv2": "./aws-wafv2/index.js",
-    "./helpers": "./helpers/index.js"
-  },
-  "exclude": [
-    "node_modules",
-    "coverage",
-    "test-files"
-  ]
+  "packageManager": "pnpm@10.26.1",
+  "pnpm": {
+    "overrides": {
+      "tmp": ">=0.2.4",
+      "diff": ">=5.2.2",
+      "fast-xml-parser": ">=5.3.4",
+      "lodash": ">=4.17.23",
+      "undici": ">=7.18.2"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
 }
