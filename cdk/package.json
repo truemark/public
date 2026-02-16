@@ -1,0 +1,85 @@
+{
+  "name": "truemark-cdk-lib",
+  "description": "AWS CDK constructs created by TrueMark",
+  "version": "1.21.2",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "author": "TrueMark Technologies, Inc.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/truemark/public.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "clean": "./clean.sh",
+    "fmt": "prettier --write .",
+    "dryrun": "pnpm publish --dry-run --no-git-checks"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/jest": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "eslint": "catalog:",
+    "jest": "catalog:",
+    "prettier": "catalog:",
+    "ts-jest": "catalog:",
+    "ts-node": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "@aws-sdk/util-dynamodb": "catalog:",
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@opensearch-project/opensearch": "catalog:"
+  },
+  "peerDependencies": {
+    "@aws-sdk/credential-provider-node": "catalog:",
+    "@aws-cdk/aws-lambda-go-alpha": "catalog:",
+    "@aws-cdk/aws-lambda-python-alpha": "catalog:",
+    "@aws-cdk/aws-redshift-alpha": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "cdk-monitoring-constructs": "catalog:",
+    "constructs": "catalog:"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./dist/package.json",
+    "./aws-apigatewayv2": "./dist/aws-apigatewayv2/index.js",
+    "./aws-bedrock": "./dist/aws-bedrock/index.js",
+    "./aws-cdk": "./dist/aws-cdk/index.js",
+    "./aws-centergauge": "./dist/aws-centergauge/index.js",
+    "./aws-cloudfront": "./dist/aws-cloudfront/index.js",
+    "./aws-cloudwatch": "./dist/aws-cloudwatch/index.js",
+    "./aws-codepipeline": "./dist/aws-codepipeline/index.js",
+    "./aws-dynamodb": "./dist/aws-dynamodb/index.js",
+    "./aws-ecs": "./dist/aws-ecs/index.js",
+    "./aws-lambda": "./dist/aws-lambda/index.js",
+    "./aws-monitoring": "./dist/aws-monitoring/index.js",
+    "./aws-patterns-domain-redirect": "./dist/aws-patterns-domain-redirect/index.js",
+    "./aws-patterns-website": "./dist/aws-patterns-website/index.js",
+    "./aws-patterns-wordpress": "./dist/aws-patterns-wordpress/index.js",
+    "./aws-route53": "./dist/aws-route53/index.js",
+    "./aws-s3": "./dist/aws-s3/index.js",
+    "./aws-ses": "./dist/aws-ses/index.js",
+    "./aws-sqs": "./dist/aws-sqs/index.js",
+    "./aws-ssm": "./dist/aws-ssm/index.js",
+    "./aws-tags": "./dist/aws-tags/index.js",
+    "./aws-vpc": "./dist/aws-vpc/index.js",
+    "./aws-wafv2": "./dist/aws-wafv2/index.js",
+    "./helpers": "./dist/helpers/index.js"
+  },
+  "exclude": [
+    "node_modules",
+    "coverage",
+    "test-files"
+  ]
+}
