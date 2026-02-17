@@ -62,6 +62,7 @@
     "./aws-lambda": "./dist/aws-lambda/index.js",
     "./aws-monitoring": "./dist/aws-monitoring/index.js",
     "./aws-patterns-domain-redirect": "./dist/aws-patterns-domain-redirect/index.js",
+    "./aws-patterns-qwik": "./dist/aws-patterns-qwik/index.js",
     "./aws-patterns-website": "./dist/aws-patterns-website/index.js",
     "./aws-patterns-wordpress": "./dist/aws-patterns-wordpress/index.js",
     "./aws-route53": "./dist/aws-route53/index.js",
