@@ -14,7 +14,7 @@ catalog:
   "@opensearch-project/opensearch": "^2.13.0"
   "@types/node": "^22.19.2"
   "aws-cdk-lib": "2.232.1"
-  "cdk-monitoring-constructs": "9.17.1"
+  "cdk-monitoring-constructs": "9.19.1"
   "constructs": "^10.4.3"
   "esbuild": "^0.27.1"
   "eslint": "^9.39.1"
