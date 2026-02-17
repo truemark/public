@@ -1,6 +1,6 @@
 import {Construct} from 'constructs';
 import {NodejsFunction} from 'aws-cdk-lib/aws-lambda-nodejs';
-import {CustomResource, Duration, Stack, CfnOutput, Token} from 'aws-cdk-lib';
+import {CustomResource, Duration, Stack, Token} from 'aws-cdk-lib';
 import {Provider} from 'aws-cdk-lib/custom-resources';
 import {Runtime} from 'aws-cdk-lib/aws-lambda';
 import * as path from 'node:path';
@@ -12,51 +12,57 @@ import {
 } from 'aws-cdk-lib/aws-iam';
 import * as crypto from 'node:crypto';
 
+const HASH_SUBSTRING_LENGTH = 12;
+const LAMBDA_TIMEOUT_SECONDS = 30;
+const LAMBDA_MEMORY_SIZE_MB = 256;
+const HASH_ALGORITHM = 'sha256';
+
+const LAMBDA_ID = 'PriorityAllocatorLambda';
+const LAMBDA_ROLE_ID = 'PriorityAllocatorLambdaRole';
+const PROVIDER_ID = 'PriorityAllocatorProvider';
+
+const SERVICE_ID_DISALLOWED_CHARS = /[^a-zA-Z0-9-]/g;
+
+function sanitizeStackNameForServiceId(stackName: string): string {
+  return stackName.replaceAll(SERVICE_ID_DISALLOWED_CHARS, '-').toLowerCase();
+}
+
+function generateShortHash(input: string): string {
+  return crypto
+    .createHash(HASH_ALGORITHM)
+    .update(input)
+    .digest('hex')
+    .substring(0, HASH_SUBSTRING_LENGTH);
+}
+
 export interface PriorityAllocatorProps {
   /**
    * The ARN of the ALB listener for which to allocate a priority.
    */
   readonly listenerArn: string;
-
-  /**
-   * Optional preferred priority. If available, this priority will be allocated.
-   * If not available, the next available priority will be allocated.
-   *
-   * @default - Next available priority is allocated
-   */
-  readonly preferredPriority?: number;
 }
 
 /**
- * Allocates a unique priority for an ALB listener rule using a Lambda-backed Custom Resource.
+ * Automatically allocates a unique priority for an ALB listener rule.
  *
- * This construct implements a singleton pattern for the Lambda function per CloudFormation stack,
- * allowing multiple stacks to share the same ALB listener without resource conflicts.
- *
- * The allocation algorithm:
- * 1. Queries all priorities currently in use on the ALB listener (single source of truth)
- * 2. Finds lowest available priority (gap filling)
- * 3. Returns allocated priority to CloudFormation
- *
- * On stack updates, the custom resource maintains its state to preserve the allocated priority
- * (idempotency). On stack deletion, CloudFormation automatically deletes the listener rule,
- * which frees the priority for reuse.
- *
- * Multiple stacks can deploy services to the same ALB without conflicts. Race conditions are
- * handled by CloudFormation's retry mechanism - if two deployments try to use the same priority,
- * one will fail and retry with the next available priority.
+ * Priorities are allocated after the highest existing priority. When creating
+ * multiple services in the same stack, add dependencies to force sequential
+ * creation and avoid priority conflicts.
  *
  * @example
  * ```typescript
- * const allocator = new PriorityAllocator(this, 'PriorityAllocator', {
- *   listenerArn: listener.listenerArn,
+ * const service1 = new StandardApplicationFargateService(this, 'Service1', {
+ *   listener,
+ *   // No targetGroupPriority - automatically allocated
  * });
  *
- * // Use the allocated priority
- * listener.addTargetGroups('TargetGroup', {
- *   targetGroups: [targetGroup],
- *   priority: allocator.priority,
+ * const service2 = new StandardApplicationFargateService(this, 'Service2', {
+ *   listener,
+ *   // No targetGroupPriority - automatically allocated
  * });
+ *
+ * // Force sequential creation to avoid priority conflicts
+ * service2.node.addDependency(service1);
  * ```
  */
 export class PriorityAllocator extends Construct {
@@ -75,30 +81,21 @@ export class PriorityAllocator extends Construct {
    */
   readonly resource: CustomResource;
 
-  /**
-   * Gets or creates the singleton Lambda function for priority allocation.
-   * One Lambda function exists per CloudFormation stack, allowing multiple stacks
-   * to share the same ALB without CloudFormation resource conflicts.
-   */
   private static getOrCreateLambda(scope: Construct): NodejsFunction {
     const stack = Stack.of(scope);
-    const lambdaId = 'PriorityAllocatorLambda';
 
-    // Try to find existing Lambda in the stack
-    const existing = stack.node.tryFindChild(lambdaId) as
+    const existing = stack.node.tryFindChild(LAMBDA_ID) as
       | NodejsFunction
       | undefined;
     if (existing) {
       return existing;
     }
 
-    // Create IAM role for Lambda
-    const role = new Role(stack, 'PriorityAllocatorLambdaRole', {
+    const role = new Role(stack, LAMBDA_ROLE_ID, {
       assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
       description: 'Role for ALB Priority Allocator Lambda function',
     });
 
-    // CloudWatch Logs permissions
     role.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -111,118 +108,75 @@ export class PriorityAllocator extends Construct {
       }),
     );
 
-    // ALB read permissions
     role.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        actions: [
-          'elasticloadbalancing:DescribeListeners',
-          'elasticloadbalancing:DescribeRules',
-        ],
+        actions: ['elasticloadbalancing:DescribeRules'],
         resources: ['*'],
       }),
     );
 
-    // Create Lambda function with stack-scoped name to allow multiple stacks
-    // to share the same ALB without CloudFormation resource conflicts
-    const functionName = `priority-allocator-${stack.stackName}`;
-
-    return new NodejsFunction(stack, lambdaId, {
+    return new NodejsFunction(stack, LAMBDA_ID, {
       role,
       runtime: Runtime.NODEJS_20_X,
       handler: 'handler',
-      entry: path.join(__dirname, 'priority-allocator-handler.js'),
-      timeout: Duration.seconds(30),
-      memorySize: 256,
+      entry: path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'dist',
+        'aws-ecs',
+        'lib',
+        'priority-allocator-handler.js',
+      ),
+      timeout: Duration.seconds(LAMBDA_TIMEOUT_SECONDS),
+      memorySize: LAMBDA_MEMORY_SIZE_MB,
       description: `Allocates unique priorities for ALB listener rules (${stack.stackName})`,
-      functionName,
     });
   }
 
-  /**
-   * Gets or creates the singleton Custom Resource Provider.
-   * One provider exists per CloudFormation stack.
-   */
   private static getOrCreateProvider(
     scope: Construct,
     lambda: NodejsFunction,
   ): Provider {
     const stack = Stack.of(scope);
-    const providerId = 'PriorityAllocatorProvider';
 
-    // Try to find existing provider in the stack
-    const existing = stack.node.tryFindChild(providerId) as
+    const existing = stack.node.tryFindChild(PROVIDER_ID) as
       | Provider
       | undefined;
     if (existing) {
       return existing;
     }
 
-    // Create new provider at stack level (singleton)
-    return new Provider(stack, providerId, {
+    return new Provider(stack, PROVIDER_ID, {
       onEventHandler: lambda,
     });
   }
 
-  /**
-   * Generates a deterministic service identifier based on the construct path and listener ARN.
-   */
   private generateServiceIdentifier(listenerArn: string): string {
     const stack = Stack.of(this);
-    const region = stack.region;
-    const account = stack.account;
-    const stackName = stack.stackName;
-    const constructPath = this.node.path;
-
-    // Create deterministic hash
-    const input = `${account}/${region}/${stackName}/${constructPath}/${listenerArn}`;
-    const hash = crypto
-      .createHash('sha256')
-      .update(input)
-      .digest('hex')
-      .substring(0, 12);
-
-    // Create human-readable identifier with stack name and hash
-    const sanitizedStackName = stackName
-      .replaceAll(/[^a-zA-Z0-9-]/g, '-')
-      .toLowerCase();
-    return `${sanitizedStackName}-${hash}`;
+    const input = `${stack.resolve(stack.account)}/${stack.resolve(stack.region)}/${stack.stackName}/${this.node.path}/${listenerArn}`;
+    const hash = generateShortHash(input);
+    return `${sanitizeStackNameForServiceId(stack.stackName)}-${hash}`;
   }
 
   constructor(scope: Construct, id: string, props: PriorityAllocatorProps) {
     super(scope, id);
 
-    // Get or create singleton resources
     const lambda = PriorityAllocator.getOrCreateLambda(this);
     const provider = PriorityAllocator.getOrCreateProvider(this, lambda);
 
-    // Generate service identifier
     this.serviceIdentifier = this.generateServiceIdentifier(props.listenerArn);
 
-    // Create Custom Resource for this specific service
     this.resource = new CustomResource(this, 'Resource', {
       serviceToken: provider.serviceToken,
       properties: {
         ListenerArn: props.listenerArn,
         ServiceIdentifier: this.serviceIdentifier,
-        PreferredPriority: props.preferredPriority?.toString(),
-        // Add timestamp to ensure update on property changes
-        Timestamp: Date.now().toString(),
       },
     });
 
-    // Extract priority from custom resource
     this.priority = Token.asNumber(this.resource.getAtt('Priority'));
-
-    // Add CloudFormation outputs for debugging
-    new CfnOutput(this, 'ServiceIdentifier', {
-      value: this.serviceIdentifier,
-      description: 'Service identifier for priority allocation tracking',
-    });
-
-    new CfnOutput(this, 'AllocatedPriority', {
-      value: this.priority.toString(),
-      description: 'Auto-allocated priority for ALB listener rule',
-    });
   }
 }
