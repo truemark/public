@@ -1,5 +1,11 @@
 # TrueMark CDK Library Changelog
 
+## 1.21.3
+### Patch Changes
+
+- cc53d96: Improved regular expression in isPascalCase
+- e3e7cc4: Improved regex on isCamelCase
+
 ## 1.21.2
 ### Patch Changes
 
