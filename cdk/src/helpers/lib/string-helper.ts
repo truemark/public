@@ -29,7 +29,7 @@ export function isUpperAlphanumeric(str?: string | null): boolean {
  */
 export function isPascalCase(str?: string | null) {
   if (str) {
-    return /^[A-Z](([a-z0-9]+[A-Z]?)*)$/.test(str);
+    return /^[A-Z][a-z0-9]*(?:[A-Z][a-z0-9]*)*$/.test(str);
   }
   return false;
 }
