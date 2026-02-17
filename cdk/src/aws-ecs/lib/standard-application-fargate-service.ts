@@ -175,10 +175,10 @@ export interface StandardApplicationFargateServiceProps extends StandardFargateS
 
   /**
    * The priority to give the target group on the ALB.
-   * If not specified, a unique priority is automatically allocated using
-   * the PriorityAllocator, which coordinates with other services across
-   * multiple teams and tools (CDK, Terraform, manual) to find the lowest
-   * available priority.
+   * If not specified, a unique priority is automatically allocated after
+   * the highest existing priority. When creating multiple services in the
+   * same stack, add dependencies to force sequential creation and avoid
+   * priority conflicts.
    *
    * @default - Automatically allocated (recommended for most use cases)
    */
