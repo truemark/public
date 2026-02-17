@@ -15,7 +15,7 @@ catalog:
   "@types/node": "^22.19.2"
   "aws-cdk-lib": "2.232.1"
   "cdk-monitoring-constructs": "9.19.1"
-  "constructs": "^10.4.3"
+  "constructs": "^10.5.0"
   "esbuild": "^0.27.1"
   "eslint": "^9.39.1"
   "prettier": "^3.8.1"
