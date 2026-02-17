@@ -1,0 +1,43 @@
+on:
+  workflow_call:
+    inputs:
+      max-version-update:
+        description: "Maximum version update level to auto-merge (patch, minor, or major)"
+        type: string
+        required: false
+        default: "minor"
+    secrets:
+      private-key:
+        description: "GitHub App Key"
+        required: true
+      app-id:
+        description: "GitHub App ID"
+        required: true
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  dependabot-auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Generate token
+        id: app-token
+        uses: getsentry/action-github-app-token@v3
+        with:
+          app_id: ${{ secrets.app-id }}
+          private_key: ${{ secrets.private-key }}
+      - name: Merge Dependabot PR
+        if: |
+          (inputs.max-version-update == 'major') ||
+          (inputs.max-version-update == 'minor' && steps.metadata.outputs['update-type'] != 'version-update:semver-major') ||
+          (inputs.max-version-update == 'patch' && steps.metadata.outputs['update-type'] == 'version-update:semver-patch')
+        run: gh pr merge --rebase "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

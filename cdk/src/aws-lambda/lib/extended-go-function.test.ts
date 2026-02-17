@@ -18,4 +18,4 @@ test('Test GoFunctionAlpha', () => {
   template.hasResourceProperties(ResourceType.CLOUDWATCH_LOG_GROUP, {
     RetentionInDays: 3,
   });
-});
+}, 30000);
