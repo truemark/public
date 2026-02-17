@@ -105,7 +105,7 @@ jobs:
       - name: "Install dependencies"
         run: pnpm ${{ env.PNPM_RECURSIVE }} i --frozen-lockfile --prefer-offline
       - name: "Snapshot version packages"
-        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref != 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
+        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
         run: npx @changesets/cli version --snapshot snapshot
       - name: "Release version packages"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -115,7 +115,7 @@ jobs:
       - name: "Test"
         run: pnpm ${{ env.PNPM_RECURSIVE }} test
       - name: "Publish snapshot packages"
-        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref != 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
+        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
         run: pnpx @changesets/cli publish --tag snapshot --no-git-tag
       - name: "Commit and push release version bump"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
