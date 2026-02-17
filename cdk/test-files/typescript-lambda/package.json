@@ -1,7 +1,0 @@
-{
-  "name": "typescript-lamba",
-  "version": "0.0.1",
-  "devDependencies": {
-    "aws-lambda": "*"
-  }
-}
