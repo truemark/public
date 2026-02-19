@@ -40,8 +40,8 @@ catalogs:
       specifier: 9.19.1
       version: 9.19.1
     constructs:
-      specifier: ^10.5.0
-      version: 10.5.0
+      specifier: ^10.5.1
+      version: 10.5.1
     esbuild:
       specifier: ^0.27.1
       version: 0.27.3
@@ -83,25 +83,25 @@ importers:
     dependencies:
       '@aws-cdk/aws-lambda-go-alpha':
         specifier: 'catalog:'
-        version: 2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)
+        version: 2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)
       '@aws-cdk/aws-lambda-python-alpha':
         specifier: 'catalog:'
-        version: 2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)
+        version: 2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)
       '@aws-cdk/aws-redshift-alpha':
         specifier: 'catalog:'
-        version: 2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)
+        version: 2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)
       '@aws-sdk/credential-provider-node':
         specifier: 'catalog:'
         version: 3.972.9
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.232.1(constructs@10.5.0)
+        version: 2.232.1(constructs@10.5.1)
       cdk-monitoring-constructs:
         specifier: 'catalog:'
-        version: 9.19.1(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)
+        version: 9.19.1(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.5.0
+        version: 10.5.1
     devDependencies:
       '@aws-sdk/client-dynamodb':
         specifier: 'catalog:'
@@ -1169,8 +1169,8 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  constructs@10.5.0:
-    resolution: {integrity: sha512-zWjwqIgk4nAWmQGrPnDWv+M2Yly6m7ROyqmmQVLgJiHnWP762It22uWFaF2Pu/sSx0u8WsoUcvt0PZ4DQIQYwQ==}
+  constructs@10.5.1:
+    resolution: {integrity: sha512-f/TfFXiS3G/yVIXDjOQn9oTlyu9Wo7Fxyjj7lb8r92iO81jR2uST+9MstxZTmDGx/CgIbxCXkFXgupnLTNxQZg==}
 
   create-require@1.1.1:
     resolution: {integrity: sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==}
@@ -1875,20 +1875,20 @@ snapshots:
 
   '@aws-cdk/asset-node-proxy-agent-v6@2.1.0': {}
 
-  '@aws-cdk/aws-lambda-go-alpha@2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)':
+  '@aws-cdk/aws-lambda-go-alpha@2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)':
     dependencies:
-      aws-cdk-lib: 2.232.1(constructs@10.5.0)
-      constructs: 10.5.0
+      aws-cdk-lib: 2.232.1(constructs@10.5.1)
+      constructs: 10.5.1
 
-  '@aws-cdk/aws-lambda-python-alpha@2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)':
+  '@aws-cdk/aws-lambda-python-alpha@2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)':
     dependencies:
-      aws-cdk-lib: 2.232.1(constructs@10.5.0)
-      constructs: 10.5.0
+      aws-cdk-lib: 2.232.1(constructs@10.5.1)
+      constructs: 10.5.1
 
-  '@aws-cdk/aws-redshift-alpha@2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0)':
+  '@aws-cdk/aws-redshift-alpha@2.232.1-alpha.0(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1)':
     dependencies:
-      aws-cdk-lib: 2.232.1(constructs@10.5.0)
-      constructs: 10.5.0
+      aws-cdk-lib: 2.232.1(constructs@10.5.1)
+      constructs: 10.5.1
 
   '@aws-cdk/cloud-assembly-schema@48.20.0': {}
 
@@ -3179,12 +3179,12 @@ snapshots:
 
   assertion-error@2.0.1: {}
 
-  aws-cdk-lib@2.232.1(constructs@10.5.0):
+  aws-cdk-lib@2.232.1(constructs@10.5.1):
     dependencies:
       '@aws-cdk/asset-awscli-v1': 2.2.242
       '@aws-cdk/asset-node-proxy-agent-v6': 2.1.0
       '@aws-cdk/cloud-assembly-schema': 48.20.0
-      constructs: 10.5.0
+      constructs: 10.5.1
 
   aws4@1.13.2: {}
 
@@ -3211,10 +3211,10 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk-monitoring-constructs@9.19.1(aws-cdk-lib@2.232.1(constructs@10.5.0))(constructs@10.5.0):
+  cdk-monitoring-constructs@9.19.1(aws-cdk-lib@2.232.1(constructs@10.5.1))(constructs@10.5.1):
     dependencies:
-      aws-cdk-lib: 2.232.1(constructs@10.5.0)
-      constructs: 10.5.0
+      aws-cdk-lib: 2.232.1(constructs@10.5.1)
+      constructs: 10.5.1
 
   chai@6.2.2: {}
 
@@ -3235,7 +3235,7 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  constructs@10.5.0: {}
+  constructs@10.5.1: {}
 
   create-require@1.1.1: {}
 
