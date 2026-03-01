@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.21.7
+### Patch Changes
+
+- 3fcc8aa: Added typesVersions
+
 ## 1.21.6
 ### Patch Changes
 
