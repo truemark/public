@@ -4,6 +4,79 @@
   "version": "1.21.6",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "aws-apigatewayv2": [
+        "./dist/aws-apigatewayv2/index.d.ts"
+      ],
+      "aws-bedrock": [
+        "./dist/aws-bedrock/index.d.ts"
+      ],
+      "aws-cdk": [
+        "./dist/aws-cdk/index.d.ts"
+      ],
+      "aws-centergauge": [
+        "./dist/aws-centergauge/index.d.ts"
+      ],
+      "aws-cloudfront": [
+        "./dist/aws-cloudfront/index.d.ts"
+      ],
+      "aws-cloudwatch": [
+        "./dist/aws-cloudwatch/index.d.ts"
+      ],
+      "aws-codepipeline": [
+        "./dist/aws-codepipeline/index.d.ts"
+      ],
+      "aws-dynamodb": [
+        "./dist/aws-dynamodb/index.d.ts"
+      ],
+      "aws-ecs": [
+        "./dist/aws-ecs/index.d.ts"
+      ],
+      "aws-lambda": [
+        "./dist/aws-lambda/index.d.ts"
+      ],
+      "aws-monitoring": [
+        "./dist/aws-monitoring/index.d.ts"
+      ],
+      "aws-patterns-domain-redirect": [
+        "./dist/aws-patterns-domain-redirect/index.d.ts"
+      ],
+      "aws-patterns-website": [
+        "./dist/aws-patterns-website/index.d.ts"
+      ],
+      "aws-patterns-wordpress": [
+        "./dist/aws-patterns-wordpress/index.d.ts"
+      ],
+      "aws-route53": [
+        "./dist/aws-route53/index.d.ts"
+      ],
+      "aws-s3": [
+        "./dist/aws-s3/index.d.ts"
+      ],
+      "aws-ses": [
+        "./dist/aws-ses/index.d.ts"
+      ],
+      "aws-sqs": [
+        "./dist/aws-sqs/index.d.ts"
+      ],
+      "aws-ssm": [
+        "./dist/aws-ssm/index.d.ts"
+      ],
+      "aws-tags": [
+        "./dist/aws-tags/index.d.ts"
+      ],
+      "aws-vpc": [
+        "./dist/aws-vpc/index.d.ts"
+      ],
+      "aws-wafv2": [
+        "./dist/aws-wafv2/index.d.ts"
+      ],
+      "helpers": [
+        "./dist/helpers/index.d.ts"
+      ]
+    }
+  },
   "author": "TrueMark Technologies, Inc.",
   "publishConfig": {
     "access": "public"
