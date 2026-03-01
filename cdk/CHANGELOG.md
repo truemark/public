@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.21.5
+### Patch Changes
+
+- 338cf4e: Fixed main and types
+
 ## 1.21.4
 ### Patch Changes
 
