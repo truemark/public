@@ -48,30 +48,102 @@
     "constructs": "catalog:"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./package.json": "./dist/package.json",
-    "./aws-apigatewayv2": "./dist/aws-apigatewayv2/index.js",
-    "./aws-bedrock": "./dist/aws-bedrock/index.js",
-    "./aws-cdk": "./dist/aws-cdk/index.js",
-    "./aws-centergauge": "./dist/aws-centergauge/index.js",
-    "./aws-cloudfront": "./dist/aws-cloudfront/index.js",
-    "./aws-cloudwatch": "./dist/aws-cloudwatch/index.js",
-    "./aws-codepipeline": "./dist/aws-codepipeline/index.js",
-    "./aws-dynamodb": "./dist/aws-dynamodb/index.js",
-    "./aws-ecs": "./dist/aws-ecs/index.js",
-    "./aws-lambda": "./dist/aws-lambda/index.js",
-    "./aws-monitoring": "./dist/aws-monitoring/index.js",
-    "./aws-patterns-domain-redirect": "./dist/aws-patterns-domain-redirect/index.js",
-    "./aws-patterns-website": "./dist/aws-patterns-website/index.js",
-    "./aws-patterns-wordpress": "./dist/aws-patterns-wordpress/index.js",
-    "./aws-route53": "./dist/aws-route53/index.js",
-    "./aws-s3": "./dist/aws-s3/index.js",
-    "./aws-ses": "./dist/aws-ses/index.js",
-    "./aws-sqs": "./dist/aws-sqs/index.js",
-    "./aws-ssm": "./dist/aws-ssm/index.js",
-    "./aws-tags": "./dist/aws-tags/index.js",
-    "./aws-vpc": "./dist/aws-vpc/index.js",
-    "./aws-wafv2": "./dist/aws-wafv2/index.js",
-    "./helpers": "./dist/helpers/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./aws-apigatewayv2": {
+      "types": "./dist/aws-apigatewayv2/index.d.ts",
+      "default": "./dist/aws-apigatewayv2/index.js"
+    },
+    "./aws-bedrock": {
+      "types": "./dist/aws-bedrock/index.d.ts",
+      "default": "./dist/aws-bedrock/index.js"
+    },
+    "./aws-cdk": {
+      "types": "./dist/aws-cdk/index.d.ts",
+      "default": "./dist/aws-cdk/index.js"
+    },
+    "./aws-centergauge": {
+      "types": "./dist/aws-centergauge/index.d.ts",
+      "default": "./dist/aws-centergauge/index.js"
+    },
+    "./aws-cloudfront": {
+      "types": "./dist/aws-cloudfront/index.d.ts",
+      "default": "./dist/aws-cloudfront/index.js"
+    },
+    "./aws-cloudwatch": {
+      "types": "./dist/aws-cloudwatch/index.d.ts",
+      "default": "./dist/aws-cloudwatch/index.js"
+    },
+    "./aws-codepipeline": {
+      "types": "./dist/aws-codepipeline/index.d.ts",
+      "default": "./dist/aws-codepipeline/index.js"
+    },
+    "./aws-dynamodb": {
+      "types": "./dist/aws-dynamodb/index.d.ts",
+      "default": "./dist/aws-dynamodb/index.js"
+    },
+    "./aws-ecs": {
+      "types": "./dist/aws-ecs/index.d.ts",
+      "default": "./dist/aws-ecs/index.js"
+    },
+    "./aws-lambda": {
+      "types": "./dist/aws-lambda/index.d.ts",
+      "default": "./dist/aws-lambda/index.js"
+    },
+    "./aws-monitoring": {
+      "types": "./dist/aws-monitoring/index.d.ts",
+      "default": "./dist/aws-monitoring/index.js"
+    },
+    "./aws-patterns-domain-redirect": {
+      "types": "./dist/aws-patterns-domain-redirect/index.d.ts",
+      "default": "./dist/aws-patterns-domain-redirect/index.js"
+    },
+    "./aws-patterns-website": {
+      "types": "./dist/aws-patterns-website/index.d.ts",
+      "default": "./dist/aws-patterns-website/index.js"
+    },
+    "./aws-patterns-wordpress": {
+      "types": "./dist/aws-patterns-wordpress/index.d.ts",
+      "default": "./dist/aws-patterns-wordpress/index.js"
+    },
+    "./aws-route53": {
+      "types": "./dist/aws-route53/index.d.ts",
+      "default": "./dist/aws-route53/index.js"
+    },
+    "./aws-s3": {
+      "types": "./dist/aws-s3/index.d.ts",
+      "default": "./dist/aws-s3/index.js"
+    },
+    "./aws-ses": {
+      "types": "./dist/aws-ses/index.d.ts",
+      "default": "./dist/aws-ses/index.js"
+    },
+    "./aws-sqs": {
+      "types": "./dist/aws-sqs/index.d.ts",
+      "default": "./dist/aws-sqs/index.js"
+    },
+    "./aws-ssm": {
+      "types": "./dist/aws-ssm/index.d.ts",
+      "default": "./dist/aws-ssm/index.js"
+    },
+    "./aws-tags": {
+      "types": "./dist/aws-tags/index.d.ts",
+      "default": "./dist/aws-tags/index.js"
+    },
+    "./aws-vpc": {
+      "types": "./dist/aws-vpc/index.d.ts",
+      "default": "./dist/aws-vpc/index.js"
+    },
+    "./aws-wafv2": {
+      "types": "./dist/aws-wafv2/index.d.ts",
+      "default": "./dist/aws-wafv2/index.js"
+    },
+    "./helpers": {
+      "types": "./dist/helpers/index.d.ts",
+      "default": "./dist/helpers/index.js"
+    }
   }
 }
