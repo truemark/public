@@ -20,7 +20,7 @@ import {
   ExtendedConstruct,
   ExtendedConstructProps,
   StandardTags,
-} from '../../aws-cdk/index';
+} from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
 import {StandardDeadLetterQueue} from './standard-dead-letter-queue';
 
@@ -53,6 +53,11 @@ export interface StandardQueueProps
    * If not provided, the default is the maximum time allowed which is 14 days.
    */
   readonly deadLetterQueueRetentionPeriod?: Duration;
+
+  /**
+   * The time in seconds that the delivery of all messages in the queue is delayed.
+   */
+  readonly deliveryDelay?: Duration;
 
   /**
    * The number of seconds Amazon SQS retains a message. Value must be between
