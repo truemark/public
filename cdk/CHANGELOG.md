@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.21.6
+### Patch Changes
+
+- 8891a3e: Fixed module exports
+
 ## 1.21.5
 ### Patch Changes
 
