@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.21.8
+### Patch Changes
+
+- 6e08dea: Added standard-fargate-runtask
+
 ## 1.21.7
 ### Patch Changes
 
