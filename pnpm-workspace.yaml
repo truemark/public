@@ -10,7 +10,7 @@ catalog:
   "@aws-sdk/client-elastic-load-balancing-v2": "^3.700.0"
   "@aws-sdk/credential-provider-node": "^3.947.0"
   "@aws-sdk/util-dynamodb": "^3.947.0"
-  "@changesets/cli": "^2.29.8"
+  "@changesets/cli": "^2.30.0"
   "@eslint/js": "^9.39.3"
   "@opensearch-project/opensearch": "^2.13.0"
   "@types/node": "^22.19.2"
