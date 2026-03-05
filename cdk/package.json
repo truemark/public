@@ -1,7 +1,7 @@
 {
   "name": "truemark-cdk-lib",
   "description": "AWS CDK constructs created by TrueMark",
-  "version": "1.21.8",
+  "version": "1.22.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "typesVersions": {

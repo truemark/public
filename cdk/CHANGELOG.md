@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.0
+### Minor Changes
+
+- 5abe56d: Add automatic ALB listener rule priority allocation for StandardApplicationFargateService. Add new construct for ECS Run Tasks StandardFargateRunTask.
+
 ## 1.21.8
 ### Patch Changes
 
