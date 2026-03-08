@@ -486,8 +486,7 @@ export class CdkPipeline extends Construct {
         }),
         buildEnvironment: {
           // Privileged mode is not allowed in lambda
-          privileged:
-            !props.computeType || !props.computeType.includes('LAMBDA'),
+          privileged: !(props.computeType?.includes('LAMBDA') ?? false),
           computeType: props.computeType ?? ComputeType.SMALL,
           buildImage: props.buildImage ?? LinuxBuildImage.AMAZON_LINUX_2_5,
         },
