@@ -455,8 +455,12 @@ export class CdkPipeline extends Construct {
     this.pipeline = new CodePipeline(this, 'CodePipeline', {
       codePipeline: underlyingPipeline,
       selfMutation: props.selfMutation ?? true,
-      dockerEnabledForSynth: props.dockerEnabledForSynth ?? true,
-      dockerEnabledForSelfMutation: props.dockerEnabledForSelfMutation ?? true,
+      dockerEnabledForSynth:
+        props.dockerEnabledForSynth ??
+        !(props.computeType?.includes('LAMBDA') ?? false),
+      dockerEnabledForSelfMutation:
+        props.dockerEnabledForSelfMutation ??
+        !(props.computeType?.includes('LAMBDA') ?? false),
       publishAssetsInParallel: props.publishAssetsInParallel ?? false,
       synth: new ShellStep('Synth', {
         primaryOutputDirectory: `${cdkDirectory}/cdk.out`,
