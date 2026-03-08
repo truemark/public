@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.2
+### Patch Changes
+
+- 14c817f: Added new runtime versions for CdkPipeline
+
 ## 1.22.1
 ### Patch Changes
 
