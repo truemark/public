@@ -470,20 +470,18 @@ export class CdkPipeline extends Construct {
       }),
       synthCodeBuildDefaults: {
         partialBuildSpec: BuildSpec.fromObject({
-          cache: {
-            paths: [
-              // Absolute paths (for standard compute types)
-              '/root/.npm/**/*',
-              '/root/.local/share/pnpm/store/**/*',
-              '/root/.pnpm-store/**/*',
-              // Relative paths (for Lambda compute types)
-              '.npm/**/*',
-              '.local/share/pnpm/store/**/*',
-              '.pnpm-store/**/*',
-              // Node modules (works for both)
-              'node_modules/**/*',
-            ],
-          },
+          ...(props.computeType?.includes('LAMBDA')
+            ? {}
+            : {
+                cache: {
+                  paths: [
+                    '/root/.npm/**/*',
+                    '/root/.local/share/pnpm/store/**/*',
+                    '/root/.pnpm-store/**/*',
+                    'node_modules/**/*',
+                  ],
+                },
+              }),
           phases: {
             install: {
               'runtime-versions': {
@@ -511,7 +509,8 @@ export class CdkPipeline extends Construct {
         partialBuildSpec: BuildSpec.fromObject({
           env: {
             variables: {
-              ...((props.enableDockerBuildxOnAssetPublish ?? true)
+              ...((props.enableDockerBuildxOnAssetPublish ??
+              !(props.computeType?.includes('LAMBDA') ?? false))
                 ? {CDK_DOCKER: '/usr/local/bin/buildx.sh'}
                 : {}),
             },
@@ -519,7 +518,8 @@ export class CdkPipeline extends Construct {
           phases: {
             install: {
               commands:
-                (props.enableDockerBuildxOnAssetPublish ?? true)
+                (props.enableDockerBuildxOnAssetPublish ??
+                !(props.computeType?.includes('LAMBDA') ?? false))
                   ? DOCKER_BUILDX_SETUP_COMMANDS
                   : [],
             },
