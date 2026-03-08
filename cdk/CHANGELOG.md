@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.8
+### Patch Changes
+
+- c4b62e4: Set buildEnvironment for synth in CdkPipeline to allow for lambda usage
+
 ## 1.22.7
 ### Patch Changes
 
