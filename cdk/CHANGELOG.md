@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.11
+### Patch Changes
+
+- ce36da7: Set enableDockerBuildxOnAssetPublish to false when computeType is lambda.
+
 ## 1.22.10
 ### Patch Changes
 
