@@ -471,7 +471,18 @@ export class CdkPipeline extends Construct {
       synthCodeBuildDefaults: {
         partialBuildSpec: BuildSpec.fromObject({
           cache: {
-            paths: ['/root/.npm/**/*', '/root/.pnpm-store/**/*'],
+            paths: [
+              // Absolute paths (for standard compute types)
+              '/root/.npm/**/*',
+              '/root/.local/share/pnpm/store/**/*',
+              '/root/.pnpm-store/**/*',
+              // Relative paths (for Lambda compute types)
+              '.npm/**/*',
+              '.local/share/pnpm/store/**/*',
+              '.pnpm-store/**/*',
+              // Node modules (works for both)
+              'node_modules/**/*',
+            ],
           },
           phases: {
             install: {
