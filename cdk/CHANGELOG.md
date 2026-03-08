@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.6
+### Patch Changes
+
+- d2230d6: Fixed logic with privileged mode
+
 ## 1.22.5
 ### Patch Changes
 
