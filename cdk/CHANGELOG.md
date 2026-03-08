@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.4
+### Patch Changes
+
+- 78ed4ec: Added restartExecutionOnUpdate to CdkPipeline
+
 ## 1.22.3
 ### Patch Changes
 
