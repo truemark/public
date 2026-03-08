@@ -309,6 +309,11 @@ export interface CdkPipelineProps {
    * @default - No filtering, all pushes to the branch trigger the pipeline
    */
   readonly gitPushFilter?: GitPushFilter[];
+
+  /**
+   * Indicates whether to rerun the AWS CodePipeline pipeline after you update it. Default is false.
+   */
+  readonly restartExecutionOnUpdate?: boolean;
 }
 
 /**
@@ -332,6 +337,7 @@ export class CdkPipeline extends Construct {
       pipelineType: props.pipelineType ?? PipelineType.V2,
       artifactBucket,
       pipelineName: props.pipelineName,
+      restartExecutionOnUpdate: props.restartExecutionOnUpdate,
     });
 
     let input: CodePipelineSource;
