@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.9
+### Patch Changes
+
+- 194db9b: Disabled docker when compute type is lambda
+
 ## 1.22.8
 ### Patch Changes
 
