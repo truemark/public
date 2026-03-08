@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.5
+### Patch Changes
+
+- 0619bc4: Set privileged mode to false when compute type is lambda
+
 ## 1.22.4
 ### Patch Changes
 
