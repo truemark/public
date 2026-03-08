@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.10
+### Patch Changes
+
+- f5612d4: Updated cache paths in CdkPipeline
+
 ## 1.22.9
 ### Patch Changes
 
