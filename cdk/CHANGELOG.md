@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.7
+### Patch Changes
+
+- 342ace9: Fixed privileged setting in CdkPipeline
+
 ## 1.22.6
 ### Patch Changes
 
