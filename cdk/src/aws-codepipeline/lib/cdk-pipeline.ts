@@ -309,6 +309,11 @@ export interface CdkPipelineProps {
    * @default - No filtering, all pushes to the branch trigger the pipeline
    */
   readonly gitPushFilter?: GitPushFilter[];
+
+  /**
+   * Indicates whether to rerun the AWS CodePipeline pipeline after you update it. Default is false.
+   */
+  readonly restartExecutionOnUpdate?: boolean;
 }
 
 /**
@@ -332,6 +337,7 @@ export class CdkPipeline extends Construct {
       pipelineType: props.pipelineType ?? PipelineType.V2,
       artifactBucket,
       pipelineName: props.pipelineName,
+      restartExecutionOnUpdate: props.restartExecutionOnUpdate,
     });
 
     let input: CodePipelineSource;
@@ -449,8 +455,12 @@ export class CdkPipeline extends Construct {
     this.pipeline = new CodePipeline(this, 'CodePipeline', {
       codePipeline: underlyingPipeline,
       selfMutation: props.selfMutation ?? true,
-      dockerEnabledForSynth: props.dockerEnabledForSynth ?? true,
-      dockerEnabledForSelfMutation: props.dockerEnabledForSelfMutation ?? true,
+      dockerEnabledForSynth:
+        props.dockerEnabledForSynth ??
+        !(props.computeType?.includes('LAMBDA') ?? false),
+      dockerEnabledForSelfMutation:
+        props.dockerEnabledForSelfMutation ??
+        !(props.computeType?.includes('LAMBDA') ?? false),
       publishAssetsInParallel: props.publishAssetsInParallel ?? false,
       synth: new ShellStep('Synth', {
         primaryOutputDirectory: `${cdkDirectory}/cdk.out`,
@@ -460,9 +470,18 @@ export class CdkPipeline extends Construct {
       }),
       synthCodeBuildDefaults: {
         partialBuildSpec: BuildSpec.fromObject({
-          cache: {
-            paths: ['/root/.npm/**/*', '/root/.pnpm-store/**/*'],
-          },
+          ...(props.computeType?.includes('LAMBDA')
+            ? {}
+            : {
+                cache: {
+                  paths: [
+                    '/root/.npm/**/*',
+                    '/root/.local/share/pnpm/store/**/*',
+                    '/root/.pnpm-store/**/*',
+                    'node_modules/**/*',
+                  ],
+                },
+              }),
           phases: {
             install: {
               'runtime-versions': {
@@ -479,7 +498,8 @@ export class CdkPipeline extends Construct {
           },
         }),
         buildEnvironment: {
-          privileged: true,
+          // Privileged mode is not allowed in lambda
+          privileged: !(props.computeType?.includes('LAMBDA') ?? false),
           computeType: props.computeType ?? ComputeType.SMALL,
           buildImage: props.buildImage ?? LinuxBuildImage.AMAZON_LINUX_2_5,
         },
@@ -489,7 +509,8 @@ export class CdkPipeline extends Construct {
         partialBuildSpec: BuildSpec.fromObject({
           env: {
             variables: {
-              ...((props.enableDockerBuildxOnAssetPublish ?? true)
+              ...((props.enableDockerBuildxOnAssetPublish ??
+              !(props.computeType?.includes('LAMBDA') ?? false))
                 ? {CDK_DOCKER: '/usr/local/bin/buildx.sh'}
                 : {}),
             },
@@ -497,12 +518,19 @@ export class CdkPipeline extends Construct {
           phases: {
             install: {
               commands:
-                (props.enableDockerBuildxOnAssetPublish ?? true)
+                (props.enableDockerBuildxOnAssetPublish ??
+                !(props.computeType?.includes('LAMBDA') ?? false))
                   ? DOCKER_BUILDX_SETUP_COMMANDS
                   : [],
             },
           },
         }),
+        buildEnvironment: {
+          // Privileged mode is not allowed in lambda
+          privileged: !(props.computeType?.includes('LAMBDA') ?? false),
+          computeType: props.computeType ?? ComputeType.SMALL,
+          buildImage: props.buildImage ?? LinuxBuildImage.AMAZON_LINUX_2_5,
+        },
       },
     });
 
