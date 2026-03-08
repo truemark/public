@@ -1,9 +1,9 @@
 import {Construct} from 'constructs';
 import {
   CfnPipeline,
+  GitPushFilter,
   Pipeline,
   PipelineType,
-  TriggerProps,
 } from 'aws-cdk-lib/aws-codepipeline';
 import {Key} from 'aws-cdk-lib/aws-kms';
 import {ArtifactBucket} from './artifact-bucket';
@@ -302,9 +302,13 @@ export interface CdkPipelineProps {
   readonly disableAutoTrigger?: boolean;
 
   /**
-   * The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline
+   * Git push filter configuration for the pipeline trigger.
+   * Allows filtering which git events trigger the pipeline based on branch patterns,
+   * file paths, or tag patterns. Only applicable when using CodeStar connections.
+   *
+   * @default - No filtering, all pushes to the branch trigger the pipeline
    */
-  readonly triggers?: TriggerProps[];
+  readonly gitPushFilter?: GitPushFilter[];
 }
 
 /**
@@ -328,7 +332,6 @@ export class CdkPipeline extends Construct {
       pipelineType: props.pipelineType ?? PipelineType.V2,
       artifactBucket,
       pipelineName: props.pipelineName,
-      triggers: props.triggers,
     });
 
     let input: CodePipelineSource;
@@ -512,6 +515,31 @@ export class CdkPipeline extends Construct {
           ProviderType: 'CodeStarSourceConnection',
           TriggerEvents: 'NONE',
         },
+      );
+    }
+
+    // Apply GitPushFilter if provided
+    if (props.gitPushFilter && props.gitPushFilter.length > 0) {
+      const cfnPipeline = underlyingPipeline.node.defaultChild as CfnPipeline;
+      cfnPipeline.addPropertyOverride(
+        'Stages.0.Actions.0.Configuration.TriggerConfiguration.GitConfiguration.Push',
+        props.gitPushFilter.map((filter) => ({
+          Branches: filter.branchesIncludes
+            ? {Includes: filter.branchesIncludes}
+            : filter.branchesExcludes
+              ? {Excludes: filter.branchesExcludes}
+              : undefined,
+          FilePaths: filter.filePathsIncludes
+            ? {Includes: filter.filePathsIncludes}
+            : filter.filePathsExcludes
+              ? {Excludes: filter.filePathsExcludes}
+              : undefined,
+          Tags: filter.tagsIncludes
+            ? {Includes: filter.tagsIncludes}
+            : filter.tagsExcludes
+              ? {Excludes: filter.tagsExcludes}
+              : undefined,
+        })),
       );
     }
 
