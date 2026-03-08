@@ -3,6 +3,7 @@ import {
   CfnPipeline,
   Pipeline,
   PipelineType,
+  TriggerProps,
 } from 'aws-cdk-lib/aws-codepipeline';
 import {Key} from 'aws-cdk-lib/aws-kms';
 import {ArtifactBucket} from './artifact-bucket';
@@ -297,6 +298,11 @@ export interface CdkPipelineProps {
    * @default false (auto-trigger enabled)
    */
   readonly disableAutoTrigger?: boolean;
+
+  /**
+   * The trigger configuration specifying a type of event, such as Git tags, that starts the pipeline
+   */
+  readonly triggers?: TriggerProps[];
 }
 
 /**
@@ -320,6 +326,7 @@ export class CdkPipeline extends Construct {
       pipelineType: props.pipelineType ?? PipelineType.V2,
       artifactBucket,
       pipelineName: props.pipelineName,
+      triggers: props.triggers,
     });
 
     let input: CodePipelineSource;
