@@ -71,6 +71,7 @@ export enum JavaVersion {
   JAVA_11 = 'corretto11',
   JAVA_16 = 'corretto17',
   JAVA_21 = 'corretto21',
+  JAVA_25 = 'corretto25',
 }
 
 /**
@@ -92,6 +93,7 @@ export enum PythonVersion {
   PYTHON_3_11 = '3.11',
   PYTHON_3_12 = '3.12',
   PYTHON_3_13 = '3.13',
+  PYTHON_3_14 = '3.14',
 }
 
 const DOCKER_BUILDX_SETUP_COMMANDS = [
