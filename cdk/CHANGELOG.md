@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.3
+### Patch Changes
+
+- b8f6d52: Replaced triggers with gitPushFilter
+
 ## 1.22.2
 ### Patch Changes
 
