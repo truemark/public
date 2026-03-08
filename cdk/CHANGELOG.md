@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.1
+### Patch Changes
+
+- c49b7e3: Added tiggers to CodePipeline
+
 ## 1.22.0
 ### Minor Changes
 
