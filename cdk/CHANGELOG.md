@@ -1,5 +1,45 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.11
+### Patch Changes
+
+- ce36da7: Set enableDockerBuildxOnAssetPublish to false when computeType is lambda.
+
+## 1.22.10
+### Patch Changes
+
+- f5612d4: Updated cache paths in CdkPipeline
+
+## 1.22.9
+### Patch Changes
+
+- 194db9b: Disabled docker when compute type is lambda
+
+## 1.22.8
+### Patch Changes
+
+- c4b62e4: Set buildEnvironment for synth in CdkPipeline to allow for lambda usage
+
+## 1.22.7
+### Patch Changes
+
+- 342ace9: Fixed privileged setting in CdkPipeline
+
+## 1.22.6
+### Patch Changes
+
+- d2230d6: Fixed logic with privileged mode
+
+## 1.22.5
+### Patch Changes
+
+- 0619bc4: Set privileged mode to false when compute type is lambda
+
+## 1.22.4
+### Patch Changes
+
+- 78ed4ec: Added restartExecutionOnUpdate to CdkPipeline
+
 ## 1.22.3
 ### Patch Changes
 
