@@ -238,7 +238,9 @@ export class WebAclRuleBuilder extends ExtendedConstruct {
   /**
    * Combines multiple statements with AND logic.
    */
-  andStatement(...statements: CfnWebACL.StatementProperty[]): WebAclRuleBuilder {
+  andStatement(
+    ...statements: CfnWebACL.StatementProperty[]
+  ): WebAclRuleBuilder {
     this._statement = {
       andStatement: {
         statements,
