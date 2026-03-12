@@ -1,4 +1,8 @@
-import {CfnLoggingConfiguration, CfnWebACL, CfnWebACLProps} from 'aws-cdk-lib/aws-wafv2';
+import {
+  CfnLoggingConfiguration,
+  CfnWebACL,
+  CfnWebACLProps,
+} from 'aws-cdk-lib/aws-wafv2';
 import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
 import {ExtendedConstruct} from '../../aws-cdk';
 import {Construct} from 'constructs';
@@ -18,7 +22,9 @@ export class WebAclBuilder extends ExtendedConstruct {
   private _visibilityConfig?: CfnWebACL.VisibilityConfigProperty;
   private _logRetention?: RetentionDays;
   private _enableLogging: boolean = true;
-  private _customResponseBodies?: {[key: string]: CfnWebACL.CustomResponseBodyProperty};
+  private _customResponseBodies?: {
+    [key: string]: CfnWebACL.CustomResponseBodyProperty;
+  };
   private _tokenDomains?: string[];
 
   private rules: WebAclRuleBuilder[] = [];
@@ -116,7 +122,9 @@ export class WebAclBuilder extends ExtendedConstruct {
   /**
    * Sets custom response bodies.
    */
-  customResponseBodies(bodies: {[key: string]: CfnWebACL.CustomResponseBodyProperty}): WebAclBuilder {
+  customResponseBodies(bodies: {
+    [key: string]: CfnWebACL.CustomResponseBodyProperty;
+  }): WebAclBuilder {
     this._customResponseBodies = bodies;
     return this;
   }
@@ -272,7 +280,10 @@ export class WebAclBuilder extends ExtendedConstruct {
     builder
       .name('AWS-AWSManagedRulesKnownBadInputsRuleSet')
       .priority(this.nextPriority++)
-      .awsManagedRuleGroup('AWSManagedRulesKnownBadInputsRuleSet', excludedRules)
+      .awsManagedRuleGroup(
+        'AWSManagedRulesKnownBadInputsRuleSet',
+        excludedRules,
+      )
       .visibilityConfig('AWSManagedRulesKnownBadInputsRuleSetMetric');
 
     if (this.managedRulesMode === 'active') {
@@ -288,7 +299,10 @@ export class WebAclBuilder extends ExtendedConstruct {
   /**
    * Adds AWS Managed Rules Anonymous IP List.
    */
-  addAnonymousIpList(excludedRules?: string[], ruleActionOverrides?: CfnWebACL.RuleActionOverrideProperty[]): WebAclBuilder {
+  addAnonymousIpList(
+    excludedRules?: string[],
+    ruleActionOverrides?: CfnWebACL.RuleActionOverrideProperty[],
+  ): WebAclBuilder {
     const builder = new WebAclRuleBuilder(this, 'AnonymousIpList');
 
     // Default to override HostingProviderIPList to Count
@@ -302,7 +316,11 @@ export class WebAclBuilder extends ExtendedConstruct {
     builder
       .name('AWS-AWSManagedRulesAnonymousIpList')
       .priority(this.nextPriority++)
-      .awsManagedRuleGroup('AWSManagedRulesAnonymousIpList', excludedRules, overrides)
+      .awsManagedRuleGroup(
+        'AWSManagedRulesAnonymousIpList',
+        excludedRules,
+        overrides,
+      )
       .visibilityConfig('AWSManagedRulesAnonymousIpListMetric');
 
     if (this.managedRulesMode === 'active') {
@@ -323,7 +341,10 @@ export class WebAclBuilder extends ExtendedConstruct {
     builder
       .name('AWS-AWSManagedRulesAmazonIpReputationList')
       .priority(this.nextPriority++)
-      .awsManagedRuleGroup('AWSManagedRulesAmazonIpReputationList', excludedRules)
+      .awsManagedRuleGroup(
+        'AWSManagedRulesAmazonIpReputationList',
+        excludedRules,
+      )
       .visibilityConfig('AWSManagedRulesAmazonIpReputationListMetric');
 
     if (this.managedRulesMode === 'active') {
@@ -471,7 +492,10 @@ export class WebAclBuilder extends ExtendedConstruct {
     excludedRules?: string[],
     ruleActionOverrides?: CfnWebACL.RuleActionOverrideProperty[],
   ): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, `ManagedRule${this.nextPriority}`);
+    const builder = new WebAclRuleBuilder(
+      this,
+      `ManagedRule${this.nextPriority}`,
+    );
     builder
       .name(displayName)
       .priority(this.nextPriority++)
@@ -543,7 +567,7 @@ export class WebAclBuilder extends ExtendedConstruct {
             textTransformations: [{priority: 0, type: 'NONE'}],
           },
         },
-        300
+        300,
       )
       .blockAction() // Block by default for endpoint protection
       .visibilityConfig('RateLimitSpecificEndpointMetric');
@@ -592,12 +616,28 @@ export class WebAclBuilder extends ExtendedConstruct {
    */
   build(): CfnWebACLProps {
     // Add default AWS managed rules if not disabled
-    if (this.rules.length === 0 || this.includeCommonRuleSet || this.includeKnownBadInputs || this.includeAnonymousIpList || this.includeIpReputationList) {
+    if (
+      this.rules.length === 0 ||
+      this.includeCommonRuleSet ||
+      this.includeKnownBadInputs ||
+      this.includeAnonymousIpList ||
+      this.includeIpReputationList
+    ) {
       // Only add defaults that haven't been manually added and are enabled
-      const hasCommonRuleSet = this.rules.some(r => r.buildRule().name === 'AWS-AWSManagedRulesCommonRuleSet');
-      const hasKnownBadInputs = this.rules.some(r => r.buildRule().name === 'AWS-AWSManagedRulesKnownBadInputsRuleSet');
-      const hasAnonymousIpList = this.rules.some(r => r.buildRule().name === 'AWS-AWSManagedRulesAnonymousIpList');
-      const hasIpReputationList = this.rules.some(r => r.buildRule().name === 'AWS-AWSManagedRulesAmazonIpReputationList');
+      const hasCommonRuleSet = this.rules.some(
+        (r) => r.buildRule().name === 'AWS-AWSManagedRulesCommonRuleSet',
+      );
+      const hasKnownBadInputs = this.rules.some(
+        (r) =>
+          r.buildRule().name === 'AWS-AWSManagedRulesKnownBadInputsRuleSet',
+      );
+      const hasAnonymousIpList = this.rules.some(
+        (r) => r.buildRule().name === 'AWS-AWSManagedRulesAnonymousIpList',
+      );
+      const hasIpReputationList = this.rules.some(
+        (r) =>
+          r.buildRule().name === 'AWS-AWSManagedRulesAmazonIpReputationList',
+      );
 
       if (this.includeCommonRuleSet && !hasCommonRuleSet) {
         this.addCommonRuleSet();
@@ -614,14 +654,23 @@ export class WebAclBuilder extends ExtendedConstruct {
     }
 
     // Add default custom rules if not disabled
-    const hasAllEndpointsRateLimit = this.rules.some(r => r.buildRule().name === 'RateLimit-AllEndpoints');
-    const hasSpecificEndpointRateLimit = this.rules.some(r => r.buildRule().name === 'RateLimit-SpecificEndpoint');
-    const hasGeoBlocking = this.rules.some(r => r.buildRule().name === 'GeoBlock-HighRiskCountries');
+    const hasAllEndpointsRateLimit = this.rules.some(
+      (r) => r.buildRule().name === 'RateLimit-AllEndpoints',
+    );
+    const hasSpecificEndpointRateLimit = this.rules.some(
+      (r) => r.buildRule().name === 'RateLimit-SpecificEndpoint',
+    );
+    const hasGeoBlocking = this.rules.some(
+      (r) => r.buildRule().name === 'GeoBlock-HighRiskCountries',
+    );
 
     if (this.includeAllEndpointsRateLimit && !hasAllEndpointsRateLimit) {
       this.addDefaultAllEndpointsRateLimit();
     }
-    if (this.includeSpecificEndpointRateLimit && !hasSpecificEndpointRateLimit) {
+    if (
+      this.includeSpecificEndpointRateLimit &&
+      !hasSpecificEndpointRateLimit
+    ) {
       this.addDefaultSpecificEndpointRateLimit();
     }
     if (this.includeGeoBlocking && !hasGeoBlocking) {
@@ -630,7 +679,8 @@ export class WebAclBuilder extends ExtendedConstruct {
 
     // Set defaults
     if (!this._name) {
-      this._name = this._scope === 'CLOUDFRONT' ? 'CloudFrontWebACL' : 'RegionalWebACL';
+      this._name =
+        this._scope === 'CLOUDFRONT' ? 'CloudFrontWebACL' : 'RegionalWebACL';
     }
 
     if (!this._visibilityConfig) {
@@ -646,9 +696,11 @@ export class WebAclBuilder extends ExtendedConstruct {
       scope: this._scope,
       defaultAction: this._defaultAction,
       visibilityConfig: this._visibilityConfig,
-      rules: this.rules.map(r => r.buildRule()),
+      rules: this.rules.map((r) => r.buildRule()),
       ...(this._description && {description: this._description}),
-      ...(this._customResponseBodies && {customResponseBodies: this._customResponseBodies}),
+      ...(this._customResponseBodies && {
+        customResponseBodies: this._customResponseBodies,
+      }),
       ...(this._tokenDomains && {tokenDomains: this._tokenDomains}),
     };
 
