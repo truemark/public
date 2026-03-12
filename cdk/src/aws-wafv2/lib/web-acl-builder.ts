@@ -255,7 +255,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules Common Rule Set.
    */
   addCommonRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'CommonRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `CommonRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesCommonRuleSet')
       .priority(this.nextPriority++)
@@ -276,7 +279,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules Known Bad Inputs Rule Set.
    */
   addKnownBadInputsRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'KnownBadInputsRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `KnownBadInputsRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesKnownBadInputsRuleSet')
       .priority(this.nextPriority++)
@@ -303,7 +309,10 @@ export class WebAclBuilder extends ExtendedConstruct {
     excludedRules?: string[],
     ruleActionOverrides?: CfnWebACL.RuleActionOverrideProperty[],
   ): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'AnonymousIpList');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `AnonymousIpList-${this.nextPriority}`,
+    );
 
     // Default to override HostingProviderIPList to Count
     const overrides = ruleActionOverrides ?? [
@@ -337,7 +346,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules Amazon IP Reputation List.
    */
   addIpReputationList(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'IpReputationList');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `IpReputationList-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesAmazonIpReputationList')
       .priority(this.nextPriority++)
@@ -361,7 +373,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules SQL Injection Rule Set.
    */
   addSqlInjectionRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'SqlInjectionRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `SqlInjectionRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesSQLiRuleSet')
       .priority(this.nextPriority++)
@@ -382,7 +397,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules Linux Operating System Rule Set.
    */
   addLinuxRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'LinuxRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `LinuxRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesLinuxRuleSet')
       .priority(this.nextPriority++)
@@ -403,7 +421,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules Unix Operating System Rule Set.
    */
   addUnixRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'UnixRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `UnixRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesUnixRuleSet')
       .priority(this.nextPriority++)
@@ -424,7 +445,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules Windows Operating System Rule Set.
    */
   addWindowsRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'WindowsRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `WindowsRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesWindowsRuleSet')
       .priority(this.nextPriority++)
@@ -445,7 +469,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules PHP Application Rule Set.
    */
   addPhpRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'PhpRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `PhpRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesPHPRuleSet')
       .priority(this.nextPriority++)
@@ -466,7 +493,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * Adds AWS Managed Rules WordPress Application Rule Set.
    */
   addWordPressRuleSet(excludedRules?: string[]): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'WordPressRuleSet');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `WordPressRuleSet-${this.nextPriority}`,
+    );
     builder
       .name('AWS-AWSManagedRulesWordPressRuleSet')
       .priority(this.nextPriority++)
@@ -520,7 +550,10 @@ export class WebAclBuilder extends ExtendedConstruct {
     countryCodes: string[] = ['CN', 'RU', 'KP'],
     ruleName: string = 'GeoBlock',
   ): WebAclBuilder {
-    const builder = new WebAclRuleBuilder(this, 'GeoBlockRule');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `GeoBlockRule-${this.nextPriority}`,
+    );
     builder
       .name(ruleName)
       .priority(this.nextPriority++)
@@ -537,7 +570,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * @private
    */
   private addDefaultAllEndpointsRateLimit(): void {
-    const builder = new WebAclRuleBuilder(this, 'RateLimitAllEndpoints');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `RateLimitAllEndpoints-${this.nextPriority}`,
+    );
     builder
       .name('RateLimit-AllEndpoints')
       .priority(this.nextPriority++)
@@ -553,7 +589,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * @private
    */
   private addDefaultSpecificEndpointRateLimit(): void {
-    const builder = new WebAclRuleBuilder(this, 'RateLimitSpecificEndpoint');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `RateLimitSpecificEndpoint-${this.nextPriority}`,
+    );
     builder
       .name('RateLimit-SpecificEndpoint')
       .priority(this.nextPriority++)
@@ -580,7 +619,10 @@ export class WebAclBuilder extends ExtendedConstruct {
    * @private
    */
   private addDefaultGeoBlocking(): void {
-    const builder = new WebAclRuleBuilder(this, 'GeoBlockHighRiskCountries');
+    const builder = new WebAclRuleBuilder(
+      this,
+      `GeoBlockHighRiskCountries-${this.nextPriority}`,
+    );
     builder
       .name('GeoBlock-HighRiskCountries')
       .priority(this.nextPriority++)

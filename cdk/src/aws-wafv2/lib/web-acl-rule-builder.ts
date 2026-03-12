@@ -292,12 +292,40 @@ export class WebAclRuleBuilder extends ExtendedConstruct {
       };
     }
 
-    // Determine action or overrideAction
+    // Detect if this is a rule-group statement (managed or custom)
+    const isRuleGroupStatement =
+      'managedRuleGroupStatement' in this._statement ||
+      'ruleGroupReferenceStatement' in this._statement;
+
+    // Validate action/overrideAction usage
+    if (isRuleGroupStatement) {
+      if (this._action) {
+        throw new Error(
+          `Rule "${this._name}" uses a rule group statement and must use overrideAction, not action. ` +
+            `Use .overrideCount() or .overrideNone() instead of .countAction(), .allowAction(), or .blockAction().`,
+        );
+      }
+      // Default to overrideAction count for rule groups if not specified
+      if (!this._overrideAction) {
+        this._overrideAction = {count: {}};
+      }
+    } else {
+      if (this._overrideAction) {
+        throw new Error(
+          `Rule "${this._name}" does not use a rule group statement and must use action, not overrideAction. ` +
+            `Use .countAction(), .allowAction(), or .blockAction() instead of .overrideCount() or .overrideNone().`,
+        );
+      }
+      // Default to action count for non-rule-group statements if not specified
+      if (!this._action) {
+        this._action = {count: {}};
+      }
+    }
+
+    // Build the rule with appropriate action/overrideAction
     const actionOrOverride = this._action
       ? {action: this._action}
-      : this._overrideAction
-        ? {overrideAction: this._overrideAction}
-        : {action: {count: {}}};
+      : {overrideAction: this._overrideAction!};
 
     const rule: CfnWebACL.RuleProperty = {
       name: this._name,
