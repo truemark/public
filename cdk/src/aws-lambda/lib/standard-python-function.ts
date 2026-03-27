@@ -43,7 +43,7 @@ export interface BundledPythonFunctionProps
   /**
    * The runtime environment. Only runtimes of the Python family are supported.
    *
-   * @default Runtime.PYTHON_3_9
+   * @default Runtime.PYTHON_3_14
    */
   readonly runtime?: Runtime;
 }
@@ -60,7 +60,7 @@ export class StandardPythonFunction extends StandardFunction {
    * Creates a new Lambda Function
    */
   constructor(scope: Construct, id: string, props: BundledPythonFunctionProps) {
-    const runtime = props.runtime ?? Runtime.PYTHON_3_9;
+    const runtime = props.runtime ?? Runtime.PYTHON_3_14;
     if (runtime.family !== RuntimeFamily.PYTHON) {
       throw new Error('Runtime must be a Python runtime');
     }
