@@ -1,5 +1,11 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.12
+### Patch Changes
+
+- 3e1c604: Added FunctionLogOptions to StandardPythonFunction
+- 7b4b8d3: Updated default python runtime to 3_14
+
 ## 1.22.11
 ### Patch Changes
 
