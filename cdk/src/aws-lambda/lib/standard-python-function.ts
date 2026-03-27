@@ -14,6 +14,7 @@ import {DeployedFunctionOptions} from './extended-function';
 import {FunctionAlarmsOptions} from './function-alarms';
 import * as path from 'path';
 import * as fs from 'fs';
+import {FunctionLogOptions} from './function-log-options';
 
 /**
  * Properties for BundledPythonFunction.
@@ -23,7 +24,8 @@ export interface BundledPythonFunctionProps
     FunctionOptions,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
-    StandardFunctionOptions {
+    StandardFunctionOptions,
+    FunctionLogOptions {
   /**
    * The path (relative to entry) to the index file containing the exported handler.
    *
