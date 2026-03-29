@@ -4,28 +4,31 @@ import {
   BackupPlanRule,
   BackupResource,
   BackupVault,
+  CfnBackupVault,
 } from 'aws-cdk-lib/aws-backup';
 import {Duration} from 'aws-cdk-lib';
 import {Schedule} from 'aws-cdk-lib/aws-events';
-import {ExtendedConstruct, ExtendedStackProps} from '../../aws-cdk';
+import {ExtendedConstruct} from '../../aws-cdk';
 
-/**
- * Construct that sets up tag-based automated backups using AWS backup.
- * The backup-policy tag setup by this contract supports the following values:
- *  - default-week
- *  - default-month
- *  - default-quarter
- *  - default-year
- *  - default-7-years
- */
+export interface AutoBackupProps {
+  /**
+   * If true, applies AWS Backup Vault Lock to the AutoBackup vault.
+   * Note: Vault Lock applies to all recovery points in the vault.
+   */
+  enableImmutable?: boolean;
+
+  /**
+   * When provided (min 3), Vault Lock is Compliance mode.
+   * When omitted, Vault Lock is Governance mode.
+   */
+  vaultLockChangeableForDays?: number;
+}
+
 export class AutoBackup extends ExtendedConstruct {
   private daily(days: number): BackupPlanRule {
     return new BackupPlanRule({
       ruleName: 'Daily',
-      scheduleExpression: Schedule.cron({
-        hour: '5',
-        minute: '0',
-      }),
+      scheduleExpression: Schedule.cron({hour: '5', minute: '0'}),
       deleteAfter: Duration.days(days),
     });
   }
@@ -45,11 +48,7 @@ export class AutoBackup extends ExtendedConstruct {
   private monthly(days: number): BackupPlanRule {
     return new BackupPlanRule({
       ruleName: 'Monthly',
-      scheduleExpression: Schedule.cron({
-        day: '1',
-        hour: '5',
-        minute: '0',
-      }),
+      scheduleExpression: Schedule.cron({day: '1', hour: '5', minute: '0'}),
       moveToColdStorageAfter: Duration.days(30),
       deleteAfter: Duration.days(days),
     });
@@ -61,12 +60,24 @@ export class AutoBackup extends ExtendedConstruct {
     });
   }
 
-  constructor(scope: Construct, id: string, props: ExtendedStackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: AutoBackupProps = {}) {
+    super(scope, id);
 
     const backupVault = new BackupVault(this, 'Default', {
       backupVaultName: 'AutoBackup',
     });
+
+    // Apply Vault Lock when enableImmutable is true
+    if (props.enableImmutable) {
+      const cfnVault = backupVault.node.defaultChild as CfnBackupVault;
+      cfnVault.lockConfiguration = {
+        minRetentionDays: 1,
+        maxRetentionDays: 2555,
+        ...(props.vaultLockChangeableForDays !== undefined
+          ? {changeableForDays: props.vaultLockChangeableForDays}
+          : {}),
+      };
+    }
 
     const defaultWeek = new BackupPlan(this, 'DefaultWeek', {
       backupVault,
