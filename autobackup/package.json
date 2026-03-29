@@ -1,0 +1,45 @@
+{
+  "name": "autobackup",
+  "version": "0.1.0",
+  "description": "Configures tag-based automated backups using AWS backup.",
+  "homepage": "https://github.com/truemark/public/tree/main/autobackup",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "cdk": "dist/cdk.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "vitest run",
+    "clean": "rm -rf cdk.out dist coverage",
+    "cdk": "cdk",
+    "fmt": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk": "catalog:",
+    "esbuild": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "ts-node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "truemark-cdk-lib": "workspace:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

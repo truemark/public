@@ -171,6 +171,10 @@
       "types": "./dist/aws-monitoring/index.d.ts",
       "default": "./dist/aws-monitoring/index.js"
     },
+    "./aws-patterns-autobackup": {
+      "types": "./dist/aws-patterns-autobackup/index.d.ts",
+      "default": "./dist/aws-patterns-autobackup/index.js"
+    },
     "./aws-patterns-domain-redirect": {
       "types": "./dist/aws-patterns-domain-redirect/index.d.ts",
       "default": "./dist/aws-patterns-domain-redirect/index.js"

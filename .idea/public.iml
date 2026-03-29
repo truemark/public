@@ -8,6 +8,9 @@
       <excludeFolder url="file://$MODULE_DIR$/cdk/test-files/angular-website/dist" />
       <excludeFolder url="file://$MODULE_DIR$/cdk/test-files/angular-website/node_modules" />
       <excludeFolder url="file://$MODULE_DIR$/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/autobackup/cdk.out" />
+      <excludeFolder url="file://$MODULE_DIR$/autobackup/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/autobackup/node_modules" />
       <excludePattern pattern="lib/**/*.js" />
       <excludePattern pattern="lib/**/*.d.ts" />
       <excludePattern pattern="lib/**/*.map" />
