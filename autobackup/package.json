@@ -1,6 +1,7 @@
 {
   "name": "autobackup",
   "version": "0.1.0",
+  "private": true,
   "description": "Configures tag-based automated backups using AWS backup.",
   "homepage": "https://github.com/truemark/public/tree/main/autobackup",
   "license": "Apache-2.0",
