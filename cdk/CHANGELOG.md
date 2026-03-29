@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.13
+### Patch Changes
+
+- f182ce5: Added AutoBackup construct
+
 ## 1.22.12
 ### Patch Changes
 
