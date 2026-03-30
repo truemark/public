@@ -37,8 +37,8 @@ catalogs:
       specifier: ^22.19.2
       version: 22.19.11
     aws-cdk:
-      specifier: 2.1031.0
-      version: 2.1031.0
+      specifier: 2.1115.0
+      version: 2.1115.0
     aws-cdk-lib:
       specifier: 2.232.1
       version: 2.232.1
@@ -112,7 +112,7 @@ importers:
         version: 22.19.11
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1031.0
+        version: 2.1115.0
       esbuild:
         specifier: 'catalog:'
         version: 0.27.4
@@ -1350,8 +1350,8 @@ packages:
       - yaml
       - mime-types
 
-  aws-cdk@2.1031.0:
-    resolution: {integrity: sha512-iotbdOIvHoLCz1u7PUVDQbcpGpVqMk8HzAeOP4PGRqD9PoAEsCb3mwGTxHMrNGEGWdJXQxiTOGSaMmlwEvACxA==}
+  aws-cdk@2.1115.0:
+    resolution: {integrity: sha512-PpNNflDt1L2TxpMh2h7cPHnFkDVeY1hwIxuGuvswS08mA0syOT4OmZx8hZYdcLru6NceCsn0x/7uTHpb6Hzo5A==}
     engines: {node: '>= 18.0.0'}
     hasBin: true
 
@@ -1586,11 +1586,6 @@ packages:
   fs-extra@8.1.0:
     resolution: {integrity: sha512-yhlQgA6mnOJUKOsRUFsgJdQCvkKhcz8tlZG5HBQfReYZy46OwLcY+Zia0mtdHsOo9y/hP+CxMN0TU9QxoOtG4g==}
     engines: {node: '>=6 <7 || >=8'}
-
-  fsevents@2.3.2:
-    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
-    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
-    os: [darwin]
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -3541,9 +3536,7 @@ snapshots:
       '@aws-cdk/cloud-assembly-schema': 48.20.0
       constructs: 10.6.0
 
-  aws-cdk@2.1031.0:
-    optionalDependencies:
-      fsevents: 2.3.2
+  aws-cdk@2.1115.0: {}
 
   aws4@1.13.2: {}
 
@@ -3821,9 +3814,6 @@ snapshots:
       graceful-fs: 4.2.11
       jsonfile: 4.0.0
       universalify: 0.1.2
-
-  fsevents@2.3.2:
-    optional: true
 
   fsevents@2.3.3:
     optional: true
