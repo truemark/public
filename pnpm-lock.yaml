@@ -37,8 +37,8 @@ catalogs:
       specifier: ^22.19.2
       version: 22.19.11
     aws-cdk:
-      specifier: 2.1115.0
-      version: 2.1115.0
+      specifier: 2.1115.1
+      version: 2.1115.1
     aws-cdk-lib:
       specifier: 2.232.1
       version: 2.232.1
@@ -112,7 +112,7 @@ importers:
         version: 22.19.11
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1115.0
+        version: 2.1115.1
       esbuild:
         specifier: 'catalog:'
         version: 0.27.4
@@ -1194,8 +1194,8 @@ packages:
       - yaml
       - mime-types
 
-  aws-cdk@2.1115.0:
-    resolution: {integrity: sha512-PpNNflDt1L2TxpMh2h7cPHnFkDVeY1hwIxuGuvswS08mA0syOT4OmZx8hZYdcLru6NceCsn0x/7uTHpb6Hzo5A==}
+  aws-cdk@2.1115.1:
+    resolution: {integrity: sha512-6vvSuHTq5FKClXIIXXvbmdYkzG+I6Ij80iXyg3Oky3+FZn+lYgYlM3RCS9gLWyJLhgcOhwB8jQpy6593OlbQcw==}
     engines: {node: '>= 18.0.0'}
     hasBin: true
 
@@ -3297,7 +3297,7 @@ snapshots:
       '@aws-cdk/cloud-assembly-schema': 48.20.0
       constructs: 10.6.0
 
-  aws-cdk@2.1115.0: {}
+  aws-cdk@2.1115.1: {}
 
   aws4@1.13.2: {}
 
