@@ -20,7 +20,7 @@ catalog:
   "aws-cdk-lib": "2.232.1"
   "cdk-monitoring-constructs": "9.22.2"
   "constructs": "^10.6.0"
-  "esbuild": "^0.27.4"
+  "esbuild": "^0.27.5"
   "eslint": "^9.39.4"
   "prettier": "^3.8.1"
   "ts-node": "^10.9.2"
