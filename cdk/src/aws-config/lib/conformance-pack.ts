@@ -115,9 +115,10 @@ export class ConformancePack extends Construct {
   public readonly conformancePackName: string;
 
   /**
-   * The ARN of the conformance pack.
+   * The name of the conformance pack (CloudFormation Ref returns the name, not ARN).
+   * Use this as the logical ID for the conformance pack.
    */
-  public readonly conformancePackArn: string;
+  public readonly conformancePackId: string;
 
   constructor(scope: Construct, id: string, props: ConformancePackProps) {
     super(scope, id);
@@ -253,6 +254,6 @@ function sendResponse(event, responseStatus, responseData, reason) {
       });
     }
 
-    this.conformancePackArn = this.conformancePack.ref;
+    this.conformancePackId = this.conformancePack.ref;
   }
 }

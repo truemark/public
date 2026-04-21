@@ -54,6 +54,15 @@ export class ConfigRecorder extends Construct {
   constructor(scope: Construct, id: string, props: ConfigRecorderProps) {
     super(scope, id);
 
+    // Validate recordAllSupported configuration
+    if (props.recordAllSupported === false) {
+      throw new Error(
+        'When recordAllSupported is false, you must specify which resource types to record. ' +
+          'This is not yet supported by this construct. Please use recordAllSupported: true ' +
+          'or use CfnConfigurationRecorder directly with custom recordingGroup configuration.',
+      );
+    }
+
     this.recorderName = props.recorderName ?? 'default';
 
     this.recorder = new CfnConfigurationRecorder(this, 'Resource', {
