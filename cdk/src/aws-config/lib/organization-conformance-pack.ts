@@ -9,78 +9,12 @@ import {
   Code,
   Function as LambdaFunction,
 } from 'aws-cdk-lib/aws-lambda';
-import {ConformancePackInputParameters} from './conformance-pack';
+import {ConformancePackProps} from './conformance-pack';
 
 /**
  * Properties for OrganizationConformancePack construct.
  */
-export interface OrganizationConformancePackProps {
-  /**
-   * The name of the conformance pack. This should be one of the predefined
-   * pack names from CONFORMANCE_PACK_TEMPLATES or a custom name if providing
-   * a custom template.
-   */
-  readonly packName: string;
-
-  /**
-   * Optional prefix to add to the conformance pack name.
-   * @default - No prefix
-   */
-  readonly packNamePrefix?: string;
-
-  /**
-   * Custom template body for the conformance pack.
-   * If not provided, the template will be fetched from AWS Labs repository
-   * based on the packName.
-   * @default - Fetches template from AWS Labs repository
-   */
-  readonly templateBody?: string;
-
-  /**
-   * Template URL for the conformance pack.
-   * If not provided and templateBody is not provided, it will be constructed
-   * from the packName.
-   * @default - Constructed from packName
-   */
-  readonly templateS3Uri?: string;
-
-  /**
-   * Template version to use (commit hash, tag, or 'latest').
-   * Only used if templateBody is not provided.
-   * @default 'latest'
-   */
-  readonly templateVersion?: string;
-
-  /**
-   * Base URL for the conformance pack templates repository.
-   * @default 'https://raw.githubusercontent.com/awslabs/aws-config-rules'
-   */
-  readonly templateRepositoryUrl?: string;
-
-  /**
-   * Input parameters for the conformance pack.
-   * @default - No input parameters
-   */
-  readonly inputParameters?: ConformancePackInputParameters;
-
-  /**
-   * S3 bucket for AWS Config delivery.
-   * @default - No S3 bucket for delivery
-   */
-  readonly deliveryBucket?: IBucket;
-
-  /**
-   * Name of the S3 bucket for AWS Config delivery.
-   * @default - No S3 bucket for delivery
-   */
-  readonly deliveryBucketName?: string;
-
-  /**
-   * S3 key prefix for AWS Config delivery channel.
-   * @default 'config'
-   */
-  readonly deliveryS3KeyPrefix?: string;
-
+export interface OrganizationConformancePackProps extends ConformancePackProps {
   /**
    * AWS accounts to exclude from the conformance pack.
    * @default - No excluded accounts
