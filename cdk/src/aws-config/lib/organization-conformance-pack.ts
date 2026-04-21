@@ -1,6 +1,5 @@
 import {Construct} from 'constructs';
 import {CfnOrganizationConformancePack} from 'aws-cdk-lib/aws-config';
-import {IBucket} from 'aws-cdk-lib/aws-s3';
 import {getConformancePackTemplateUrl} from './conformance-pack-templates';
 import {CustomResource, Duration} from 'aws-cdk-lib';
 import {Provider} from 'aws-cdk-lib/custom-resources';
