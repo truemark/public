@@ -138,8 +138,8 @@ export class ConformancePack extends Construct {
     const deliveryBucketName =
       props.deliveryBucket?.bucketName ?? props.deliveryBucketName;
 
-    // If no template body is provided, we need to fetch it
-    if (!props.templateBody) {
+    // If no template body is provided, use templateS3Uri directly or fetch it
+    if (!props.templateBody && !props.templateS3Uri) {
       // Create a custom resource to fetch the template
       const fetchTemplateLambda = new LambdaFunction(this, 'FetchTemplate', {
         runtime: Runtime.NODEJS_20_X,
@@ -229,11 +229,22 @@ function sendResponse(event, responseStatus, responseData, reason) {
       });
 
       this.conformancePack.node.addDependency(fetchedTemplate);
-    } else {
+    } else if (props.templateBody) {
       // Use provided template body directly
       this.conformancePack = new CfnConformancePack(this, 'Resource', {
         conformancePackName: this.conformancePackName,
         templateBody: props.templateBody,
+        deliveryS3Bucket: deliveryBucketName,
+        deliveryS3KeyPrefix: deliveryBucketName
+          ? (props.deliveryS3KeyPrefix ?? 'config')
+          : undefined,
+        conformancePackInputParameters: inputParameters,
+      });
+    } else {
+      // Use templateS3Uri directly
+      this.conformancePack = new CfnConformancePack(this, 'Resource', {
+        conformancePackName: this.conformancePackName,
+        templateS3Uri: props.templateS3Uri,
         deliveryS3Bucket: deliveryBucketName,
         deliveryS3KeyPrefix: deliveryBucketName
           ? (props.deliveryS3KeyPrefix ?? 'config')
