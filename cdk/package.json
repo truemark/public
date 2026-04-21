@@ -27,6 +27,9 @@
       "aws-codepipeline": [
         "./dist/aws-codepipeline/index.d.ts"
       ],
+      "aws-config": [
+        "./dist/aws-config/index.d.ts"
+      ],
       "aws-dynamodb": [
         "./dist/aws-dynamodb/index.d.ts"
       ],
@@ -154,6 +157,10 @@
     "./aws-codepipeline": {
       "types": "./dist/aws-codepipeline/index.d.ts",
       "default": "./dist/aws-codepipeline/index.js"
+    },
+    "./aws-config": {
+      "types": "./dist/aws-config/index.d.ts",
+      "default": "./dist/aws-config/index.js"
     },
     "./aws-dynamodb": {
       "types": "./dist/aws-dynamodb/index.d.ts",
