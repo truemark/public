@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.22.14
+### Patch Changes
+
+- 1bba7dc: Fixed issues with gitPushFilter
+
 ## 1.22.13
 ### Patch Changes
 
