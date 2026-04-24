@@ -548,27 +548,45 @@ export class CdkPipeline extends Construct {
 
     // Apply GitPushFilter if provided
     if (props.gitPushFilter && props.gitPushFilter.length > 0) {
+      if (props.connectionArn === undefined) {
+        throw new Error(
+          'gitPushFilter is only supported when a CodeStar connection is used (set connectionArn).',
+        );
+      }
       const cfnPipeline = underlyingPipeline.node.defaultChild as CfnPipeline;
-      cfnPipeline.addPropertyOverride(
-        'Stages.0.Actions.0.Configuration.TriggerConfiguration.GitConfiguration.Push',
-        props.gitPushFilter.map((filter) => ({
-          Branches: filter.branchesIncludes
-            ? {Includes: filter.branchesIncludes}
-            : filter.branchesExcludes
-              ? {Excludes: filter.branchesExcludes}
-              : undefined,
-          FilePaths: filter.filePathsIncludes
-            ? {Includes: filter.filePathsIncludes}
-            : filter.filePathsExcludes
-              ? {Excludes: filter.filePathsExcludes}
-              : undefined,
-          Tags: filter.tagsIncludes
-            ? {Includes: filter.tagsIncludes}
-            : filter.tagsExcludes
-              ? {Excludes: filter.tagsExcludes}
-              : undefined,
-        })),
+      const sourceActionName = props.repository.replace(
+        /[^A-Za-z0-9.@\-_]+/g,
+        '_',
       );
+      const criteria = (
+        includes: string[] | undefined,
+        excludes: string[] | undefined,
+      ) =>
+        includes?.length || excludes?.length
+          ? {
+              Includes: includes?.length ? includes : undefined,
+              Excludes: excludes?.length ? excludes : undefined,
+            }
+          : undefined;
+      cfnPipeline.addPropertyOverride('Triggers', [
+        {
+          ProviderType: 'CodeStarSourceConnection',
+          GitConfiguration: {
+            SourceActionName: sourceActionName,
+            Push: props.gitPushFilter.map((filter) => ({
+              Branches: criteria(
+                filter.branchesIncludes,
+                filter.branchesExcludes,
+              ),
+              FilePaths: criteria(
+                filter.filePathsIncludes,
+                filter.filePathsExcludes,
+              ),
+              Tags: criteria(filter.tagsIncludes, filter.tagsExcludes),
+            })),
+          },
+        },
+      ]);
     }
 
     // Handle pipeline notifications
