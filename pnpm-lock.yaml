@@ -43,8 +43,8 @@ catalogs:
       specifier: 2.232.1
       version: 2.232.1
     cdk-monitoring-constructs:
-      specifier: 9.23.0
-      version: 9.23.0
+      specifier: 10.0.0
+      version: 10.0.0
     constructs:
       specifier: ^10.6.0
       version: 10.6.0
@@ -157,7 +157,7 @@ importers:
         version: 2.232.1(constructs@10.6.0)
       cdk-monitoring-constructs:
         specifier: 'catalog:'
-        version: 9.23.0(aws-cdk-lib@2.232.1(constructs@10.6.0))(constructs@10.6.0)
+        version: 10.0.0(aws-cdk-lib@2.232.1(constructs@10.6.0))(constructs@10.6.0)
       constructs:
         specifier: 'catalog:'
         version: 10.6.0
@@ -1533,8 +1533,8 @@ packages:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
 
-  cdk-monitoring-constructs@9.23.0:
-    resolution: {integrity: sha512-ny3oKFL0YhdSt2dvXPa8bpzCsTqKPmVcjour8t+Pn1vjg4XRAtJix5ZCUtdhTr4xR44OQSaHIum1jjNn6wPhRg==}
+  cdk-monitoring-constructs@10.0.0:
+    resolution: {integrity: sha512-bYvletF/CavpoQGQhKiJBa7w1cUoiB535fOPcd8oeL5MGtvXxUZeGl85RKlNcki5KjQ0dpCnUO7Uo4eZKIkVZA==}
     peerDependencies:
       aws-cdk-lib: ^2.160.0
       constructs: ^10.0.5
@@ -3802,7 +3802,7 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk-monitoring-constructs@9.23.0(aws-cdk-lib@2.232.1(constructs@10.6.0))(constructs@10.6.0):
+  cdk-monitoring-constructs@10.0.0(aws-cdk-lib@2.232.1(constructs@10.6.0))(constructs@10.6.0):
     dependencies:
       aws-cdk-lib: 2.232.1(constructs@10.6.0)
       constructs: 10.6.0
