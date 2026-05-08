@@ -15,6 +15,7 @@ export * as aws_ses from './aws-ses/index';
 export * as aws_sqs from './aws-sqs/index';
 export * as aws_ssm from './aws-ssm/index';
 export * as aws_vpc from './aws-vpc/index';
+export * as aws_patterns_workspaces from './aws-patterns-workspaces/index';
 export * as domain_redirect from './aws-patterns-domain-redirect/index';
 export * as aws_wafv2 from './aws-wafv2/index';
 export * as website from './aws-patterns-website/index';

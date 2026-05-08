@@ -1,5 +1,6 @@
 packages:
   - 'autobackup'
+  - 'blueprints/aws-workspaces'
   - 'cdk'
   - '!**/cdk.out/**'
   - '!**/dist/**'
