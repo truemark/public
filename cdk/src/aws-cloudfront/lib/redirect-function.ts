@@ -11,6 +11,15 @@ export type NoFileIndexBehavior = 'None' | 'ForwardToIndex' | 'RedirectToSlash';
 
 export type RobotsBehavior = 'None' | 'Allow' | 'Disallow';
 
+/**
+ * Controls redirecting between the apex domain and the "www" subdomain.
+ *
+ * - "None" - no redirect is performed.
+ * - "RedirectToApex" - requests to "www.example.com" are redirected to "example.com".
+ * - "RedirectToWww" - requests to "example.com" are redirected to "www.example.com".
+ */
+export type WwwRedirectBehavior = 'None' | 'RedirectToApex' | 'RedirectToWww';
+
 export interface RedirectFunctionProps {
   /**
    * Optional domain to redirect to if the host header does not match.
@@ -42,6 +51,16 @@ export interface RedirectFunctionProps {
    * Sets the behavior for /robots.txt requests. Default is "Allow".
    */
   readonly robotsBehavior?: RobotsBehavior;
+
+  /**
+   * Redirects between the apex domain and the "www" subdomain. Default is "None".
+   *
+   * Note that this is evaluated before `apexDomain`. Generally only one of
+   * `wwwRedirectBehavior` or `apexDomain` should be set.
+   *
+   * @default "None"
+   */
+  readonly wwwRedirectBehavior?: WwwRedirectBehavior;
 }
 
 export class RedirectFunction extends Function {
@@ -52,6 +71,24 @@ export class RedirectFunction extends Function {
 function handler(event) {
   var host = event.request.headers.host.value;
   var uri = event.request.uri;
+  if ("WWW_REDIRECT_BEHAVIOR" === "RedirectToApex" && host.startsWith("www.")) {
+    return {
+      statusCode: 301,
+      statusDescription: "Permanently moved",
+      headers: {
+        "location": { "value": "https://" + host.substring(4) + uri }
+      }
+    }
+  }
+  if ("WWW_REDIRECT_BEHAVIOR" === "RedirectToWww" && !host.startsWith("www.")) {
+    return {
+      statusCode: 301,
+      statusDescription: "Permanently moved",
+      headers: {
+        "location": { "value": "https://www." + host + uri }
+      }
+    }
+  }
   if ("APEX_DOMAIN" !== "" && host !== "APEX_DOMAIN") {
     return {
       statusCode: 301,
@@ -120,7 +157,11 @@ function handler(event) {
             /TRAILING_SLASH_BEHAVIOR/g,
             props.trailingSlashBehavior ?? 'ForwardToIndex',
           )
-          .replace(/ROBOTS_BEHAVIOR/g, props.robotsBehavior ?? 'Allow'),
+          .replace(/ROBOTS_BEHAVIOR/g, props.robotsBehavior ?? 'Allow')
+          .replace(
+            /WWW_REDIRECT_BEHAVIOR/g,
+            props.wwwRedirectBehavior ?? 'None',
+          ),
       ),
     });
   }
