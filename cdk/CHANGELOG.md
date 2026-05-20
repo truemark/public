@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.23.0
+### Minor Changes
+
+- 419ecdd: Updated dependencies, replaced eslint and refactored code for updates
+
 ## 1.22.15
 ### Patch Changes
 
