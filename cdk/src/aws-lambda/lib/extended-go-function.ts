@@ -1,22 +1,21 @@
-import {FunctionAlarms, FunctionAlarmsOptions} from './function-alarms';
-import {FunctionDeployment} from './function-deployment';
-import {Construct} from 'constructs';
-import {DeployedFunctionOptions} from './extended-function';
-import {GoFunction, GoFunctionProps} from '@aws-cdk/aws-lambda-go-alpha';
-import {Architecture, LoggingFormat, Runtime} from 'aws-cdk-lib/aws-lambda';
+import * as process from 'node:process';
+import {GoFunction, type GoFunctionProps} from '@aws-cdk/aws-lambda-go-alpha';
 import {Duration} from 'aws-cdk-lib';
-import * as process from 'process';
+import {Architecture, LoggingFormat, Runtime} from 'aws-cdk-lib/aws-lambda';
+import type {Construct} from 'constructs';
+import type {DeployedFunctionOptions} from './extended-function';
+import {FunctionAlarms, type FunctionAlarmsOptions} from './function-alarms';
+import {FunctionDeployment} from './function-deployment';
 import {
   configureLogGroupForFunction,
-  FunctionLogOptions,
+  type FunctionLogOptions,
 } from './function-log-options';
 
 /**
  * Properties for ExtendedGoFunction.
  */
 export interface ExtendedGoFunctionProps
-  extends
-    GoFunctionProps,
+  extends GoFunctionProps,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
     FunctionLogOptions {}
@@ -50,9 +49,9 @@ export class ExtendedGoFunction extends GoFunction {
     });
 
     this.alarms = new FunctionAlarms(this, 'Alarms', {
+      ...props,
       function: this,
       logGroup: this.logGroup,
-      ...props,
     });
 
     if (props.deploymentOptions?.createDeployment ?? false) {

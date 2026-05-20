@@ -1,34 +1,38 @@
-import {Construct} from 'constructs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {ArnFormat, RemovalPolicy, Stack} from 'aws-cdk-lib';
+import {
+  SecurityGroup,
+  type SubnetSelection,
+  SubnetType,
+} from 'aws-cdk-lib/aws-ec2';
 import {
   ContainerImage,
   CpuArchitecture,
   FargateTaskDefinition,
-  ICluster,
+  type ICluster,
   LogDriver,
   OperatingSystemFamily,
   Secret,
 } from 'aws-cdk-lib/aws-ecs';
-import {StringParameter} from 'aws-cdk-lib/aws-ssm';
-import {LogConfiguration} from './log-configuration';
-import {SecurityGroup, SubnetSelection, SubnetType} from 'aws-cdk-lib/aws-ec2';
-import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
-import {ArnFormat, RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {
-  Role,
+  type IPrincipal,
+  type IRole,
   PolicyStatement,
+  Role,
   ServicePrincipal,
-  IRole,
-  IPrincipal,
 } from 'aws-cdk-lib/aws-iam';
+import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
+import {StringParameter} from 'aws-cdk-lib/aws-ssm';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
-import * as path from 'node:path';
-import * as fs from 'fs';
-import {OtelConfig} from './otel-configuration';
+import type {LogConfiguration} from './log-configuration';
+import type {OtelConfig} from './otel-configuration';
 
 /**
  * Properties for StandardFargateRunTask.
@@ -241,7 +245,7 @@ export class StandardFargateRunTask extends ExtendedConstruct {
   }
 
   protected resolveVpcSubnets(
-    scope: Construct,
+    _scope: Construct,
     props: StandardFargateRunTaskProps,
   ): SubnetSelection {
     if (props.vpcSubnets === undefined) {
@@ -306,7 +310,7 @@ export class StandardFargateRunTask extends ExtendedConstruct {
 
     // Add Otel container if enabled
     const otel = props.otel;
-    if (otel && otel.enabled) {
+    if (otel?.enabled) {
       let otelConfigPathLocal: string;
       if (otel.configPath) {
         otelConfigPathLocal = otel.configPath;

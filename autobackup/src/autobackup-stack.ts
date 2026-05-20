@@ -1,5 +1,5 @@
-import {Construct} from 'constructs';
-import {ExtendedStack, ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
+import type {Construct} from 'constructs';
+import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {AutoBackup} from 'truemark-cdk-lib/aws-patterns-autobackup';
 
 export class AutoBackupStack extends ExtendedStack {

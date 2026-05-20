@@ -1,6 +1,10 @@
-import {ARecord, ARecordProps, CfnRecordSet} from 'aws-cdk-lib/aws-route53';
-import {Construct} from 'constructs';
 import {Stack} from 'aws-cdk-lib';
+import {
+  ARecord,
+  type ARecordProps,
+  type CfnRecordSet,
+} from 'aws-cdk-lib/aws-route53';
+import type {Construct} from 'constructs';
 
 /**
  * Options for WeightedARecord
@@ -30,7 +34,8 @@ export interface WeightedARecordOptions {
  * Properties for WeightedARecord.
  */
 export interface WeightedARecordProps
-  extends ARecordProps, WeightedARecordOptions {}
+  extends ARecordProps,
+    WeightedARecordOptions {}
 
 /**
  * An extended ARecord that performs weight based routing.

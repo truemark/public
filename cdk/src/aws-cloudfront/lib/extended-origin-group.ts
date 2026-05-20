@@ -1,7 +1,7 @@
-import {IOrigin} from 'aws-cdk-lib/aws-cloudfront';
+import type {IOrigin} from 'aws-cdk-lib/aws-cloudfront';
 import {
   OriginGroup,
-  OriginGroupProps,
+  type OriginGroupProps,
 } from 'aws-cdk-lib/aws-cloudfront-origins';
 
 export class ExtendedOriginGroup extends OriginGroup {

@@ -1,13 +1,13 @@
-import {Construct} from 'constructs';
-import {CfnSubscription, Topic} from 'aws-cdk-lib/aws-sns';
-import {Alias, IKey} from 'aws-cdk-lib/aws-kms';
-import {StandardQueue} from '../../aws-sqs/index';
 import {AnyPrincipal, Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
+import {Alias, type IKey} from 'aws-cdk-lib/aws-kms';
+import {CfnSubscription, Topic} from 'aws-cdk-lib/aws-sns';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk/index';
+import {StandardQueue} from '../../aws-sqs/index';
 import {LibStandardTags} from '../../truemark';
 
 /**

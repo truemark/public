@@ -1,14 +1,14 @@
-import {mkdirSync, writeFileSync} from 'fs';
-import {join} from 'path';
-import {Construct} from 'constructs';
+import {mkdirSync, writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {
-  LayerVersion,
-  ILayerVersion,
   Architecture,
   Code,
+  type ILayerVersion,
+  LayerVersion,
 } from 'aws-cdk-lib/aws-lambda';
 import {StringParameter} from 'aws-cdk-lib/aws-ssm';
-import {RemovalPolicy, Stack} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
 
 export const DEFAULT_APPLICATION_METRICS_NAMESPACE = 'TrueMark/Otel';
 

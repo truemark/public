@@ -1,12 +1,12 @@
-import {ExtendedTablePropsV2, ExtendedTableV2} from './extended-table-v2';
-import {Construct} from 'constructs';
-import {
-  Attribute,
-  AttributeType,
-  Capacity,
-  GlobalSecondaryIndexPropsV2,
-} from 'aws-cdk-lib/aws-dynamodb';
 import {RemovalPolicy} from 'aws-cdk-lib';
+import {
+  type Attribute,
+  AttributeType,
+  type Capacity,
+  type GlobalSecondaryIndexPropsV2,
+} from 'aws-cdk-lib/aws-dynamodb';
+import type {Construct} from 'constructs';
+import {type ExtendedTablePropsV2, ExtendedTableV2} from './extended-table-v2';
 
 type StandardGlobalSecondaryIndexPropsV2 = Partial<GlobalSecondaryIndexPropsV2>;
 
@@ -15,10 +15,8 @@ type StandardTablePropsV2OmitFields =
   | 'sortKey'
   | 'globalSecondaryIndexes';
 
-export interface StandardTablePropsV2 extends Omit<
-  ExtendedTablePropsV2,
-  StandardTablePropsV2OmitFields
-> {
+export interface StandardTablePropsV2
+  extends Omit<ExtendedTablePropsV2, StandardTablePropsV2OmitFields> {
   /**
    * Setting this to true will suppress the creation of default tags on resources
    * created by this construct. Default is false.

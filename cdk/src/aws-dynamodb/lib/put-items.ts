@@ -1,9 +1,9 @@
-import {Duration} from 'aws-cdk-lib';
-import {Construct} from 'constructs';
+import type {Duration} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
 import {
   BatchWriteItem,
-  BatchWriteItemRequest,
-  BatchWriteItemRequestItems,
+  type BatchWriteItemRequest,
+  type BatchWriteItemRequestItems,
 } from './batch-write-item';
 
 /**

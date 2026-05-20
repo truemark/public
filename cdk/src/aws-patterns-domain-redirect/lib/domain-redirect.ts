@@ -1,30 +1,30 @@
-import {Construct} from 'constructs';
 import {
   Certificate,
   CertificateValidation,
 } from 'aws-cdk-lib/aws-certificatemanager';
-import {HttpOrigin} from 'aws-cdk-lib/aws-cloudfront-origins';
 import {
   AllowedMethods,
   CachedMethods,
   CachePolicy,
-  Distribution,
+  type Distribution,
   Function,
   FunctionCode,
   FunctionEventType,
   OriginRequestPolicy,
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
+import {HttpOrigin} from 'aws-cdk-lib/aws-cloudfront-origins';
+import {type ARecord, RecordTarget} from 'aws-cdk-lib/aws-route53';
 import {CloudFrontTarget} from 'aws-cdk-lib/aws-route53-targets';
-import {ARecord, RecordTarget} from 'aws-cdk-lib/aws-route53';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk/index';
+import {DistributionBuilder} from '../../aws-cloudfront/index';
 import {DomainName} from '../../aws-route53/index';
 import {LibStandardTags} from '../../truemark';
-import {DistributionBuilder} from '../../aws-cloudfront/index';
 
 export enum RedirectType {
   Permanent = 301,
@@ -105,8 +105,8 @@ function handler(event) {
     headers: {
         "location": { "value": ${
           props.appendUri
-            ? '"' + props.target + '" + event.request.uri'
-            : '"' + props.target + '"'
+            ? `"${props.target}" + event.request.uri`
+            : `"${props.target}"`
         }}
     }
   }

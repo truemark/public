@@ -1,42 +1,46 @@
-import {Construct} from 'constructs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {Duration, RemovalPolicy, Stack} from 'aws-cdk-lib';
+import type {ScalingSchedule} from 'aws-cdk-lib/aws-applicationautoscaling';
+import type {BasicStepScalingPolicyProps} from 'aws-cdk-lib/aws-autoscaling';
+import type {IMetric} from 'aws-cdk-lib/aws-cloudwatch';
 import {
-  CapacityProviderStrategy,
+  SecurityGroup,
+  type SubnetSelection,
+  SubnetType,
+} from 'aws-cdk-lib/aws-ec2';
+import {
+  type CapacityProviderStrategy,
   ContainerImage,
   CpuArchitecture,
   DeploymentControllerType,
   FargatePlatformVersion,
   FargateService,
   FargateTaskDefinition,
-  ICluster,
+  type ICluster,
   LogDriver,
   OperatingSystemFamily,
   Protocol,
-  ScalableTaskCount,
+  type ScalableTaskCount,
   Secret,
 } from 'aws-cdk-lib/aws-ecs';
-import {StringParameter} from 'aws-cdk-lib/aws-ssm';
-import {LogConfiguration} from './log-configuration';
-import {SecurityGroup, SubnetSelection, SubnetType} from 'aws-cdk-lib/aws-ec2';
-import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
-import {Duration, RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {
-  Role,
+  type IRole,
   PolicyStatement,
+  Role,
   ServicePrincipal,
-  IRole,
 } from 'aws-cdk-lib/aws-iam';
-import {BasicStepScalingPolicyProps} from 'aws-cdk-lib/aws-autoscaling';
-import {IMetric} from 'aws-cdk-lib/aws-cloudwatch';
-import {ScalingSchedule} from 'aws-cdk-lib/aws-applicationautoscaling';
+import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
+import {StringParameter} from 'aws-cdk-lib/aws-ssm';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk/index';
 import {LibStandardTags} from '../../truemark';
-import * as path from 'node:path';
-import * as fs from 'fs';
-import {OtelConfig} from './otel-configuration';
+import type {LogConfiguration} from './log-configuration';
+import type {OtelConfig} from './otel-configuration';
 
 /**
  * Properties for StandardFargateService.
@@ -360,7 +364,7 @@ export class StandardFargateService extends ExtendedConstruct {
   }
 
   protected resolveVpcSubnets(
-    scope: Construct,
+    _scope: Construct,
     props: StandardFargateServiceProps,
   ): SubnetSelection {
     if (props.vpcSubnets === undefined) {
@@ -457,7 +461,7 @@ export class StandardFargateService extends ExtendedConstruct {
 
     // Add Otel container if enabled
     const otel = props.otel;
-    if (otel && otel.enabled) {
+    if (otel?.enabled) {
       let otelConfigPathLocal: string;
       if (otel.configPath) {
         otelConfigPathLocal = otel.configPath;

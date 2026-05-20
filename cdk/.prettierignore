@@ -1,8 +1,0 @@
-.editorconfig
-.idea
-.github
-pnpm-lock.yaml
-test-files
-README_OTEL.md
-CHANGELOG.md
-.changeset

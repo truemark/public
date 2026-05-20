@@ -1,14 +1,17 @@
-import {Construct} from 'constructs';
 import {
-  DockerImage,
-  ILocalBundling,
-  BundlingOptions,
+  type BundlingOptions,
   BundlingOutput,
+  type DockerImage,
+  type ILocalBundling,
 } from 'aws-cdk-lib';
+import {Code, type FunctionOptions, type Runtime} from 'aws-cdk-lib/aws-lambda';
+import type {Construct} from 'constructs';
 import {ShellHelper} from '../../helpers/index';
-import {Code, FunctionOptions, Runtime} from 'aws-cdk-lib/aws-lambda';
-import {FunctionAlarmsOptions} from './function-alarms';
-import {DeployedFunctionOptions, ExtendedFunction} from './extended-function';
+import {
+  type DeployedFunctionOptions,
+  ExtendedFunction,
+} from './extended-function';
+import type {FunctionAlarmsOptions} from './function-alarms';
 
 /**
  * Options for BundledFunction.
@@ -60,8 +63,7 @@ export interface StandardFunctionOptions {
  * Properties for BundledFunction
  */
 export interface BundledFunctionProps
-  extends
-    FunctionOptions,
+  extends FunctionOptions,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
     StandardFunctionOptions {

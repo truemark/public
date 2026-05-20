@@ -1,7 +1,7 @@
+import * as crypto from 'node:crypto';
+import {defaultProvider} from '@aws-sdk/credential-provider-node';
 import {Client} from '@opensearch-project/opensearch';
 import {AwsSigv4Signer} from '@opensearch-project/opensearch/aws';
-import {defaultProvider} from '@aws-sdk/credential-provider-node';
-import * as crypto from 'crypto';
 
 // See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref-requests.html
 interface CustomResourceEvent {
@@ -77,14 +77,15 @@ export async function handler(
   // Initialize variables
   const endpoint = event.ResourceProperties.openSearchEndpoint;
   const indexName = event.ResourceProperties.indexName;
-  const physicalResourceId = hash(endpoint + '/' + indexName);
+  const physicalResourceId = hash(`${endpoint}/${indexName}`);
   const metadataFieldName = event.ResourceProperties.metadataFieldName;
   const textFieldName = event.ResourceProperties.textFieldName;
   const vectorFieldName = event.ResourceProperties.vectorFieldName;
   const vectorFieldDimension = parseInt(
     event.ResourceProperties.vectorFieldDimension,
+    10,
   );
-  if (isNaN(vectorFieldDimension)) {
+  if (Number.isNaN(vectorFieldDimension)) {
     console.error('vectorFieldDimension must be a number');
     return fail(
       event,
@@ -93,7 +94,7 @@ export async function handler(
       indexName,
     );
   }
-  const region = process.env['AWS_REGION'];
+  const region = process.env.AWS_REGION;
   if (!region) {
     console.error('AWS_REGION environment variable is required');
     return fail(
@@ -194,7 +195,7 @@ export async function handler(
             return fail(event, physicalResourceId, e.message, indexName);
           }
         } else {
-          return fail(event, physicalResourceId, 'Error: ' + e, indexName);
+          return fail(event, physicalResourceId, `Error: ${e}`, indexName);
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -208,6 +209,6 @@ export async function handler(
   } catch (e) {
     return e instanceof Error
       ? fail(event, physicalResourceId, e.message, indexName)
-      : fail(event, physicalResourceId, 'Error: ' + e, indexName);
+      : fail(event, physicalResourceId, `Error: ${e}`, indexName);
   }
 }

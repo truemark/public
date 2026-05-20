@@ -1,11 +1,11 @@
-import {Construct} from 'constructs';
 import {Duration, Stack} from 'aws-cdk-lib';
+import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {
   AwsCustomResource,
-  AwsSdkCall,
+  type AwsSdkCall,
   PhysicalResourceId,
 } from 'aws-cdk-lib/custom-resources';
-import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
+import {Construct} from 'constructs';
 import {configureLogGroupForFunction} from '../../aws-lambda/lib/function-log-options';
 
 export type BatchWriteItemKey = {

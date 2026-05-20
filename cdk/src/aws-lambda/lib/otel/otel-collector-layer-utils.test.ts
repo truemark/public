@@ -1,7 +1,7 @@
-import {describe, it, expect, beforeEach, vi} from 'vitest';
+import * as fs from 'node:fs';
 import {App, Stack} from 'aws-cdk-lib';
 import {StringParameter} from 'aws-cdk-lib/aws-ssm';
-import * as fs from 'fs';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {initializeOtelConfigDataFromSSM} from './otel-collector-layer-utils';
 
 vi.mock('aws-cdk-lib/aws-ssm', () => ({

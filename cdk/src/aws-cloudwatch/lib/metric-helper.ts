@@ -1,5 +1,5 @@
-import {Metric} from 'aws-cdk-lib/aws-cloudwatch';
 import {Duration} from 'aws-cdk-lib';
+import {Metric} from 'aws-cdk-lib/aws-cloudwatch';
 
 export class MetricHelper {
   static billingEstimatedCharges(): Metric {

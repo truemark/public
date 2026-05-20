@@ -1,19 +1,19 @@
-import {test, expect} from 'vitest';
-import {ExtendedRecordTarget, LatencyARecord, WeightedARecord} from '../index';
 import {
-  AliasRecordTargetConfig,
+  type AliasRecordTargetConfig,
   ARecord,
-  CfnRecordSet,
+  type CfnRecordSet,
   HostedZone,
-  IAliasRecordTarget,
-  IHostedZone,
-  IRecordSet,
+  type IAliasRecordTarget,
+  type IHostedZone,
+  type IRecordSet,
 } from 'aws-cdk-lib/aws-route53';
+import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
+import {ExtendedRecordTarget, LatencyARecord, WeightedARecord} from '../index';
 
 class TestAliasRecordTarget implements IAliasRecordTarget {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  bind(record: IRecordSet, zone?: IHostedZone): AliasRecordTargetConfig {
+  bind(_record: IRecordSet, _zone?: IHostedZone): AliasRecordTargetConfig {
     return {
       hostedZoneId: 'Z000000000000000O0000',
       dnsName: 'example',

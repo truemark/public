@@ -1,36 +1,38 @@
+import {createHash} from 'node:crypto';
 import {
   AllowedMethods,
-  BehaviorOptions,
+  type BehaviorOptions,
   CachedMethods,
   CachePolicy,
-  Distribution,
-  DistributionProps,
-  EdgeLambda,
-  FunctionAssociation,
+  type Distribution,
+  type DistributionProps,
+  type EdgeLambda,
+  type FunctionAssociation,
   FunctionEventType,
-  ICachePolicy,
-  IFunction,
-  IKeyGroup,
-  IOrigin,
-  IOriginRequestPolicy,
-  IResponseHeadersPolicy,
+  type ICachePolicy,
+  type IFunction,
+  type IKeyGroup,
+  type IOrigin,
+  type IOriginRequestPolicy,
+  type IResponseHeadersPolicy,
   OriginRequestPolicy,
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
-import {RedirectFunction, RedirectFunctionProps} from './redirect-function';
-import {DistributionBuilder} from './distribution-builder';
-import {IBucket} from 'aws-cdk-lib/aws-s3';
-import {CloudFrontBucket} from '../../aws-s3/index';
-import {StandardApiCachePolicy} from './standard-api-cache-policy';
-import {StandardApiOriginRequestPolicy} from './standard-api-origin-request-policy';
+import type {IBucket} from 'aws-cdk-lib/aws-s3';
 import {ExtendedConstruct} from '../../aws-cdk/index';
-import {DomainName} from '../../aws-route53/index';
+import type {DomainName} from '../../aws-route53/index';
+import type {CloudFrontBucket} from '../../aws-s3/index';
+import type {DistributionBuilder} from './distribution-builder';
 import {
   ExtendedOriginGroup,
   isExtendedOriginGroup,
 } from './extended-origin-group';
-
-import {createHash} from 'crypto';
+import {
+  RedirectFunction,
+  type RedirectFunctionProps,
+} from './redirect-function';
+import {StandardApiCachePolicy} from './standard-api-cache-policy';
+import {StandardApiOriginRequestPolicy} from './standard-api-origin-request-policy';
 
 function sha1sum(input: string): string {
   return createHash('sha1').update(input).digest('hex');

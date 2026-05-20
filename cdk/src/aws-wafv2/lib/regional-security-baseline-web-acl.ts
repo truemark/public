@@ -1,10 +1,10 @@
-import {Construct} from 'constructs/lib/construct';
 import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
 import {
   CfnLoggingConfiguration,
   CfnRuleGroup,
   CfnWebACL,
 } from 'aws-cdk-lib/aws-wafv2';
+import type {Construct} from 'constructs/lib/construct';
 import {ExtendedConstruct} from '../../aws-cdk/index';
 
 export type regionalBlockMode = 'count' | 'active';

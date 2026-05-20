@@ -1,7 +1,7 @@
 import {
-  ElasticLoadBalancingV2Client,
   DescribeRulesCommand,
   type DescribeRulesCommandOutput,
+  ElasticLoadBalancingV2Client,
 } from '@aws-sdk/client-elastic-load-balancing-v2';
 
 interface CustomResourceEvent {

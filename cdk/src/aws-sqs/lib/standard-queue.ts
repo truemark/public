@@ -1,34 +1,40 @@
-import {Construct} from 'constructs';
-import {Duration, RemovalPolicy, ResourceEnvironment, Stack} from 'aws-cdk-lib';
 import {
-  DeadLetterQueue,
-  IQueue,
-  QueueEncryption,
-  QueueReference,
-} from 'aws-cdk-lib/aws-sqs';
-import * as kms from 'aws-cdk-lib/aws-kms';
-import {QueueAlarmsOptions} from './queue-alarms';
-import {ExtendedQueue} from './extended-queue';
-import {MetricOptions, Metric} from 'aws-cdk-lib/aws-cloudwatch';
-import {
-  PolicyStatement,
+  Duration,
+  type RemovalPolicy,
+  type ResourceEnvironment,
+  Stack,
+} from 'aws-cdk-lib';
+import type {Metric, MetricOptions} from 'aws-cdk-lib/aws-cloudwatch';
+import type {
   AddToResourcePolicyResult,
-  IGrantable,
   Grant,
+  IGrantable,
+  PolicyStatement,
 } from 'aws-cdk-lib/aws-iam';
+import type * as kms from 'aws-cdk-lib/aws-kms';
+import {
+  type DeadLetterQueue,
+  type IQueue,
+  QueueEncryption,
+  type QueueReference,
+} from 'aws-cdk-lib/aws-sqs';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
+import {ExtendedQueue} from './extended-queue';
+import type {QueueAlarmsOptions} from './queue-alarms';
 import {StandardDeadLetterQueue} from './standard-dead-letter-queue';
 
 /**
  * Properties for a StandardQueue
  */
 export interface StandardQueueProps
-  extends QueueAlarmsOptions, ExtendedConstructProps {
+  extends QueueAlarmsOptions,
+    ExtendedConstructProps {
   /**
    * A name for the queue.
    *
@@ -211,7 +217,7 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
         props?.retentionPeriod ?? StandardQueue.DEFAULT_RETENTION_PERIOD,
       visibilityTimeout: props?.visibilityTimeout ?? Duration.seconds(30),
       alarmNamePrefix:
-        props?.alarmNamePrefix ?? Stack.of(this).stackName + '-' + id,
+        props?.alarmNamePrefix ?? `${Stack.of(this).stackName}-${id}`,
     });
 
     this.queueArn = this.queue.queueArn;

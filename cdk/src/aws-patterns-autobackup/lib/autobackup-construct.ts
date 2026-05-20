@@ -1,13 +1,13 @@
-import {Construct} from 'constructs';
+import {Duration} from 'aws-cdk-lib';
 import {
   BackupPlan,
   BackupPlanRule,
   BackupResource,
   BackupVault,
-  CfnBackupVault,
+  type CfnBackupVault,
 } from 'aws-cdk-lib/aws-backup';
-import {Duration} from 'aws-cdk-lib';
 import {Schedule} from 'aws-cdk-lib/aws-events';
+import type {Construct} from 'constructs';
 import {ExtendedConstruct} from '../../aws-cdk';
 
 export interface AutoBackupProps {

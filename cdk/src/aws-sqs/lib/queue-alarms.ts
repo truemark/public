@@ -1,12 +1,12 @@
-import {Duration} from 'aws-cdk-lib';
-import {Queue} from 'aws-cdk-lib/aws-sqs';
-import {Construct} from 'constructs';
+import type {Duration} from 'aws-cdk-lib';
+import {TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
+import type {Queue} from 'aws-cdk-lib/aws-sqs';
+import type {Construct} from 'constructs';
 import {
   AlarmsBase,
-  AlarmsCategoryOptions,
-  AlarmsOptions,
+  type AlarmsCategoryOptions,
+  type AlarmsOptions,
 } from '../../aws-monitoring/index';
-import {TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
 
 /**
  * Category options for CloudWatch alarms for Queues.
@@ -65,7 +65,8 @@ export interface QueueAlarmsCategoryOptions extends AlarmsCategoryOptions {
 /**
  * Options for CloudWatch alarms for Queues.
  */
-export interface QueueAlarmsOptions extends AlarmsOptions<QueueAlarmsCategoryOptions> {
+export interface QueueAlarmsOptions
+  extends AlarmsOptions<QueueAlarmsCategoryOptions> {
   /**
    * Flag to create alarms.
    *

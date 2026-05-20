@@ -1,6 +1,6 @@
-import {Stage, StageProps} from 'aws-cdk-lib';
-import {StandardTags, StandardTagsProps} from './standard-tags';
-import {Construct} from 'constructs';
+import {Stage, type StageProps} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
+import {StandardTags, type StandardTagsProps} from './standard-tags';
 
 export interface ExtendedStageOptions {
   readonly standardTags?: StandardTagsProps;

@@ -1,10 +1,10 @@
-import {test, expect} from 'vitest';
 import {Match, Template} from 'aws-cdk-lib/assertions';
+import {Vpc} from 'aws-cdk-lib/aws-ec2';
+import {Cluster, ContainerImage} from 'aws-cdk-lib/aws-ecs';
+import {Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
+import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {StandardFargateRunTask} from './standard-fargate-runtask';
-import {Cluster, ContainerImage} from 'aws-cdk-lib/aws-ecs';
-import {Vpc} from 'aws-cdk-lib/aws-ec2';
-import {Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
 
 test('Create StandardFargateRunTask with minimal configuration', () => {
   const stack = HelperTest.stack();

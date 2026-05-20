@@ -1,6 +1,10 @@
-import {ARecord, ARecordProps, CfnRecordSet} from 'aws-cdk-lib/aws-route53';
-import {Construct} from 'constructs';
 import {Stack} from 'aws-cdk-lib';
+import {
+  ARecord,
+  type ARecordProps,
+  type CfnRecordSet,
+} from 'aws-cdk-lib/aws-route53';
+import type {Construct} from 'constructs';
 
 /**
  * Options for LatencyARecord.
@@ -26,7 +30,8 @@ export interface LatencyARecordOptions {
  * Properties for LatencyARecord.
  */
 export interface LatencyARecordProps
-  extends ARecordProps, LatencyARecordOptions {}
+  extends ARecordProps,
+    LatencyARecordOptions {}
 
 /**
  * An extended ARecord that performs latency based routing.

@@ -1,5 +1,9 @@
+import {Match, Template} from 'aws-cdk-lib/assertions';
+import * as oam from 'aws-cdk-lib/aws-oam';
+import {Bucket} from 'aws-cdk-lib/aws-s3';
+import type {Construct} from 'constructs';
 import {test} from 'vitest';
-import {ResourceType, HelperTest} from '../../helper.test';
+import {HelperTest, ResourceType} from '../../helper.test';
 import {
   DataClassification,
   DataSensitivity,
@@ -8,10 +12,6 @@ import {
   ExtendedStack,
   ExtendedStage,
 } from '../index';
-import {Construct} from 'constructs';
-import {Match, Template} from 'aws-cdk-lib/assertions';
-import {Bucket} from 'aws-cdk-lib/aws-s3';
-import * as oam from 'aws-cdk-lib/aws-oam';
 
 class TestSubConstruct extends ExtendedConstruct {
   constructor(scope: Construct, id: string) {

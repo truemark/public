@@ -1,22 +1,27 @@
-import {Construct} from 'constructs';
-import {CorsRule} from 'aws-cdk-lib/aws-s3';
+import {Duration, RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {
-  IOrigin,
+  type IOrigin,
   S3OriginAccessControl,
   Signing,
 } from 'aws-cdk-lib/aws-cloudfront';
+import {S3BucketOrigin} from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import {
+  Effect,
+  type Grant,
+  type IGrantable,
+  PolicyStatement,
+} from 'aws-cdk-lib/aws-iam';
+import type {CorsRule} from 'aws-cdk-lib/aws-s3';
 import {CacheControl} from 'aws-cdk-lib/aws-s3-deployment';
-import {Duration, RemovalPolicy, Stack} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk/index';
 import {LibStandardTags} from '../../truemark';
-import {S3BucketOrigin} from 'aws-cdk-lib/aws-cloudfront-origins';
-import {Effect, Grant, IGrantable, PolicyStatement} from 'aws-cdk-lib/aws-iam';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import {BucketDeploymentConfig, ExtendedBucket} from './extended-bucket';
+import {type BucketDeploymentConfig, ExtendedBucket} from './extended-bucket';
 
 /**
  * Properties for CloudFrontBucketV2.
