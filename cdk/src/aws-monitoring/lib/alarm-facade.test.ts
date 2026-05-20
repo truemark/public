@@ -17,7 +17,6 @@ test('Create AlarmFacade', () => {
     actions: [action],
   });
   expect(facade.actions.length).toBe(2);
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   const threshold: any = facade.toCustomAlarmThreshold();
   expect(threshold?.actionsEnabled).toBe(true);
   expect(threshold?.TestProp).toBe(1);
@@ -29,7 +28,6 @@ test('Create AlarmFacade Default Number Threshold', () => {
     threshold: undefined,
     defaultThreshold: 0,
   });
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   const threshold: any = facade.toCustomAlarmThreshold();
   expect(threshold?.actionsEnabled).toBe(true);
   expect(threshold?.TestProp).toBe(0);
@@ -41,7 +39,6 @@ test('Create AlarmFacade Default Duration Threshold', () => {
     threshold: undefined,
     defaultThreshold: Duration.hours(1),
   });
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   const threshold: any = facade.toCustomAlarmThreshold();
   expect(threshold?.actionsEnabled).toBe(true);
   expect(threshold?.TestProp).toStrictEqual(Duration.hours(1));

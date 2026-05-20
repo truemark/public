@@ -91,23 +91,23 @@ export class DomainRedirect extends ExtendedConstruct {
     });
 
     const redirectType = props.type || RedirectType.Permanent;
+    const statusDescription =
+      redirectType === RedirectType.Permanent
+        ? 'Permanently Moved'
+        : 'Temporarily Moved';
+    const targetLiteral = JSON.stringify(props.target);
+    const locationExpr = props.appendUri
+      ? `${targetLiteral} + event.request.uri`
+      : targetLiteral;
 
     const redirectFunction = new Function(this, 'RedirectFunction', {
       code: FunctionCode.fromInline(`
 function handler(event) {
   return {
     statusCode: ${redirectType},
-    statusDescription: "${
-      redirectType === RedirectType.Permanent
-        ? 'Permanently Moved'
-        : 'Temporarily Moved'
-    }",
+    statusDescription: ${JSON.stringify(statusDescription)},
     headers: {
-        "location": { "value": ${
-          props.appendUri
-            ? `"${props.target}" + event.request.uri`
-            : `"${props.target}"`
-        }}
+        "location": { "value": ${locationExpr} }
     }
   }
 }`),

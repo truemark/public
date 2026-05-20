@@ -12,7 +12,6 @@ import {HelperTest} from '../../helper.test';
 import {ExtendedRecordTarget, LatencyARecord, WeightedARecord} from '../index';
 
 class TestAliasRecordTarget implements IAliasRecordTarget {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   bind(_record: IRecordSet, _zone?: IHostedZone): AliasRecordTargetConfig {
     return {
       hostedZoneId: 'Z000000000000000O0000',

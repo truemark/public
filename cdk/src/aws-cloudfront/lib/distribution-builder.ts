@@ -25,7 +25,6 @@ import type {CloudFrontBucket, CloudFrontBucketV2} from '../../aws-s3/index';
 import {BehaviorBuilder} from './behavior-builder';
 
 export class DistributionBuilder extends ExtendedConstruct {
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   protected props: any = {};
   protected behaviors: Record<string, BehaviorBuilder> = {};
 

@@ -9,12 +9,10 @@ import {Construct} from 'constructs';
 import {configureLogGroupForFunction} from '../../aws-lambda/lib/function-log-options';
 
 export type BatchWriteItemKey = {
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   Key: Record<string, any>;
 };
 
 export type BatchWriteItemItem = {
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   Item: Record<string, any>;
 };
 
