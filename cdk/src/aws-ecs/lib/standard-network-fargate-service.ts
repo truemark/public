@@ -1,25 +1,30 @@
+import {Duration} from 'aws-cdk-lib';
 import {
-  StandardFargateService,
-  StandardFargateServiceProps,
-} from './standard-fargate-service';
-import {Construct} from 'constructs';
-import {
-  INetworkListener,
-  INetworkLoadBalancer,
+  type INetworkListener,
+  type INetworkLoadBalancer,
   NetworkListener,
   NetworkLoadBalancer,
   NetworkTargetGroup,
   Protocol,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import {Duration} from 'aws-cdk-lib';
-import {ARecord, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
-import {DomainName} from '../../aws-route53/index';
+import {
+  type ARecord,
+  type IHostedZone,
+  RecordTarget,
+} from 'aws-cdk-lib/aws-route53';
 import {LoadBalancerTarget} from 'aws-cdk-lib/aws-route53-targets';
+import type {Construct} from 'constructs';
+import {DomainName} from '../../aws-route53/index';
+import {
+  StandardFargateService,
+  type StandardFargateServiceProps,
+} from './standard-fargate-service';
 
 /**
  * Properties for StandardNetworkFargateService.
  */
-export interface StandardNetworkFargateServiceProps extends StandardFargateServiceProps {
+export interface StandardNetworkFargateServiceProps
+  extends StandardFargateServiceProps {
   /**
    * Indicates whether the load balancer terminates connections at the end of the deregistration timeout.
    *

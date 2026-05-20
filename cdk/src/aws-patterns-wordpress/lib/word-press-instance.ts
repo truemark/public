@@ -1,46 +1,50 @@
-import {Construct} from 'constructs';
-import {
-  CfnEIP,
-  IMachineImage,
-  InstanceArchitecture,
-  InstanceClass,
-  InstanceSize,
-  InstanceType,
-  ISubnet,
-  IVpc,
-  MachineImage,
-  OperatingSystemType,
-  Peer,
-  Port,
-  SecurityGroup,
-  Subnet,
-  SubnetSelection,
-  UserData,
-  Volume,
-  Vpc,
-} from 'aws-cdk-lib/aws-ec2';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {Arn, Duration, RemovalPolicy, Size, Stack, Tags} from 'aws-cdk-lib';
-import {IKey} from 'aws-cdk-lib/aws-kms';
 import {
   AutoScalingGroup,
   BlockDeviceVolume,
   EbsDeviceVolumeType,
   UpdatePolicy,
 } from 'aws-cdk-lib/aws-autoscaling';
-import {Effect, ManagedPolicy, PolicyStatement} from 'aws-cdk-lib/aws-iam';
-import * as fs from 'fs';
-import * as path from 'path';
-import {ARecord, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
-import {DomainName} from '../../aws-route53/index';
+import {
+  CfnEIP,
+  type IMachineImage,
+  InstanceArchitecture,
+  InstanceClass,
+  InstanceSize,
+  InstanceType,
+  type ISubnet,
+  type IVpc,
+  MachineImage,
+  OperatingSystemType,
+  Peer,
+  Port,
+  SecurityGroup,
+  Subnet,
+  type SubnetSelection,
+  UserData,
+  Volume,
+  Vpc,
+} from 'aws-cdk-lib/aws-ec2';
 import {
   ApplicationListenerRule,
   ApplicationProtocol,
   ApplicationProtocolVersion,
   ApplicationTargetGroup,
-  IApplicationListener,
-  ListenerCondition,
+  type IApplicationListener,
+  type ListenerCondition,
   Protocol,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import {Effect, ManagedPolicy, PolicyStatement} from 'aws-cdk-lib/aws-iam';
+import type {IKey} from 'aws-cdk-lib/aws-kms';
+import {
+  type ARecord,
+  type IHostedZone,
+  RecordTarget,
+} from 'aws-cdk-lib/aws-route53';
+import {Construct} from 'constructs';
+import {DomainName} from '../../aws-route53/index';
 
 /**
  * Properties for WordPressInstance.
@@ -212,7 +216,7 @@ export class WordPressInstance extends Construct {
   readonly cloudFrontSecurityGroup?: SecurityGroup;
   readonly asg: AutoScalingGroup;
 
-  resolveVpc(scope: Construct, props: WordPressInstanceProps): IVpc {
+  resolveVpc(_scope: Construct, props: WordPressInstanceProps): IVpc {
     if (
       props.vpc === undefined &&
       props.vpcId === undefined &&
@@ -234,7 +238,7 @@ export class WordPressInstance extends Construct {
   }
 
   resolveInstanceType(
-    scope: Construct,
+    _scope: Construct,
     props: WordPressInstanceProps,
   ): InstanceType {
     return props.instanceType !== undefined

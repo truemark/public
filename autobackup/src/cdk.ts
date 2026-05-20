@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import {AutoBackupStack} from './autobackup-stack.js';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
+import {AutoBackupStack} from './autobackup-stack.js';
 
 const app = new ExtendedApp({
   standardTags: {

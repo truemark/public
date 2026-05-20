@@ -1,14 +1,14 @@
-import {Construct} from 'constructs';
-import {StandardDomainName} from './standard-domain-name';
+import {Stack, Stage} from 'aws-cdk-lib';
 import {
   SecurityPolicy,
   WebSocketApi,
   WebSocketStage,
 } from 'aws-cdk-lib/aws-apigatewayv2';
-import {ARecord} from 'aws-cdk-lib/aws-route53';
-import {LatencyARecord, WeightedARecord} from '../../aws-route53';
-import {Stack, Stage} from 'aws-cdk-lib';
-import {ExtendedConstruct, ExtendedConstructProps} from '../../aws-cdk';
+import type {ARecord} from 'aws-cdk-lib/aws-route53';
+import type {Construct} from 'constructs';
+import {ExtendedConstruct, type ExtendedConstructProps} from '../../aws-cdk';
+import type {LatencyARecord, WeightedARecord} from '../../aws-route53';
+import {StandardDomainName} from './standard-domain-name';
 
 /**
  * Properties for StandardWebSocketApi.

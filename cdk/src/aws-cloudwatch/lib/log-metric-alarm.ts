@@ -1,16 +1,22 @@
+import type {
+  Duration,
+  RemovalPolicy,
+  ResourceEnvironment,
+  Stack,
+} from 'aws-cdk-lib';
 import {
   Alarm,
-  ComparisonOperator,
-  IAlarm,
-  IAlarmAction,
-  Metric,
+  type AlarmReference,
+  type ComparisonOperator,
+  type IAlarm,
+  type IAlarmAction,
+  type Metric,
   TreatMissingData,
 } from 'aws-cdk-lib/aws-cloudwatch';
-import {Construct} from 'constructs';
-import {LogMetricFilter, LogMetricFilterProps} from './log-metric-filter';
-import {Duration, RemovalPolicy, ResourceEnvironment, Stack} from 'aws-cdk-lib';
-import {ITopic} from 'aws-cdk-lib/aws-sns';
 import {SnsAction} from 'aws-cdk-lib/aws-cloudwatch-actions';
+import type {ITopic} from 'aws-cdk-lib/aws-sns';
+import {Construct} from 'constructs';
+import {LogMetricFilter, type LogMetricFilterProps} from './log-metric-filter';
 
 /**
  * Properties for LogAlarm.
@@ -109,6 +115,10 @@ export class LogMetricAlarm extends Construct implements IAlarm {
   readonly alarmName: string;
   readonly env: ResourceEnvironment;
   readonly stack: Stack;
+
+  get alarmRef(): AlarmReference {
+    return this.alarm.alarmRef;
+  }
 
   constructor(scope: Construct, id: string, props: LogMetricAlarmProps) {
     super(scope, id);

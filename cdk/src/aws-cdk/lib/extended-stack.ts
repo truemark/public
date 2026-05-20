@@ -1,13 +1,19 @@
-import {CfnOutput, Duration, Stack, StackProps, Stage} from 'aws-cdk-lib';
-import {ParameterStore, ParameterStoreOptions} from '../../aws-ssm/index';
-import {Construct} from 'constructs';
-import {StringParameter} from 'aws-cdk-lib/aws-ssm';
+import {
+  CfnOutput,
+  type Duration,
+  Stack,
+  type StackProps,
+  Stage,
+} from 'aws-cdk-lib';
+import type {StringParameter} from 'aws-cdk-lib/aws-ssm';
 import {
   DashboardRenderingPreference,
   DefaultDashboardFactory,
   MonitoringFacade,
 } from 'cdk-monitoring-constructs';
-import {StandardTags, StandardTagsProps} from './standard-tags';
+import type {Construct} from 'constructs';
+import {ParameterStore, type ParameterStoreOptions} from '../../aws-ssm/index';
+import {StandardTags, type StandardTagsProps} from './standard-tags';
 
 /**
  * Options for ExtStack.
@@ -116,9 +122,11 @@ export class ExtendedStack extends Stack {
     this.parameterExportOptions = {
       prefix:
         props?.parameterExportsPrefix ??
-        (stageName === undefined || stageName === null || stageName === ''
-          ? ''
-          : `/${stageName}`) + `/${id}/Exports/`,
+        `${
+          stageName === undefined || stageName === null || stageName === ''
+            ? ''
+            : `/${stageName}`
+        }/${id}/Exports/`,
       region: this.region,
     };
     this.parameterExports = new ParameterStore(

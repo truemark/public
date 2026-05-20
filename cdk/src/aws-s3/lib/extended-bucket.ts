@@ -1,24 +1,24 @@
 import {RemovalPolicy} from 'aws-cdk-lib';
 import {
-  BlockPublicAccess,
-  Bucket,
-  BucketEncryption,
-  BucketProps,
-  ObjectOwnership,
-} from 'aws-cdk-lib/aws-s3';
-import {Construct} from 'constructs';
-import {
-  BucketDeployment,
-  CacheControl,
-  ISource,
-  Source,
-} from 'aws-cdk-lib/aws-s3-deployment';
-import {
-  IOrigin,
+  type IOrigin,
   OriginAccessIdentity,
   S3OriginAccessControl,
   Signing,
 } from 'aws-cdk-lib/aws-cloudfront';
+import {
+  BlockPublicAccess,
+  Bucket,
+  BucketEncryption,
+  type BucketProps,
+  ObjectOwnership,
+} from 'aws-cdk-lib/aws-s3';
+import {
+  BucketDeployment,
+  type CacheControl,
+  type ISource,
+  Source,
+} from 'aws-cdk-lib/aws-s3-deployment';
+import type {Construct} from 'constructs';
 
 /**
  * Properties for convenience deploy method in ExtendedBucket.

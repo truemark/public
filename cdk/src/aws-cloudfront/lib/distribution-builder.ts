@@ -1,38 +1,32 @@
+import type {ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
 import {
   AccessLevel,
-  BehaviorOptions,
+  type BehaviorOptions,
   Distribution,
-  DistributionProps,
-  ErrorResponse,
-  GeoRestriction,
+  type DistributionProps,
+  type ErrorResponse,
+  type GeoRestriction,
   HttpVersion,
-  IOrigin,
+  type IOrigin,
   OriginAccessIdentity,
   PriceClass,
   SecurityPolicyProtocol,
-  SSLMethod,
+  type SSLMethod,
 } from 'aws-cdk-lib/aws-cloudfront';
-import {ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
-import {IBucket} from 'aws-cdk-lib/aws-s3';
-import {Construct} from 'constructs';
-import {BehaviorBuilder} from './behavior-builder';
-import {DomainName} from '../../aws-route53/index';
-import {CloudFrontBucket, CloudFrontBucketV2} from '../../aws-s3/index';
-import {ExtendedConstruct} from '../../aws-cdk/index';
 import {
   HttpOrigin,
   S3BucketOrigin,
   S3Origin,
 } from 'aws-cdk-lib/aws-cloudfront-origins';
+import type {IBucket} from 'aws-cdk-lib/aws-s3';
+import {ExtendedConstruct} from '../../aws-cdk/index';
+import type {DomainName} from '../../aws-route53/index';
+import type {CloudFrontBucket, CloudFrontBucketV2} from '../../aws-s3/index';
+import {BehaviorBuilder} from './behavior-builder';
 
 export class DistributionBuilder extends ExtendedConstruct {
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   protected props: any = {};
   protected behaviors: Record<string, BehaviorBuilder> = {};
-
-  constructor(scope: Construct, id: string) {
-    super(scope, id);
-  }
 
   getBehavior(path: string): BehaviorBuilder | undefined {
     return this.behaviors[path];

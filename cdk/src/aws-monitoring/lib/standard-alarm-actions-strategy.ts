@@ -1,8 +1,8 @@
-import {
+import type {IAlarmAction} from 'aws-cdk-lib/aws-cloudwatch';
+import type {
   AlarmActionStrategyProps,
   IAlarmActionStrategy,
 } from 'cdk-monitoring-constructs';
-import {IAlarmAction} from 'aws-cdk-lib/aws-cloudwatch';
 
 /**
  * Properties for StandardAlarmActionsStrategy.

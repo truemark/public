@@ -1,38 +1,37 @@
-import {Construct} from 'constructs';
-import {FunctionAlarms, FunctionAlarmsOptions} from './function-alarms';
-import {FunctionDeployment} from './function-deployment';
-import {DeployedFunctionOptions} from './extended-function';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {Duration, Stack} from 'aws-cdk-lib';
+import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {
   Architecture,
   LayerVersion,
   LoggingFormat,
   Runtime,
 } from 'aws-cdk-lib/aws-lambda';
-import {Duration, Stack} from 'aws-cdk-lib';
-import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   NodejsFunction,
-  NodejsFunctionProps,
+  type NodejsFunctionProps,
   OutputFormat,
 } from 'aws-cdk-lib/aws-lambda-nodejs';
-import {OtelLambdaConfig} from './otel/otel-types';
+import type {Construct} from 'constructs';
+import type {DeployedFunctionOptions} from './extended-function';
+import {FunctionAlarms, type FunctionAlarmsOptions} from './function-alarms';
+import {FunctionDeployment} from './function-deployment';
+import {
+  configureLogGroupForFunction,
+  type FunctionLogOptions,
+} from './function-log-options';
 import {
   DEFAULT_APPLICATION_METRICS_NAMESPACE,
   initializeOtelConfigDataFromSSM,
 } from './otel/otel-collector-layer-utils';
-import {
-  configureLogGroupForFunction,
-  FunctionLogOptions,
-} from './function-log-options';
+import type {OtelLambdaConfig} from './otel/otel-types';
 
 /**
  * Properties for ExtendedNodejsFunction.
  */
 export interface ExtendedNodejsFunctionProps
-  extends
-    NodejsFunctionProps,
+  extends NodejsFunctionProps,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
     FunctionLogOptions {
@@ -205,9 +204,9 @@ export class ExtendedNodejsFunction extends NodejsFunction {
       );
     }
     this.alarms = new FunctionAlarms(this, 'Alarms', {
+      ...props,
       function: this,
       logGroup: this.logGroup,
-      ...props,
     });
 
     if (props.deploymentOptions?.createDeployment ?? false) {

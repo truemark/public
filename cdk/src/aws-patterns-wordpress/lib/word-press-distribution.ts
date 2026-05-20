@@ -1,10 +1,14 @@
-import {Construct} from 'constructs';
+import type {Duration} from 'aws-cdk-lib';
+import type {
+  Certificate,
+  ICertificate,
+} from 'aws-cdk-lib/aws-certificatemanager';
 import {
   AllowedMethods,
   CachePolicy,
-  Distribution,
+  type Distribution,
   HttpVersion,
-  IOrigin,
+  type IOrigin,
   OriginRequestCookieBehavior,
   OriginRequestHeaderBehavior,
   OriginRequestPolicy,
@@ -13,12 +17,15 @@ import {
   SecurityPolicyProtocol,
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
-import {Duration} from 'aws-cdk-lib';
-import {Certificate, ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
-import {ARecord, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
+import {
+  type ARecord,
+  type IHostedZone,
+  RecordTarget,
+} from 'aws-cdk-lib/aws-route53';
 import {CloudFrontTarget} from 'aws-cdk-lib/aws-route53-targets';
-import {DomainName} from '../../aws-route53/index';
+import {Construct} from 'constructs';
 import {DistributionBuilder} from '../../aws-cloudfront/index';
+import {DomainName} from '../../aws-route53/index';
 
 /**
  * Domain name properties.

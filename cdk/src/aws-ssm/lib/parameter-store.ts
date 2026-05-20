@@ -1,6 +1,6 @@
 import {Stack} from 'aws-cdk-lib';
-import {Construct} from 'constructs';
 import {StringParameter} from 'aws-cdk-lib/aws-ssm';
+import {Construct} from 'constructs';
 import {ParameterReader} from './parameter-reader';
 
 /**

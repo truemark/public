@@ -1,7 +1,7 @@
-import {Construct} from 'constructs';
-import {ILogGroup, MetricFilter} from 'aws-cdk-lib/aws-logs';
 import {Duration} from 'aws-cdk-lib';
-import {Metric} from 'aws-cdk-lib/aws-cloudwatch';
+import type {Metric} from 'aws-cdk-lib/aws-cloudwatch';
+import {type ILogGroup, MetricFilter} from 'aws-cdk-lib/aws-logs';
+import type {Construct} from 'constructs';
 
 /**
  * Properties for LogMetricFilter.

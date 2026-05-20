@@ -1,17 +1,17 @@
-import {Construct} from 'constructs';
-import {Duration} from 'aws-cdk-lib';
-import {ITable} from 'aws-cdk-lib/aws-dynamodb';
-import {
-  AlarmsBase,
-  AlarmsCategoryOptions,
-  AlarmsOptions,
-} from '../../aws-monitoring/index';
-import {
+import type {Duration} from 'aws-cdk-lib';
+import type {ITable} from 'aws-cdk-lib/aws-dynamodb';
+import type {
   ConsumedCapacityThreshold,
   ErrorCountThreshold,
   LatencyThreshold,
   ThrottledEventsThreshold,
 } from 'cdk-monitoring-constructs/lib/common';
+import type {Construct} from 'constructs';
+import {
+  AlarmsBase,
+  type AlarmsCategoryOptions,
+  type AlarmsOptions,
+} from '../../aws-monitoring/index';
 
 /**
  * Category options for CloudWatch alarms for DynamoDB Tables.
@@ -36,7 +36,8 @@ export interface TableAlarmsCategoryOptions extends AlarmsCategoryOptions {
 /**
  * Options for TableAlarms
  */
-export interface TableAlarmsOptions extends AlarmsOptions<TableAlarmsCategoryOptions> {
+export interface TableAlarmsOptions
+  extends AlarmsOptions<TableAlarmsCategoryOptions> {
   /**
    * Flag to create alarms.
    *

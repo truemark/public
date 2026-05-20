@@ -1,10 +1,10 @@
 import {Stack} from 'aws-cdk-lib';
 import {
-  CfnRecordSet,
+  type CfnRecordSet,
   CnameRecord,
-  CnameRecordProps,
+  type CnameRecordProps,
 } from 'aws-cdk-lib/aws-route53';
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
 
 /**
  * Options for LatencyCnameRecord.
@@ -30,7 +30,8 @@ export interface LatencyCnameRecordOptions {
  * Properties for LatencyCnameRecord.
  */
 export interface LatencyCnameRecordProps
-  extends CnameRecordProps, LatencyCnameRecordOptions {}
+  extends CnameRecordProps,
+    LatencyCnameRecordOptions {}
 
 /**
  * An extended CnameRecord that performs latency based routing.

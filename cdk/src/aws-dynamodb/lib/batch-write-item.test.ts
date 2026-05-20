@@ -1,8 +1,8 @@
+import {marshall} from '@aws-sdk/util-dynamodb';
+import {Template} from 'aws-cdk-lib/assertions';
 import {test} from 'vitest';
 import {HelperTest, ResourceType} from '../../helper.test';
 import {BatchWriteItem} from './batch-write-item';
-import {marshall} from '@aws-sdk/util-dynamodb';
-import {Template} from 'aws-cdk-lib/assertions';
 
 test('BatchWriteItem Test', () => {
   const stack = HelperTest.stack();

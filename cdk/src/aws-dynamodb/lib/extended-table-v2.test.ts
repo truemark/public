@@ -1,7 +1,7 @@
-import {test} from 'vitest';
 import {Template} from 'aws-cdk-lib/assertions';
 import {AttributeType, Billing} from 'aws-cdk-lib/aws-dynamodb';
-import {ResourceType, HelperTest} from '../../helper.test';
+import {test} from 'vitest';
+import {HelperTest, ResourceType} from '../../helper.test';
 import {ExtendedTableV2} from './extended-table-v2';
 
 test('Create TableV2', () => {

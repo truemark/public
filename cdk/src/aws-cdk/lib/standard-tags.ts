@@ -1,5 +1,5 @@
-import {Construct} from 'constructs';
-import {Stack, Stage, TagProps, Tags} from 'aws-cdk-lib';
+import {Stack, Stage, type TagProps, Tags} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
 
 export const EXCLUDED_RESOURCES = [
   // OAM resources do not like : in the tag names. See https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-oam-link.html#cfn-oam-link-tags
@@ -554,15 +554,14 @@ export class StandardTags {
     from?: StandardTagsProps,
     to?: StandardTagsProps,
   ): StandardTagsProps {
-    let excludeResourceTypes: string[] | undefined = undefined;
+    let excludeResourceTypes: string[] | undefined;
     if (from?.excludeResourceTypes || to?.excludeResourceTypes) {
       excludeResourceTypes = [
         ...(from?.excludeResourceTypes ?? []),
         ...(to?.excludeResourceTypes ?? []),
       ];
     }
-    let automationComponentTags: AutomationComponentTagsProps | undefined =
-      undefined;
+    let automationComponentTags: AutomationComponentTagsProps | undefined;
     if (from?.automationComponentTags || to?.automationComponentTags) {
       automationComponentTags = {
         id:
@@ -573,7 +572,7 @@ export class StandardTags {
         ...to?.automationComponentTags,
       };
     }
-    let automationTags: AutomationTagsProps | undefined = undefined;
+    let automationTags: AutomationTagsProps | undefined;
     if (from?.automationTags || to?.automationTags) {
       automationTags = {
         id: to?.automationTags?.id ?? from?.automationTags?.id ?? '',
@@ -581,7 +580,7 @@ export class StandardTags {
         ...to?.automationTags,
       };
     }
-    let costCenterTags: CostCenterTagsProps | undefined = undefined;
+    let costCenterTags: CostCenterTagsProps | undefined;
     if (from?.costCenterTags || to?.costCenterTags) {
       costCenterTags = {
         businessUnitName:
@@ -596,7 +595,7 @@ export class StandardTags {
         ...to?.costCenterTags,
       };
     }
-    let securityTags: SecurityTagsProps | undefined = undefined;
+    let securityTags: SecurityTagsProps | undefined;
     if (from?.securityTags || to?.securityTags) {
       securityTags = {
         dataClassification:
@@ -607,7 +606,7 @@ export class StandardTags {
         ...to?.securityTags,
       };
     }
-    let teamTags: TeamTagsProps | undefined = undefined;
+    let teamTags: TeamTagsProps | undefined;
     if (from?.teamTags || to?.teamTags) {
       teamTags = {
         name: to?.teamTags?.name ?? from?.teamTags?.name ?? '',

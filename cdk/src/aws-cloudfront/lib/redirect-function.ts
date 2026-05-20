@@ -1,6 +1,6 @@
 import {Function, FunctionCode} from 'aws-cdk-lib/aws-cloudfront';
-import {Construct} from 'constructs';
-import {DomainName} from '../../aws-route53/index';
+import type {Construct} from 'constructs';
+import type {DomainName} from '../../aws-route53/index';
 
 export type TrailingSlashBehavior =
   | 'None'

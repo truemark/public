@@ -1,9 +1,14 @@
-import {Construct} from 'constructs';
-import {IAlarm, IAlarmAction, Metric} from 'aws-cdk-lib/aws-cloudwatch';
-import {RemovalPolicy, ResourceEnvironment, Stack} from 'aws-cdk-lib';
-import {ExtendedAlarm, ExtendedCreateAlarmOptions} from './extended-alarm';
-import {ITopic} from 'aws-cdk-lib/aws-sns';
+import type {RemovalPolicy, ResourceEnvironment, Stack} from 'aws-cdk-lib';
+import type {
+  AlarmReference,
+  IAlarm,
+  IAlarmAction,
+  Metric,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import {SnsAction} from 'aws-cdk-lib/aws-cloudwatch-actions';
+import type {ITopic} from 'aws-cdk-lib/aws-sns';
+import {Construct} from 'constructs';
+import type {ExtendedAlarm, ExtendedCreateAlarmOptions} from './extended-alarm';
 
 export interface MetricAlarmBaseProps extends ExtendedCreateAlarmOptions {
   /**
@@ -33,6 +38,10 @@ export abstract class MetricAlarmBase<P extends MetricAlarmBaseProps>
   readonly alarmName: string;
   readonly env: ResourceEnvironment;
   readonly stack: Stack;
+
+  get alarmRef(): AlarmReference {
+    return this.alarm.alarmRef;
+  }
 
   protected abstract createMetric(props: P): Metric;
 

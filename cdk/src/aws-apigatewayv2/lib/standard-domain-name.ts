@@ -1,19 +1,20 @@
-import {Construct} from 'constructs';
-import * as tmroute53 from '../../aws-route53';
+import {DomainName, type SecurityPolicy} from 'aws-cdk-lib/aws-apigatewayv2';
+import type {ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
+import {type ARecord, RecordTarget} from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
-import {ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
-import {DomainName, SecurityPolicy} from 'aws-cdk-lib/aws-apigatewayv2';
-import {ARecord, RecordTarget} from 'aws-cdk-lib/aws-route53';
-import {ARecordOptions, ExtendedRecordTarget} from '../../aws-route53';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
+import * as tmroute53 from '../../aws-route53';
+import {type ARecordOptions, ExtendedRecordTarget} from '../../aws-route53';
 import {LibStandardTags} from '../../truemark';
 
 export interface StandardDomainNameProps
-  extends tmroute53.DomainNameProps, ExtendedConstructProps {
+  extends tmroute53.DomainNameProps,
+    ExtendedConstructProps {
   /**
    * The optional ACM certificate for this domain name.
    *
