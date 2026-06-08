@@ -1,4 +1,3 @@
-import * as path from 'path';
 import {SecretValue} from 'aws-cdk-lib';
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {test, expect} from 'vitest';
@@ -346,7 +345,7 @@ test('packages association generated command includes package names', () => {
 test('packages association created with scriptPath', () => {
   const template = makeTemplate({
     infrastructure: {
-      packages: {scriptPath: path.join(__dirname, 'test-script.sh')},
+      packages: {scriptPath: HelperTest.resolveTestFiles('test-script.sh')},
     },
   });
   template.resourceCountIs('AWS::SSM::Association', 1);
@@ -358,7 +357,7 @@ test('packages association created with scriptPath', () => {
 test('scriptPath content is embedded in the association', () => {
   const template = makeTemplate({
     infrastructure: {
-      packages: {scriptPath: path.join(__dirname, 'test-script.sh')},
+      packages: {scriptPath: HelperTest.resolveTestFiles('test-script.sh')},
     },
   });
   const associations = template.findResources('AWS::SSM::Association');
