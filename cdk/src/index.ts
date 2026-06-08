@@ -10,7 +10,6 @@ export * as aws_ecs from './aws-ecs/index';
 export * as aws_lambda from './aws-lambda/index';
 export * as aws_monitoring from './aws-monitoring/index';
 export * as domain_redirect from './aws-patterns-domain-redirect/index';
-export * as domain_redirect from './aws-patterns-domain-redirect/index';
 export * as website from './aws-patterns-website/index';
 export * as wordpress from './aws-patterns-wordpress/index';
 export * as aws_patterns_workspaces from './aws-patterns-workspaces/index';
