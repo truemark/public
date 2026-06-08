@@ -1,6 +1,6 @@
-import {test, expect} from 'vitest';
 import {App} from 'aws-cdk-lib';
 import {Template} from 'aws-cdk-lib/assertions';
+import {expect, test} from 'vitest';
 import {
   AwsWorkspacesFoundationStack,
   AwsWorkspacesUserStack,

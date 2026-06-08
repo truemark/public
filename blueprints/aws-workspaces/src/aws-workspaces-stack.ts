@@ -1,12 +1,12 @@
-import type {Construct} from 'constructs';
 import {CfnOutput} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {
   AwsWorkspaces,
+  type AwsWorkspacesDirectoryProps,
   type AwsWorkspacesInfrastructureProps,
   type AwsWorkspacesLoggingProps,
   type AwsWorkspacesNetworkingProps,
-  type AwsWorkspacesDirectoryProps,
   type AwsWorkspacesStorageProps,
   AwsWorkspacesUser,
   type AwsWorkspacesUserProps,
