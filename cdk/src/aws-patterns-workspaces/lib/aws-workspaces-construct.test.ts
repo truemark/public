@@ -1,6 +1,6 @@
 import {SecretValue} from 'aws-cdk-lib';
 import {Match, Template} from 'aws-cdk-lib/assertions';
-import {test, expect} from 'vitest';
+import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {AwsWorkspaces} from './aws-workspaces-construct';
 
@@ -175,7 +175,7 @@ test('workspaces_DefaultRole uses only managed policies (no inline policies)', (
     Properties: {RoleName: 'workspaces_DefaultRole'},
   });
   const role = Object.values(roles)[0] as {Properties: Record<string, unknown>};
-  expect(role.Properties['Policies']).toBeUndefined();
+  expect(role.Properties.Policies).toBeUndefined();
 });
 
 test('no workspaces_DefaultRole when workspacesDefaultRoleExists is true', () => {

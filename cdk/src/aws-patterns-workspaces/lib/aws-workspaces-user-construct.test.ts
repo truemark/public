@@ -1,5 +1,5 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
-import {test, expect} from 'vitest';
+import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {AwsWorkspacesUser} from './aws-workspaces-user-construct';
 
@@ -76,7 +76,7 @@ test('volume encryption disabled when volumeEncryptionEnabled is false', () => {
   const ws = Object.values(workspaces)[0] as {
     Properties: Record<string, unknown>;
   };
-  expect(ws.Properties['VolumeEncryptionKey']).toBeUndefined();
+  expect(ws.Properties.VolumeEncryptionKey).toBeUndefined();
 });
 
 // ============================================================
@@ -118,7 +118,7 @@ test('ALWAYS_ON mode has no auto-stop timeout', () => {
     Properties: {WorkspaceProperties: Record<string, unknown>};
   };
   expect(
-    ws.Properties.WorkspaceProperties['RunningModeAutoStopTimeoutInMinutes'],
+    ws.Properties.WorkspaceProperties.RunningModeAutoStopTimeoutInMinutes,
   ).toBeUndefined();
 });
 

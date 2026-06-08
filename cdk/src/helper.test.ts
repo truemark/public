@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import type {App, ResourceEnvironment, Stack, Stage} from 'aws-cdk-lib';
 import type {Template} from 'aws-cdk-lib/assertions';
-import {test, expect} from 'vitest';
+import {expect, test} from 'vitest';
 import {ExtendedApp, ExtendedStack, ExtendedStage} from './aws-cdk/index';
 
 export enum ResourceType {
