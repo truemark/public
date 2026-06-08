@@ -1,16 +1,38 @@
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
 import {CfnOutput} from 'aws-cdk-lib';
-import {ExtendedStack, ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
+import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {
   AwsWorkspaces,
-  AwsWorkspacesProps,
+  type AwsWorkspacesInfrastructureProps,
+  type AwsWorkspacesLoggingProps,
+  type AwsWorkspacesNetworkingProps,
+  type AwsWorkspacesDirectoryProps,
+  type AwsWorkspacesStorageProps,
+  AwsWorkspacesUser,
+  type AwsWorkspacesUserProps,
 } from 'truemark-cdk-lib/aws-patterns-workspaces';
 
-export interface AwsWorkspacesStackProps
-  extends ExtendedStackProps, AwsWorkspacesProps {}
+export interface AwsWorkspacesFoundationStackProps extends ExtendedStackProps {
+  readonly networking?: AwsWorkspacesNetworkingProps;
+  readonly directory: AwsWorkspacesDirectoryProps;
+  readonly logging?: AwsWorkspacesLoggingProps;
+  readonly storage?: AwsWorkspacesStorageProps;
+  readonly infrastructure?: AwsWorkspacesInfrastructureProps;
+}
 
-export class AwsWorkspacesStack extends ExtendedStack {
-  constructor(scope: Construct, id: string, props: AwsWorkspacesStackProps) {
+/**
+ * Foundation stack — deploy once per environment.
+ * Provisions VPC, KMS key, S3 storage, directory, and the WorkSpaces
+ * infrastructure layer (SSM, patch baseline, SSH hardening, hybrid activation).
+ */
+export class AwsWorkspacesFoundationStack extends ExtendedStack {
+  readonly foundation: AwsWorkspaces;
+
+  constructor(
+    scope: Construct,
+    id: string,
+    props: AwsWorkspacesFoundationStackProps,
+  ) {
     super(scope, id, props);
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
@@ -18,28 +40,59 @@ export class AwsWorkspacesStack extends ExtendedStack {
       'URL',
       'https://github.com/truemark/public/tree/main/blueprints/aws-workspaces',
     );
-    const ws = new AwsWorkspaces(this, 'AwsWorkspaces', props);
+
+    this.foundation = new AwsWorkspaces(this, 'AwsWorkspaces', {
+      networking: props.networking,
+      directory: props.directory,
+      logging: props.logging,
+      storage: props.storage,
+      infrastructure: props.infrastructure,
+    });
+
     new CfnOutput(this, 'VpcId', {
-      value: ws.vpc.vpcId,
+      value: this.foundation.vpc.vpcId,
       description: 'VPC ID',
     });
     new CfnOutput(this, 'DirectoryId', {
-      value: ws.directoryId,
+      value: this.foundation.directoryId,
       description: 'Directory Service ID',
     });
     new CfnOutput(this, 'BucketName', {
-      value: ws.bucket.bucketName,
+      value: this.foundation.bucket.bucketName,
       description: 'S3 storage bucket name (retained on delete)',
     });
     new CfnOutput(this, 'KmsKeyArn', {
-      value: ws.encryptionKey.keyArn,
+      value: this.foundation.encryptionKey.keyArn,
       description: 'KMS encryption key ARN',
     });
-    if (ws.workspace) {
-      new CfnOutput(this, 'WorkspaceId', {
-        value: ws.workspace.ref,
-        description: 'WorkSpace ID',
-      });
-    }
+    new CfnOutput(this, 'PatchGroupName', {
+      value: this.foundation.patchGroupName,
+      description: 'SSM patch group name for tagging WorkSpaces',
+    });
+  }
+}
+
+export interface AwsWorkspacesUserStackProps
+  extends ExtendedStackProps,
+    AwsWorkspacesUserProps {}
+
+/**
+ * Per-user stack — deploy one per WorkSpace user.
+ * Destroy to remove only that user's WorkSpace without affecting the foundation.
+ */
+export class AwsWorkspacesUserStack extends ExtendedStack {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: AwsWorkspacesUserStackProps,
+  ) {
+    super(scope, id, props);
+
+    const user = new AwsWorkspacesUser(this, 'AwsWorkspacesUser', props);
+
+    new CfnOutput(this, 'WorkspaceId', {
+      value: user.workspace.ref,
+      description: 'WorkSpace ID',
+    });
   }
 }
