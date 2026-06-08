@@ -1,6 +1,6 @@
-import {ExtendedApp, ExtendedAppProps} from './extended-app';
-import {StandardTags} from './standard-tags';
 import {isLowerAlphanumeric, toPascalCase} from '../../helpers/index';
+import {ExtendedApp, type ExtendedAppProps} from './extended-app';
+import {StandardTags} from './standard-tags';
 
 /**
  * Properties for SingleEnvApp

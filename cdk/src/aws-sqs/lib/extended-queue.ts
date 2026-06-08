@@ -1,7 +1,7 @@
-import {IQueue, Queue, QueueProps} from 'aws-cdk-lib/aws-sqs';
-import {Construct} from 'constructs';
-import {QueueAlarms, QueueAlarmsOptions} from './queue-alarms';
 import {Arn} from 'aws-cdk-lib';
+import {type IQueue, Queue, type QueueProps} from 'aws-cdk-lib/aws-sqs';
+import type {Construct} from 'constructs';
+import {QueueAlarms, type QueueAlarmsOptions} from './queue-alarms';
 
 /**
  * Properties for ObservedQueue.

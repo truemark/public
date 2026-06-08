@@ -1,27 +1,29 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import {Duration} from 'aws-cdk-lib';
 import {
   Architecture,
-  FunctionOptions,
+  type FunctionOptions,
   Runtime,
   RuntimeFamily,
   Tracing,
 } from 'aws-cdk-lib/aws-lambda';
-import {Construct} from 'constructs';
-import {Duration} from 'aws-cdk-lib';
 import {RetentionDays} from 'aws-cdk-lib/aws-logs';
+import type {Construct} from 'constructs';
 import {ShellHelper} from '../../helpers/index';
-import {StandardFunction, StandardFunctionOptions} from './standard-function';
-import {DeployedFunctionOptions} from './extended-function';
-import {FunctionAlarmsOptions} from './function-alarms';
-import * as path from 'path';
-import * as fs from 'fs';
-import {FunctionLogOptions} from './function-log-options';
+import type {DeployedFunctionOptions} from './extended-function';
+import type {FunctionAlarmsOptions} from './function-alarms';
+import type {FunctionLogOptions} from './function-log-options';
+import {
+  StandardFunction,
+  type StandardFunctionOptions,
+} from './standard-function';
 
 /**
  * Properties for BundledPythonFunction.
  */
 export interface BundledPythonFunctionProps
-  extends
-    FunctionOptions,
+  extends FunctionOptions,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
     StandardFunctionOptions,

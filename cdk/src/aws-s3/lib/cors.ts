@@ -1,4 +1,4 @@
-import {CorsRule, HttpMethods} from 'aws-cdk-lib/aws-s3';
+import {type CorsRule, HttpMethods} from 'aws-cdk-lib/aws-s3';
 
 export const OPEN_CORS_RULE: CorsRule = {
   allowedMethods: [

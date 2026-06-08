@@ -1,6 +1,6 @@
-import {Construct} from 'constructs';
-import {ExtendedStack, ExtendedStackProps} from './extended-stack';
-import {ExtendedStage, ExtendedStageProps} from './extended-stage';
+import type {Construct} from 'constructs';
+import type {ExtendedStack, ExtendedStackProps} from './extended-stack';
+import {ExtendedStage, type ExtendedStageProps} from './extended-stage';
 
 /**
  * Constructor properties for SingleStackStage

@@ -1,5 +1,5 @@
-import {test} from 'vitest';
 import {Template} from 'aws-cdk-lib/assertions';
+import {test} from 'vitest';
 import {HelperTest, ResourceType} from '../../helper.test';
 import {WebsiteBucket} from './website-bucket';
 

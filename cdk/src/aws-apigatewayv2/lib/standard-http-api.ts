@@ -1,20 +1,20 @@
-import {Construct} from 'constructs';
-import {LatencyARecord, WeightedARecord} from '../../aws-route53';
-import {StandardDomainName} from './standard-domain-name';
+import {Stack, Stage} from 'aws-cdk-lib';
 import {
-  CorsPreflightOptions,
+  type CorsPreflightOptions,
   HttpApi,
+  type IHttpRouteAuthorizer,
   SecurityPolicy,
 } from 'aws-cdk-lib/aws-apigatewayv2';
-import {Stack, Stage} from 'aws-cdk-lib';
-import {ARecord} from 'aws-cdk-lib/aws-route53';
+import type {ARecord} from 'aws-cdk-lib/aws-route53';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
+import type {LatencyARecord, WeightedARecord} from '../../aws-route53';
 import {LibStandardTags} from '../../truemark';
-import {IHttpRouteAuthorizer} from 'aws-cdk-lib/aws-apigatewayv2';
+import {StandardDomainName} from './standard-domain-name';
 
 /**
  * Properties for StandardHttpApi.

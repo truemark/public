@@ -1,7 +1,7 @@
+import * as path from 'node:path';
+import type {App, ResourceEnvironment, Stack, Stage} from 'aws-cdk-lib';
+import type {Template} from 'aws-cdk-lib/assertions';
 import {test} from 'vitest';
-import * as path from 'path';
-import {Template} from 'aws-cdk-lib/assertions';
-import {App, ResourceEnvironment, Stack, Stage} from 'aws-cdk-lib';
 import {ExtendedApp, ExtendedStack, ExtendedStage} from './aws-cdk/index';
 
 export enum ResourceType {
@@ -22,17 +22,17 @@ export class HelperTest {
 
   static app() {
     return new ExtendedApp({
-      account: this.DEFAULT_ACCOUNT,
-      region: this.DEFAULT_REGION,
+      account: HelperTest.DEFAULT_ACCOUNT,
+      region: HelperTest.DEFAULT_REGION,
     });
   }
 
   static stage(app?: App, id?: string): Stage {
-    return new ExtendedStage(app ?? this.app(), id ?? 'TestStage');
+    return new ExtendedStage(app ?? HelperTest.app(), id ?? 'TestStage');
   }
 
   static stack(scope?: App | Stage, id?: string): Stack {
-    return new ExtendedStack(scope ?? this.app(), id ?? 'TestStack');
+    return new ExtendedStack(scope ?? HelperTest.app(), id ?? 'TestStack');
   }
 
   static resolveTestFiles(childPath?: string): string {

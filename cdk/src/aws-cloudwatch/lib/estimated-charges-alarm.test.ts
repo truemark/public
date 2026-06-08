@@ -1,7 +1,7 @@
-import {test} from 'vitest';
-import {ResourceType, HelperTest} from '../../helper.test';
-import {EstimatedChargesAlarm} from '../index';
 import {Template} from 'aws-cdk-lib/assertions';
+import {test} from 'vitest';
+import {HelperTest, ResourceType} from '../../helper.test';
+import {EstimatedChargesAlarm} from '../index';
 
 test('Create EstimatedChargesAlarm', () => {
   const stack = HelperTest.stack();

@@ -1,8 +1,8 @@
 import {
-  AliasRecordTargetConfig,
-  IAliasRecordTarget,
-  IHostedZone,
-  IRecordSet,
+  type AliasRecordTargetConfig,
+  type IAliasRecordTarget,
+  type IHostedZone,
+  type IRecordSet,
   RecordTarget,
 } from 'aws-cdk-lib/aws-route53';
 

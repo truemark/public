@@ -1,17 +1,17 @@
-import {Construct} from 'constructs';
-import {
+import {type Duration, Stack} from 'aws-cdk-lib';
+import type {
   AlarmBase,
   IAlarmAction,
   TreatMissingData,
 } from 'aws-cdk-lib/aws-cloudwatch';
-import {
+import type {ITopic} from 'aws-cdk-lib/aws-sns';
+import type {
   CustomAlarmThreshold,
   MonitoringFacade,
 } from 'cdk-monitoring-constructs';
-import {ITopic} from 'aws-cdk-lib/aws-sns';
-import {Duration, Stack} from 'aws-cdk-lib';
+import {Construct} from 'constructs';
+import type {ExtendedStack} from '../../aws-cdk/index';
 import {AlarmHelper} from './alarm-helper';
-import {ExtendedStack} from '../../aws-cdk/index';
 
 export enum AlarmCategory {
   Critical = 'Critical',

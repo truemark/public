@@ -1,7 +1,11 @@
-import {Alarm, AlarmProps, IAlarmAction} from 'aws-cdk-lib/aws-cloudwatch';
-import {ITopic} from 'aws-cdk-lib/aws-sns';
-import {Construct} from 'constructs';
+import {
+  Alarm,
+  type AlarmProps,
+  type IAlarmAction,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import {SnsAction} from 'aws-cdk-lib/aws-cloudwatch-actions';
+import type {ITopic} from 'aws-cdk-lib/aws-sns';
+import type {Construct} from 'constructs';
 
 /**
  * Extra options for ExtendedAlarmProps
@@ -42,7 +46,8 @@ export interface ExtendedCreateAlarmOptions {
  * Properties for ExtendedAlarm
  */
 export interface ExtendedAlarmProps
-  extends ExtendedCreateAlarmOptions, AlarmProps {}
+  extends ExtendedCreateAlarmOptions,
+    AlarmProps {}
 
 /**
  * Adds convenience properties and methods to Alarm.

@@ -1,30 +1,35 @@
-import {
-  StandardFargateService,
-  StandardFargateServiceProps,
-} from './standard-fargate-service';
-import {Construct} from 'constructs';
 import {Duration} from 'aws-cdk-lib';
+import type {MetricOptions} from 'aws-cdk-lib/aws-cloudwatch';
 import {
   ApplicationListener,
   ApplicationLoadBalancer,
   ApplicationProtocol,
   ApplicationTargetGroup,
-  IApplicationListener,
-  IApplicationLoadBalancer,
-  IApplicationTargetGroup,
+  type IApplicationListener,
+  type IApplicationLoadBalancer,
+  type IApplicationTargetGroup,
   ListenerCondition,
   TargetGroupLoadBalancingAlgorithmType,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import {ARecord, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
-import {DomainName} from '../../aws-route53/index';
+import {
+  type ARecord,
+  type IHostedZone,
+  RecordTarget,
+} from 'aws-cdk-lib/aws-route53';
 import {LoadBalancerTarget} from 'aws-cdk-lib/aws-route53-targets';
-import {MetricOptions} from 'aws-cdk-lib/aws-cloudwatch';
+import type {Construct} from 'constructs';
+import {DomainName} from '../../aws-route53/index';
 import {PriorityAllocator} from './priority-allocator';
+import {
+  StandardFargateService,
+  type StandardFargateServiceProps,
+} from './standard-fargate-service';
 
 /**
  * Properties for StandardApplicationFargateService
  */
-export interface StandardApplicationFargateServiceProps extends StandardFargateServiceProps {
+export interface StandardApplicationFargateServiceProps
+  extends StandardFargateServiceProps {
   /**
    * The name of an application-based stickiness cookie.
    *

@@ -1,5 +1,14 @@
-import {Construct} from 'constructs';
-import {Bucket, BucketEncryption, IBucket} from 'aws-cdk-lib/aws-s3';
+import {
+  type BundlingOptions,
+  DockerImage,
+  Duration,
+  RemovalPolicy,
+} from 'aws-cdk-lib';
+import {
+  Certificate,
+  CertificateValidation,
+  type ICertificate,
+} from 'aws-cdk-lib/aws-certificatemanager';
 import {
   Distribution,
   Function,
@@ -12,30 +21,21 @@ import {
   ViewerProtocolPolicy,
 } from 'aws-cdk-lib/aws-cloudfront';
 import {OriginGroup, S3Origin} from 'aws-cdk-lib/aws-cloudfront-origins';
-import {
-  Certificate,
-  CertificateValidation,
-  ICertificate,
-} from 'aws-cdk-lib/aws-certificatemanager';
-import {ARecord, RecordTarget} from 'aws-cdk-lib/aws-route53';
+import {type ARecord, RecordTarget} from 'aws-cdk-lib/aws-route53';
 import {CloudFrontTarget} from 'aws-cdk-lib/aws-route53-targets';
+import {Bucket, BucketEncryption, type IBucket} from 'aws-cdk-lib/aws-s3';
 import {
   BucketDeployment,
   CacheControl,
   Source,
 } from 'aws-cdk-lib/aws-s3-deployment';
-import {
-  BundlingOptions,
-  DockerImage,
-  Duration,
-  RemovalPolicy,
-} from 'aws-cdk-lib';
-import {DomainName, DomainNameProps} from '../../aws-route53/index';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk/index';
+import {DomainName, type DomainNameProps} from '../../aws-route53/index';
 import {LibStandardTags} from '../../truemark';
 
 export enum SourceType {
@@ -178,7 +178,7 @@ export class Website extends ExtendedConstruct {
 
     const domainNames = DomainName.fromProps(props.domainNames);
 
-    let certificate: ICertificate | undefined = undefined;
+    let certificate: ICertificate | undefined;
     if (props.certificateArn !== undefined) {
       certificate = Certificate.fromCertificateArn(
         this,
@@ -315,7 +315,7 @@ function handler(event) {
       }
     }
 
-    let bundlingOptions: BundlingOptions | undefined = undefined;
+    let bundlingOptions: BundlingOptions | undefined;
 
     if (props.sourceType === SourceType.Custom) {
       if (!props.sourceBundlingOptions) {

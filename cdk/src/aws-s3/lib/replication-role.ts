@@ -1,18 +1,18 @@
-import {Construct} from 'constructs';
+import {type RemovalPolicy, type ResourceEnvironment, Stack} from 'aws-cdk-lib';
 import {
-  AddToPrincipalPolicyResult,
-  Grant,
-  IManagedPolicy,
-  IPrincipal,
-  IRole,
-  Policy,
+  type AddToPrincipalPolicyResult,
+  type Grant,
+  type IManagedPolicy,
+  type IPrincipal,
+  type IRole,
+  type Policy,
   PolicyStatement,
-  PrincipalPolicyFragment,
+  type PrincipalPolicyFragment,
   Role,
-  RoleReference,
+  type RoleReference,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import {ResourceEnvironment, RemovalPolicy, Stack} from 'aws-cdk-lib';
+import {Construct} from 'constructs';
 
 export interface DestinationBucketOptions {
   readonly bucketName: string;

@@ -1,8 +1,8 @@
-import {test, expect} from 'vitest';
-import {StandardQueue} from '../index';
 import {Template} from 'aws-cdk-lib/assertions';
-import {HelperTest} from '../../helper.test';
 import {QueueEncryption} from 'aws-cdk-lib/aws-sqs';
+import {expect, test} from 'vitest';
+import {HelperTest} from '../../helper.test';
+import {StandardQueue} from '../index';
 
 test('Standard Queue Test', () => {
   const stack = HelperTest.stack();

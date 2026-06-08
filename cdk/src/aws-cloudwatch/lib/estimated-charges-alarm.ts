@@ -1,6 +1,6 @@
-import {MetricAlarmBase, MetricAlarmBaseProps} from './metric-alarm-base';
+import {ComparisonOperator, type Metric} from 'aws-cdk-lib/aws-cloudwatch';
 import {ExtendedAlarm} from './extended-alarm';
-import {ComparisonOperator, Metric} from 'aws-cdk-lib/aws-cloudwatch';
+import {MetricAlarmBase, type MetricAlarmBaseProps} from './metric-alarm-base';
 import {MetricHelper} from './metric-helper';
 
 export interface EstimatedChargesAlarmProps extends MetricAlarmBaseProps {

@@ -1,14 +1,14 @@
+import type {IAlarm} from 'aws-cdk-lib/aws-cloudwatch';
 import {
-  AutoRollbackConfig,
-  ILambdaApplication,
-  ILambdaDeploymentConfig,
+  type AutoRollbackConfig,
+  type ILambdaApplication,
+  type ILambdaDeploymentConfig,
   LambdaDeploymentConfig,
   LambdaDeploymentGroup,
 } from 'aws-cdk-lib/aws-codedeploy';
+import type {Grant, IGrantable, IRole} from 'aws-cdk-lib/aws-iam';
+import {Alias, type Function, type IFunction} from 'aws-cdk-lib/aws-lambda';
 import {Construct} from 'constructs';
-import {Alias, IFunction, Function} from 'aws-cdk-lib/aws-lambda';
-import {IAlarm} from 'aws-cdk-lib/aws-cloudwatch';
-import {Grant, IGrantable, IRole} from 'aws-cdk-lib/aws-iam';
 
 export interface FunctionDeploymentOptions {
   /**

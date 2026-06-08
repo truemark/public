@@ -1,6 +1,6 @@
-import {test} from 'vitest';
-import {ResourceType, HelperTest} from '../../helper.test';
 import {Template} from 'aws-cdk-lib/assertions';
+import {test} from 'vitest';
+import {HelperTest, ResourceType} from '../../helper.test';
 import {ExtendedStack} from './extended-stack';
 
 test('Test ExportedStack', () => {

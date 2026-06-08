@@ -1,15 +1,17 @@
 import {
-  INotificationRuleTarget,
-  NotificationRule,
-} from 'aws-cdk-lib/aws-codestarnotifications';
-import {Construct} from 'constructs';
+  type ISlackChannelConfiguration,
+  SlackChannelConfiguration,
+} from 'aws-cdk-lib/aws-chatbot';
 import {
-  IPipeline,
+  type IPipeline,
   PipelineNotificationEvents,
 } from 'aws-cdk-lib/aws-codepipeline';
-import {SlackChannelConfiguration} from 'aws-cdk-lib/aws-chatbot';
-import {ISlackChannelConfiguration} from 'aws-cdk-lib/aws-chatbot';
-import {ITopic, Topic} from 'aws-cdk-lib/aws-sns';
+import {
+  type INotificationRuleTarget,
+  NotificationRule,
+} from 'aws-cdk-lib/aws-codestarnotifications';
+import {type ITopic, Topic} from 'aws-cdk-lib/aws-sns';
+import {Construct} from 'constructs';
 
 /**
  * Properties for PipelineNotificationRule.

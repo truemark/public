@@ -1,7 +1,7 @@
 import {Names, RemovalPolicy, Stack} from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
+import type * as lambda from 'aws-cdk-lib/aws-lambda';
 import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
 
 /**
  * Configuration for function logs. By default the log group will be destroyed

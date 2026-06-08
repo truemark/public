@@ -1,6 +1,6 @@
-import {spawnSync} from 'child_process';
-import * as process from 'process';
-import * as fs from 'fs';
+import {spawnSync} from 'node:child_process';
+import * as fs from 'node:fs';
+import * as process from 'node:process';
 
 export interface BashExecutionProps {
   readonly script: string;

@@ -1,6 +1,6 @@
-import {RetentionDays} from 'aws-cdk-lib/aws-logs';
-import {RemovalPolicy} from 'aws-cdk-lib';
-import {IKey} from 'aws-cdk-lib/aws-kms';
+import type {RemovalPolicy} from 'aws-cdk-lib';
+import type {IKey} from 'aws-cdk-lib/aws-kms';
+import type {RetentionDays} from 'aws-cdk-lib/aws-logs';
 
 /**
  * Standard log configuration for ECS services.
