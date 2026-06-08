@@ -14,25 +14,23 @@
     "url": "git@github.com:truemark/public.git"
   },
   "scripts": {
-    "prebuild": "prettier --check . && eslint .",
+    "prebuild": "biome check",
     "build": "tsc",
     "watch": "tsc -w",
     "test": "vitest run",
     "clean": "rm -rf cdk.out dist coverage",
     "cdk": "cdk",
-    "fmt": "prettier --write ."
+    "fix": "biome check --write .",
+    "fmt": "biome format --write ."
   },
   "devDependencies": {
-    "@eslint/js": "catalog:",
+    "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
     "aws-cdk": "catalog:",
     "esbuild": "catalog:",
-    "eslint": "catalog:",
-    "prettier": "catalog:",
     "ts-node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
-    "typescript-eslint": "catalog:",
     "vitest": "catalog:"
   },
   "dependencies": {

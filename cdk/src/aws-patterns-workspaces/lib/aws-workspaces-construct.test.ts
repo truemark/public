@@ -374,7 +374,7 @@ test('no SSH hardening Lambda without infrastructure props', () => {
   const template = makeTemplate();
   const lambdas = template.findResources('AWS::Lambda::Function');
   const hasRevokeSsh = Object.values(lambdas).some((fn) =>
-    JSON.stringify(fn).includes('DescribeSecurityGroups'),
+    JSON.stringify(fn).includes('describe_security_groups'),
   );
   expect(hasRevokeSsh).toBe(false);
 });
@@ -383,7 +383,7 @@ test('SSH hardening Lambda created with infrastructure props', () => {
   const template = makeTemplate({infrastructure: {}});
   const lambdas = template.findResources('AWS::Lambda::Function');
   const hasRevokeSsh = Object.values(lambdas).some((fn) =>
-    JSON.stringify(fn).includes('DescribeSecurityGroups'),
+    JSON.stringify(fn).includes('describe_security_groups'),
   );
   expect(hasRevokeSsh).toBe(true);
 });

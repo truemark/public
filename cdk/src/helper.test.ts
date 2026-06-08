@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import type {App, ResourceEnvironment, Stack, Stage} from 'aws-cdk-lib';
 import type {Template} from 'aws-cdk-lib/assertions';
-import {test} from 'vitest';
+import {test, expect} from 'vitest';
 import {ExtendedApp, ExtendedStack, ExtendedStage} from './aws-cdk/index';
 
 export enum ResourceType {
@@ -62,6 +62,8 @@ export class HelperTest {
   }
 }
 
-test('Empty Test', () => {
-  // Do nothing
+test('HelperTest.stack() uses the expected default account and region', () => {
+  const stack = HelperTest.stack();
+  expect(stack.account).toBe(HelperTest.DEFAULT_ACCOUNT);
+  expect(stack.region).toBe(HelperTest.DEFAULT_REGION);
 });

@@ -810,10 +810,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
           },
           physicalResourceId: cr.PhysicalResourceId.of(this.directoryId),
           // InvalidResourceStateException: directory is already registered — treat as no-op.
-          // AccessDeniedException: account has no prior WorkSpaces usage; registration must be
-          // initiated once via the AWS console or CLI before the API will accept it.
-          ignoreErrorCodesMatching:
-            'InvalidResourceStateException|AccessDeniedException',
+          ignoreErrorCodesMatching: 'InvalidResourceStateException',
         },
         onUpdate: {
           service: 'WorkSpaces',
@@ -1023,7 +1020,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
             KeyId: key.keyArn,
             Description:
               'SSM hybrid activation code for WorkSpace golden image re-registration',
-            Overwrite: false,
+            Overwrite: true,
           },
           physicalResourceId: cr.PhysicalResourceId.of(
             `${this.ssmActivationParamPrefix}/code`,
@@ -1162,41 +1159,75 @@ export class AwsWorkspaces extends ExtendedConstruct {
         ],
       });
 
+      // boto3 is pre-installed in all Python Lambda runtimes; no bundling required.
+      // Node.js 18+ runtimes no longer include any AWS SDK, making @aws-sdk/client-ec2
+      // unavailable in inline (ZipFile) code without a bundling step.
       const revokeSshFn = new lambda.Function(this, 'RevokeSshFn', {
-        runtime: lambda.Runtime.NODEJS_22_X,
+        runtime: lambda.Runtime.PYTHON_3_12,
         handler: 'index.handler',
         timeout: Duration.seconds(60),
         role: revokeSshFnRole,
         code: lambda.Code.fromInline(`
-const {EC2Client,DescribeSecurityGroupsCommand,RevokeSecurityGroupIngressCommand}=require('@aws-sdk/client-ec2');
-const https=require('https');
-const ec2=new EC2Client({});
-async function send(event,status,reason){
-  const body=JSON.stringify({Status:status,Reason:reason||'done',PhysicalResourceId:event.PhysicalResourceId||event.LogicalResourceId,StackId:event.StackId,RequestId:event.RequestId,LogicalResourceId:event.LogicalResourceId,Data:{}});
-  const u=new URL(event.ResponseURL);
-  return new Promise((resolve,reject)=>{
-    const req=https.request({hostname:u.hostname,path:u.pathname+u.search,method:'PUT',headers:{'Content-Type':'','Content-Length':Buffer.byteLength(body)}},resolve);
-    req.on('error',reject);req.write(body);req.end();
-  });
-}
-exports.handler=async(event)=>{
-  if(event.RequestType==='Delete'){await send(event,'SUCCESS');return;}
-  try{
-    const resp=await ec2.send(new DescribeSecurityGroupsCommand({Filters:[{Name:'tag-key',Values:['Created by Amazon WorkSpaces']}]}));
-    const sgs=resp.SecurityGroups||[];
-    console.log('Found '+sgs.length+' WorkSpaces security group(s)');
-    for(const sg of sgs){
-      const openRules=(sg.IpPermissions||[]).filter(p=>(p.IpRanges||[]).some(r=>r.CidrIp==='0.0.0.0/0')||(p.Ipv6Ranges||[]).some(r=>r.CidrIpv6==='::/0'));
-      if(!openRules.length){console.log('No open-world rules in '+sg.GroupId);continue;}
-      const toRevoke=openRules.map(p=>({IpProtocol:p.IpProtocol,FromPort:p.FromPort,ToPort:p.ToPort,IpRanges:(p.IpRanges||[]).filter(r=>r.CidrIp==='0.0.0.0/0'),Ipv6Ranges:(p.Ipv6Ranges||[]).filter(r=>r.CidrIpv6==='::/0')})).filter(p=>p.IpRanges.length||p.Ipv6Ranges.length);
-      if(toRevoke.length){
-        await ec2.send(new RevokeSecurityGroupIngressCommand({GroupId:sg.GroupId,IpPermissions:toRevoke}));
-        console.log('Revoked '+toRevoke.length+' open-world rule(s) from '+sg.GroupId+' ('+sg.GroupName+')');
-      }
-    }
-  }catch(err){await send(event,'FAILED',String(err));return;}
-  await send(event,'SUCCESS');
-};
+import boto3
+import json
+import urllib.request
+
+def handler(event, context):
+    if event['RequestType'] == 'Delete':
+        _send(event, 'SUCCESS')
+        return
+    try:
+        ec2 = boto3.client('ec2')
+        sgs = ec2.describe_security_groups(
+            Filters=[{'Name': 'tag-key', 'Values': ['Created by Amazon WorkSpaces']}]
+        ).get('SecurityGroups', [])
+        print('Found', len(sgs), 'WorkSpaces security group(s)')
+        for sg in sgs:
+            open_rules = [
+                p for p in sg.get('IpPermissions', [])
+                if any(r.get('CidrIp') == '0.0.0.0/0' for r in p.get('IpRanges', []))
+                or any(r.get('CidrIpv6') == '::/0' for r in p.get('Ipv6Ranges', []))
+            ]
+            if not open_rules:
+                print('No open-world rules in', sg['GroupId'])
+                continue
+            to_revoke = []
+            for p in open_rules:
+                e = {
+                    'IpProtocol': p['IpProtocol'],
+                    'IpRanges': [r for r in p.get('IpRanges', []) if r.get('CidrIp') == '0.0.0.0/0'],
+                    'Ipv6Ranges': [r for r in p.get('Ipv6Ranges', []) if r.get('CidrIpv6') == '::/0'],
+                }
+                if p.get('FromPort') is not None:
+                    e['FromPort'] = p['FromPort']
+                if p.get('ToPort') is not None:
+                    e['ToPort'] = p['ToPort']
+                if e['IpRanges'] or e['Ipv6Ranges']:
+                    to_revoke.append(e)
+            if to_revoke:
+                ec2.revoke_security_group_ingress(GroupId=sg['GroupId'], IpPermissions=to_revoke)
+                print('Revoked', len(to_revoke), 'rule(s) from', sg['GroupId'], '(' + sg.get('GroupName', '') + ')')
+        _send(event, 'SUCCESS')
+    except Exception as err:
+        _send(event, 'FAILED', str(err))
+
+def _send(event, status, reason='done'):
+    body = json.dumps({
+        'Status': status,
+        'Reason': reason,
+        'PhysicalResourceId': event.get('PhysicalResourceId') or event['LogicalResourceId'],
+        'StackId': event['StackId'],
+        'RequestId': event['RequestId'],
+        'LogicalResourceId': event['LogicalResourceId'],
+        'Data': {},
+    }).encode()
+    req = urllib.request.Request(
+        event['ResponseURL'],
+        data=body,
+        method='PUT',
+        headers={'Content-Type': '', 'Content-Length': str(len(body))},
+    )
+    urllib.request.urlopen(req)
 `),
       });
 
