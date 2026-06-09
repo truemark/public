@@ -392,21 +392,23 @@ test('SSH hardening Lambda created with infrastructure props', () => {
 // MFA
 // ============================================================
 
-test('no MFA policy statement without mfa props', () => {
+test('no MFA resources created without mfa props', () => {
   const template = makeTemplate({infrastructure: {}});
   const policies = template.findResources('AWS::IAM::ManagedPolicy');
-  const hasMfa = Object.values(policies).some((p) =>
-    JSON.stringify(p).includes('AllowDirectoryMfa'),
-  );
-  expect(hasMfa).toBe(false);
+  const allJson = JSON.stringify(Object.values(policies));
+  expect(allJson).not.toContain('AllowDirectoryMfa');
+  expect(allJson).not.toContain('AllowWorkspacesSaml');
+  expect(allJson).not.toContain('AllowWorkspacesCertAuth');
 });
 
-test('MFA policy statement added when mfa provided', () => {
+test('RADIUS MFA policy and custom resource created when radius provided', () => {
   const template = makeTemplate({
     infrastructure: {
       mfa: {
-        radiusServers: ['10.0.0.1'],
-        sharedSecret: SecretValue.unsafePlainText('test-secret'),
+        radius: {
+          radiusServers: ['10.0.0.1'],
+          sharedSecret: SecretValue.unsafePlainText('test-secret'),
+        },
       },
     },
   });
@@ -424,6 +426,82 @@ test('MFA policy statement added when mfa provided', () => {
       ]),
     }),
   });
+  const customResources = template.findResources('Custom::AWS');
+  const hasRadius = Object.values(customResources).some((r) =>
+    JSON.stringify(r).includes('EnableRadius'),
+  );
+  expect(hasRadius).toBe(true);
+});
+
+test('SAML policy and custom resource created when saml provided', () => {
+  const template = makeTemplate({
+    infrastructure: {
+      mfa: {
+        saml: {userAccessUrl: 'https://idp.example.com/saml/acs'},
+      },
+    },
+  });
+  template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Sid: 'AllowWorkspacesSaml',
+          Action: 'workspaces:ModifySamlProperties',
+        }),
+      ]),
+    }),
+  });
+  const customResources = template.findResources('Custom::AWS');
+  const hasSaml = Object.values(customResources).some((r) =>
+    JSON.stringify(r).includes('ModifySamlProperties'),
+  );
+  expect(hasSaml).toBe(true);
+});
+
+test('certificate-based auth policy and custom resource created when certificateBased provided', () => {
+  const template = makeTemplate({
+    infrastructure: {
+      mfa: {
+        certificateBased: {
+          certificateAuthorityArn:
+            'arn:aws:acm-pca:us-east-2:100000000000:certificate-authority/00000000-0000-0000-0000-000000000000',
+        },
+      },
+    },
+  });
+  template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Sid: 'AllowWorkspacesCertAuth',
+          Action: 'workspaces:ModifyCertificateBasedAuthProperties',
+        }),
+      ]),
+    }),
+  });
+  const customResources = template.findResources('Custom::AWS');
+  const hasCertAuth = Object.values(customResources).some((r) =>
+    JSON.stringify(r).includes('ModifyCertificateBasedAuthProperties'),
+  );
+  expect(hasCertAuth).toBe(true);
+});
+
+test('throws when more than one mfa type is set', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new AwsWorkspaces(stack, 'TestWorkspaces', {
+      directory: {existingDirectoryId: 'd-1234567890'},
+      infrastructure: {
+        mfa: {
+          radius: {
+            radiusServers: ['10.0.0.1'],
+            sharedSecret: SecretValue.unsafePlainText('test-secret'),
+          },
+          saml: {userAccessUrl: 'https://idp.example.com/saml/acs'},
+        },
+      },
+    });
+  }).toThrow(/exactly one/);
 });
 
 // ============================================================

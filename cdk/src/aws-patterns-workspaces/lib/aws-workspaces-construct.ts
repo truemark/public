@@ -196,23 +196,29 @@ export interface AwsWorkspacesInfrastructureProps {
   readonly packages?: AwsWorkspacesPackagesProps;
 
   /**
-   * RADIUS-based MFA configuration. When provided, enables multi-factor authentication
-   * on the WorkSpaces directory. Requires a RADIUS server reachable from the directory VPC.
+   * Authentication configuration. Enables RADIUS MFA, SAML 2.0 federation, or
+   * certificate-based authentication on the WorkSpaces directory.
+   * Exactly one of radius, saml, or certificateBased must be set.
    */
   readonly mfa?: AwsWorkspacesMfaProps;
 }
 
 /**
  * RADIUS-based MFA configuration for AwsWorkspaces.
- * Enables multi-factor authentication on the WorkSpaces directory via a RADIUS server.
- * The RADIUS server must be reachable from the directory's VPC before this is applied.
+ * Requires a RADIUS server reachable from the directory's VPC.
  */
-export interface AwsWorkspacesMfaProps {
+export interface AwsWorkspacesRadiusMfaProps {
   /**
    * IP addresses or DNS names of the RADIUS server(s).
    * Provide two entries for redundancy.
    */
   readonly radiusServers: string[];
+
+  /**
+   * Shared secret between the directory and the RADIUS server.
+   * Use SecretValue.secretsManager() or SecretValue.ssmSecure() — do not use unsafePlainText.
+   */
+  readonly sharedSecret: SecretValue;
 
   /**
    * UDP port for RADIUS authentication requests.
@@ -250,18 +256,77 @@ export interface AwsWorkspacesMfaProps {
   readonly displayLabel?: string;
 
   /**
-   * Shared secret between the directory and the RADIUS server.
-   * Use SecretValue.secretsManager() or SecretValue.ssmSecure() — do not use unsafePlainText.
-   */
-  readonly sharedSecret: SecretValue;
-
-  /**
    * Whether to pass the same username to the RADIUS server as used for directory authentication.
    * Set to false when the RADIUS server expects a different username format.
    *
    * @default false
    */
   readonly useSameUsername?: boolean;
+}
+
+/**
+ * SAML 2.0 authentication configuration for WorkSpaces.
+ * Delegates workspace login to an external identity provider.
+ * The IdP must be configured to issue SAML assertions targeting the WorkSpaces service.
+ */
+export interface AwsWorkspacesSamlProps {
+  /**
+   * The URL to the identity provider's SAML assertion consumer service (ACS) endpoint.
+   * WorkSpaces redirects users here to initiate SAML authentication.
+   */
+  readonly userAccessUrl: string;
+
+  /**
+   * The name of the parameter used to pass the relay state in the SAML request.
+   *
+   * @default 'RelayState'
+   */
+  readonly relayStateParameterName?: string;
+
+  /**
+   * Whether directory login is available as a fallback when SAML authentication fails.
+   * Use ENABLED_WITH_DIRECTORY_LOGIN_FALLBACK during IdP testing to retain access
+   * if the SAML configuration is misconfigured.
+   *
+   * @default 'ENABLED'
+   */
+  readonly status?: 'ENABLED' | 'ENABLED_WITH_DIRECTORY_LOGIN_FALLBACK';
+}
+
+/**
+ * Certificate-based authentication configuration for WorkSpaces.
+ * Enables smart card / device certificate login via an ACM Private CA.
+ * The CA must already exist and be in ACTIVE state before deployment.
+ */
+export interface AwsWorkspacesCertificateBasedAuthProps {
+  /**
+   * ARN of the ACM Private Certificate Authority used to issue WorkSpaces client certificates.
+   */
+  readonly certificateAuthorityArn: string;
+}
+
+/**
+ * Authentication configuration for AwsWorkspaces.
+ * Exactly one of radius, saml, or certificateBased must be set.
+ */
+export interface AwsWorkspacesMfaProps {
+  /**
+   * RADIUS-based multi-factor authentication via a RADIUS server.
+   * Supported on Managed Microsoft AD, Simple AD, and AD Connector directories.
+   */
+  readonly radius?: AwsWorkspacesRadiusMfaProps;
+
+  /**
+   * SAML 2.0 federated authentication via an external identity provider.
+   * Supported on Managed Microsoft AD and AD Connector directories.
+   */
+  readonly saml?: AwsWorkspacesSamlProps;
+
+  /**
+   * Certificate-based authentication for smart card or device certificate login.
+   * Requires an ACM Private CA and Managed Microsoft AD.
+   */
+  readonly certificateBased?: AwsWorkspacesCertificateBasedAuthProps;
 }
 
 /**
@@ -885,33 +950,71 @@ export class AwsWorkspaces extends ExtendedConstruct {
         }),
       );
       if (infra.mfa) {
-        customResourcePolicy.addStatements(
-          new iam.PolicyStatement({
-            sid: 'AllowDirectoryMfa',
-            effect: iam.Effect.ALLOW,
-            actions: ['ds:EnableRadius', 'ds:DisableRadius', 'ds:UpdateRadius'],
-            resources: ['*'],
-          }),
-        );
+        const mfa = infra.mfa;
+        const mfaTypeCount = [
+          mfa.radius,
+          mfa.saml,
+          mfa.certificateBased,
+        ].filter(Boolean).length;
+        if (mfaTypeCount !== 1) {
+          throw new Error(
+            'AwsWorkspacesInfrastructureProps.mfa: exactly one of radius, saml, or certificateBased must be set',
+          );
+        }
+
+        if (mfa.radius) {
+          customResourcePolicy.addStatements(
+            new iam.PolicyStatement({
+              sid: 'AllowDirectoryMfa',
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'ds:EnableRadius',
+                'ds:DisableRadius',
+                'ds:UpdateRadius',
+              ],
+              resources: ['*'],
+            }),
+          );
+        }
+        if (mfa.saml) {
+          customResourcePolicy.addStatements(
+            new iam.PolicyStatement({
+              sid: 'AllowWorkspacesSaml',
+              effect: iam.Effect.ALLOW,
+              actions: ['workspaces:ModifySamlProperties'],
+              resources: ['*'],
+            }),
+          );
+        }
+        if (mfa.certificateBased) {
+          customResourcePolicy.addStatements(
+            new iam.PolicyStatement({
+              sid: 'AllowWorkspacesCertAuth',
+              effect: iam.Effect.ALLOW,
+              actions: ['workspaces:ModifyCertificateBasedAuthProperties'],
+              resources: ['*'],
+            }),
+          );
+        }
       }
 
-      // RADIUS-based MFA — configure the directory to require a second factor.
-      // Must run after directory registration since WorkSpaces uses the RADIUS
-      // settings during workspace login, not during provisioning.
-      if (infra.mfa) {
-        const mfa = infra.mfa;
+      // Authentication — RADIUS MFA, SAML 2.0, or certificate-based auth.
+      // All three are applied after directory registration; WorkSpaces evaluates
+      // these settings at login time, not during workspace provisioning.
+      if (infra.mfa?.radius) {
+        const radius = infra.mfa.radius;
         const radiusSettings = {
-          AuthenticationProtocol: mfa.authenticationProtocol ?? 'MS-CHAPv2',
-          DisplayLabel: mfa.displayLabel ?? 'MFA',
-          RadiusPort: mfa.radiusPort ?? 1812,
-          RadiusRetries: mfa.radiusRetries ?? 0,
-          RadiusServers: mfa.radiusServers,
-          RadiusTimeout: mfa.radiusTimeout ?? 20,
+          AuthenticationProtocol: radius.authenticationProtocol ?? 'MS-CHAPv2',
+          DisplayLabel: radius.displayLabel ?? 'MFA',
+          RadiusPort: radius.radiusPort ?? 1812,
+          RadiusRetries: radius.radiusRetries ?? 0,
+          RadiusServers: radius.radiusServers,
+          RadiusTimeout: radius.radiusTimeout ?? 20,
           // unsafeUnwrap resolves to a CloudFormation dynamic reference
           // (e.g. {{resolve:secretsmanager:...}}) — CloudFormation resolves the
           // reference before invoking the custom resource Lambda.
-          SharedSecret: mfa.sharedSecret.unsafeUnwrap(),
-          UseSameUsername: mfa.useSameUsername ?? false,
+          SharedSecret: radius.sharedSecret.unsafeUnwrap(),
+          UseSameUsername: radius.useSameUsername ?? false,
         };
 
         const workspacesMfa = new cr.AwsCustomResource(this, 'WorkspacesMfa', {
@@ -951,6 +1054,112 @@ export class AwsWorkspaces extends ExtendedConstruct {
           role: customResourceRole,
         });
         workspacesMfa.node.addDependency(workspacesDirectory);
+      }
+
+      if (infra.mfa?.saml) {
+        const saml = infra.mfa.saml;
+        const samlProperties = {
+          UserAccessUrl: saml.userAccessUrl,
+          RelayStateParameterName: saml.relayStateParameterName ?? 'RelayState',
+          Status: saml.status ?? 'ENABLED',
+        };
+
+        const workspacesSaml = new cr.AwsCustomResource(
+          this,
+          'WorkspacesSaml',
+          {
+            onCreate: {
+              service: 'WorkSpaces',
+              action: 'ModifySamlProperties',
+              parameters: {
+                DirectoryId: this.directoryId,
+                SamlProperties: samlProperties,
+              },
+              physicalResourceId: cr.PhysicalResourceId.of(
+                `${this.directoryId}-saml`,
+              ),
+            },
+            onUpdate: {
+              service: 'WorkSpaces',
+              action: 'ModifySamlProperties',
+              parameters: {
+                DirectoryId: this.directoryId,
+                SamlProperties: samlProperties,
+              },
+              physicalResourceId: cr.PhysicalResourceId.of(
+                `${this.directoryId}-saml`,
+              ),
+            },
+            onDelete: {
+              service: 'WorkSpaces',
+              action: 'ModifySamlProperties',
+              parameters: {
+                DirectoryId: this.directoryId,
+                SamlProperties: {Status: 'DISABLED'},
+              },
+              // ResourceNotFoundException: directory already deregistered.
+              ignoreErrorCodesMatching:
+                'ResourceNotFoundException|InvalidResourceStateException',
+            },
+            role: customResourceRole,
+          },
+        );
+        workspacesSaml.node.addDependency(workspacesDirectory);
+      }
+
+      if (infra.mfa?.certificateBased) {
+        const certAuth = infra.mfa.certificateBased;
+
+        const workspacesCertAuth = new cr.AwsCustomResource(
+          this,
+          'WorkspacesCertAuth',
+          {
+            onCreate: {
+              service: 'WorkSpaces',
+              action: 'ModifyCertificateBasedAuthProperties',
+              parameters: {
+                DirectoryId: this.directoryId,
+                CertificateBasedAuthProperties: {
+                  CertificateAuthorityArn: certAuth.certificateAuthorityArn,
+                  Status: 'ENABLED',
+                },
+              },
+              physicalResourceId: cr.PhysicalResourceId.of(
+                `${this.directoryId}-cert-auth`,
+              ),
+            },
+            onUpdate: {
+              service: 'WorkSpaces',
+              action: 'ModifyCertificateBasedAuthProperties',
+              parameters: {
+                DirectoryId: this.directoryId,
+                CertificateBasedAuthProperties: {
+                  CertificateAuthorityArn: certAuth.certificateAuthorityArn,
+                  Status: 'ENABLED',
+                },
+              },
+              physicalResourceId: cr.PhysicalResourceId.of(
+                `${this.directoryId}-cert-auth`,
+              ),
+            },
+            onDelete: {
+              service: 'WorkSpaces',
+              action: 'ModifyCertificateBasedAuthProperties',
+              parameters: {
+                DirectoryId: this.directoryId,
+                CertificateBasedAuthProperties: {Status: 'DISABLED'},
+                // Removes the CA ARN so the directory is fully disassociated.
+                PropertiesToDelete: [
+                  'CERTIFICATE_BASED_AUTH_PROPERTIES_CERTIFICATE_AUTHORITY_ARN',
+                ],
+              },
+              ignoreErrorCodesMatching:
+                'ResourceNotFoundException|InvalidResourceStateException',
+            },
+            role: customResourceRole,
+          },
+        );
+        workspacesCertAuth.node.addDependency(workspacesDirectory);
       }
 
       // SSM Hybrid Activation for golden image re-registration.
