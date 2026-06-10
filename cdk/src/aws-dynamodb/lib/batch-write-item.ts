@@ -6,7 +6,7 @@ import {
   PhysicalResourceId,
 } from 'aws-cdk-lib/custom-resources';
 import {Construct} from 'constructs';
-import {configureLogGroupForFunction} from '../../aws-lambda/lib/function-log-options';
+import {configureLogGroupForCustomResource} from '../../aws-lambda/lib/function-log-options';
 
 export type BatchWriteItemKey = {
   Key: Record<string, any>;
@@ -61,9 +61,9 @@ export class BatchWriteItem extends Construct {
 
     const tableNames = Object.keys(props.items.RequestItems);
 
-    const logGroup = configureLogGroupForFunction(
-      scope,
-      `${id}LogGroup`,
+    const logGroup = configureLogGroupForCustomResource(
+      this,
+      'LogGroup',
       props,
     );
 

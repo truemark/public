@@ -1,6 +1,6 @@
 import {Names, RemovalPolicy, Stack} from 'aws-cdk-lib';
 import type * as lambda from 'aws-cdk-lib/aws-lambda';
-import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
+import {type ILogGroup, LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
 import type {Construct} from 'constructs';
 
 /**
@@ -78,6 +78,53 @@ export function configureLogGroupForFunction(
   return new LogGroup(scope, `${id}LogGroup`, {
     logGroupName: logConfig?.logGroupName ?? `/aws/lambda/${functionName}`,
     retention: logConfig?.retention ?? RetentionDays.THREE_DAYS,
+    removalPolicy: RemovalPolicy.DESTROY,
+  });
+}
+
+/**
+ * Options for configuring the log group of a custom resource.
+ */
+export interface CustomResourceLogOptions {
+  /**
+   * The log group to use. If provided, it is returned as-is.
+   */
+  readonly logGroup?: ILogGroup;
+  /**
+   * The retention period in days for the log group. Default is 3 days.
+   */
+  readonly logRetention?: number;
+}
+
+/**
+ * Configure the log group for a custom resource (e.g. AwsCustomResource).
+ *
+ * Unlike {@link configureLogGroupForFunction}, this does not attempt to predict
+ * a `/aws/lambda/...` name. Custom resources are backed by a framework-managed
+ * provider Lambda whose name we don't control, so a predicted name is both
+ * meaningless and prone to collisions when truncated to CloudWatch's 64
+ * character limit (multiple custom resources in one stack sharing a long
+ * stack/construct id prefix would resolve to the same name and fail to deploy).
+ *
+ * Instead this lets CloudFormation assign a unique physical name, while still
+ * applying retention and a DESTROY removal policy.
+ *
+ * @param scope The scope in which to create the log group (the construct itself).
+ * @param id The id of the log group construct.
+ * @param props The log configuration.
+ * @returns The log group.
+ */
+export function configureLogGroupForCustomResource(
+  scope: Construct,
+  id: string,
+  props: CustomResourceLogOptions,
+): ILogGroup {
+  if (props.logGroup) {
+    return props.logGroup;
+  }
+  return new LogGroup(scope, id, {
+    retention:
+      (props.logRetention as RetentionDays) ?? RetentionDays.THREE_DAYS,
     removalPolicy: RemovalPolicy.DESTROY,
   });
 }
