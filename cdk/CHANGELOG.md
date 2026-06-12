@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.23.1
+### Patch Changes
+
+- a1f7628: Fixed log group conflicts
+
 ## 1.23.0
 ### Minor Changes
 

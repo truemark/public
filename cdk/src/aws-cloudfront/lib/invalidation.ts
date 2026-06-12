@@ -6,7 +6,7 @@ import {
   PhysicalResourceId,
 } from 'aws-cdk-lib/custom-resources';
 import {Construct} from 'constructs';
-import {configureLogGroupForFunction} from '../../aws-lambda/lib/function-log-options';
+import {configureLogGroupForCustomResource} from '../../aws-lambda/lib/function-log-options';
 
 /**
  * Properties for Invalidation.
@@ -67,9 +67,9 @@ export class Invalidation extends Construct {
       physicalResourceId: PhysicalResourceId.of(now),
     };
 
-    const logGroup = configureLogGroupForFunction(
-      scope,
-      `${id}LogGroup`,
+    const logGroup = configureLogGroupForCustomResource(
+      this,
+      'LogGroup',
       props,
     );
 
