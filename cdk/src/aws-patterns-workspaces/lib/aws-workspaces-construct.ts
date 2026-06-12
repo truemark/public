@@ -190,6 +190,24 @@ export interface AwsWorkspacesInfrastructureProps {
   readonly operatingSystem?: string;
 
   /**
+   * Tags applied to the SSM hybrid activation. Per the SSM CreateActivation API,
+   * tags assigned to an activation are automatically applied to each managed
+   * instance (mi-*) that registers with it — server-side, at registration time,
+   * requiring no permissions on the registering identity.
+   *
+   * Use this to tag golden-image WorkSpaces so SSM State Manager associations can
+   * target them (e.g. `{ManagedBy: 'CDK'}` to match a `tag:ManagedBy=CDK` target).
+   * Tags cannot be added to an activation after creation; the activation is
+   * rotated on every deploy, so changes apply to instances registered thereafter.
+   *
+   * When set, the activation-creating custom resource is granted
+   * ssm:AddTagsToResource, which CreateActivation requires in order to apply tags.
+   *
+   * @default - no tags are applied to the activation
+   */
+  readonly activationTags?: {[key: string]: string};
+
+  /**
    * OS package installation via State Manager Association.
    * Only created when packages is provided and the list is non-empty.
    */
@@ -830,6 +848,13 @@ export class AwsWorkspaces extends ExtendedConstruct {
           new iam.PolicyStatement({
             sid: 'AllowWorkspacesDirectoryRegistration',
             effect: iam.Effect.ALLOW,
+            // RegisterWorkspaceDirectory validates the VPC/subnets and sets up the
+            // directory's networking using the *caller's* credentials, so the custom
+            // resource Lambda needs the EC2 describe/networking permissions in addition
+            // to the workspaces:/ds:/iam: actions. Without ec2:* the API returns the
+            // generic "You do not have sufficient access to perform this action" error.
+            // Mirrors the AWS-documented register-a-directory policy:
+            // https://docs.aws.amazon.com/workspaces/latest/adminguide/workspaces-access-control.html
             actions: [
               'workspaces:RegisterWorkspaceDirectory',
               'workspaces:DeregisterWorkspaceDirectory',
@@ -839,7 +864,28 @@ export class AwsWorkspaces extends ExtendedConstruct {
               'ds:UnauthorizeApplication',
               'ds:EnableSso',
               'ds:DisableSso',
+              'ec2:DescribeVpcs',
+              'ec2:DescribeSubnets',
+              'ec2:DescribeAvailabilityZones',
+              'ec2:DescribeNetworkInterfaces',
+              'ec2:DescribeSecurityGroups',
+              'ec2:DescribeRouteTables',
+              'ec2:DescribeInternetGateways',
+              'ec2:CreateNetworkInterface',
+              'ec2:DeleteNetworkInterface',
+              'ec2:CreateSecurityGroup',
+              'ec2:DeleteSecurityGroup',
+              'ec2:AuthorizeSecurityGroupIngress',
+              'ec2:AuthorizeSecurityGroupEgress',
+              'ec2:RevokeSecurityGroupIngress',
+              'ec2:RevokeSecurityGroupEgress',
+              'ec2:CreateTags',
               'iam:GetRole',
+              'iam:CreateRole',
+              'iam:AttachRolePolicy',
+              'iam:PutRolePolicy',
+              'iam:CreatePolicy',
+              'iam:ListRoles',
               'iam:CreateServiceLinkedRole',
               'iam:PassRole',
             ],
@@ -920,7 +966,15 @@ export class AwsWorkspaces extends ExtendedConstruct {
         new iam.PolicyStatement({
           sid: 'AllowSsmActivation',
           effect: iam.Effect.ALLOW,
-          actions: ['ssm:CreateActivation', 'ssm:DeleteActivation'],
+          // CreateActivation requires ssm:AddTagsToResource when the call includes
+          // Tags, so grant it only when activation tags are configured.
+          actions: infra.activationTags
+            ? [
+                'ssm:CreateActivation',
+                'ssm:DeleteActivation',
+                'ssm:AddTagsToResource',
+              ]
+            : ['ssm:CreateActivation', 'ssm:DeleteActivation'],
           resources: ['*'],
         }),
         new iam.PolicyStatement({
@@ -960,6 +1014,26 @@ export class AwsWorkspaces extends ExtendedConstruct {
           throw new Error(
             'AwsWorkspacesInfrastructureProps.mfa: exactly one of radius, saml, or certificateBased must be set',
           );
+        }
+
+        if (mfa.radius) {
+          const {radiusTimeout, radiusRetries} = mfa.radius;
+          if (
+            radiusTimeout !== undefined &&
+            (radiusTimeout < 1 || radiusTimeout > 20)
+          ) {
+            throw new Error(
+              `AwsWorkspacesRadiusMfaProps.radiusTimeout must be between 1 and 20 seconds (got ${radiusTimeout})`,
+            );
+          }
+          if (
+            radiusRetries !== undefined &&
+            (radiusRetries < 0 || radiusRetries > 10)
+          ) {
+            throw new Error(
+              `AwsWorkspacesRadiusMfaProps.radiusRetries must be between 0 and 10 (got ${radiusRetries})`,
+            );
+          }
         }
 
         if (mfa.radius) {
@@ -1175,6 +1249,15 @@ export class AwsWorkspaces extends ExtendedConstruct {
       // a new one is created, Parameter Store is updated, then the old is deleted.
       // Already-registered workspaces are unaffected — activation is for initial
       // registration only.
+      // Tags assigned to the activation are automatically applied by SSM to every
+      // managed instance that registers with it (see activationTags prop docs).
+      const activationTagList = infra.activationTags
+        ? Object.entries(infra.activationTags).map(([Key, Value]) => ({
+            Key,
+            Value,
+          }))
+        : undefined;
+
       const activationCall: cr.AwsSdkCall = {
         service: 'SSM',
         action: 'CreateActivation',
@@ -1183,6 +1266,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
           IamRole: ssmHybridActivationRole.roleName,
           RegistrationLimit: 50,
           ExpirationDate: activationExpiry.toISOString(),
+          ...(activationTagList ? {Tags: activationTagList} : {}),
         },
         physicalResourceId: cr.PhysicalResourceId.fromResponse('ActivationId'),
       };

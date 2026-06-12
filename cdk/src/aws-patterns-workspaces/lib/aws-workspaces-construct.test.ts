@@ -312,6 +312,54 @@ test('SSM activation ID and region parameters created with infrastructure', () =
   expect(hasActivationRegion).toBe(true);
 });
 
+test('activationTags are passed to the CreateActivation call', () => {
+  const template = makeTemplate({
+    infrastructure: {activationTags: {ManagedBy: 'CDK'}},
+  });
+  const customResources = template.findResources('Custom::AWS');
+  const createActivationCalls = Object.values(customResources)
+    .map((r) => JSON.stringify((r as Record<string, unknown>).Properties))
+    .filter((p) => p.includes('CreateActivation'));
+  expect(createActivationCalls.length).toBeGreaterThan(0);
+  // SSM applies these tags to every managed instance that registers with the activation.
+  expect(
+    createActivationCalls.some(
+      (p) => p.includes('ManagedBy') && p.includes('CDK'),
+    ),
+  ).toBe(true);
+});
+
+test('activationTags grant ssm:AddTagsToResource to the activation custom resource', () => {
+  const template = makeTemplate({
+    infrastructure: {activationTags: {ManagedBy: 'CDK'}},
+  });
+  template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Sid: 'AllowSsmActivation',
+          Action: Match.arrayWith([
+            'ssm:CreateActivation',
+            'ssm:DeleteActivation',
+            'ssm:AddTagsToResource',
+          ]),
+        }),
+      ]),
+    }),
+  });
+});
+
+test('no ssm:AddTagsToResource when activationTags not provided', () => {
+  const template = makeTemplate({infrastructure: {}});
+  const policies = template.findResources('AWS::IAM::ManagedPolicy');
+  const hasAddTags = Object.values(policies).some((p) =>
+    JSON.stringify((p as Record<string, unknown>).Properties).includes(
+      'ssm:AddTagsToResource',
+    ),
+  );
+  expect(hasAddTags).toBe(false);
+});
+
 // ============================================================
 // Packages / SSM Association
 // ============================================================
@@ -502,6 +550,60 @@ test('throws when more than one mfa type is set', () => {
       },
     });
   }).toThrow(/exactly one/);
+});
+
+test('throws when radiusTimeout is below 1', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new AwsWorkspaces(stack, 'TestWorkspaces', {
+      directory: {existingDirectoryId: 'd-1234567890'},
+      infrastructure: {
+        mfa: {
+          radius: {
+            radiusServers: ['10.0.0.1'],
+            sharedSecret: SecretValue.unsafePlainText('test-secret'),
+            radiusTimeout: 0,
+          },
+        },
+      },
+    });
+  }).toThrow(/radiusTimeout/);
+});
+
+test('throws when radiusTimeout is above 20', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new AwsWorkspaces(stack, 'TestWorkspaces', {
+      directory: {existingDirectoryId: 'd-1234567890'},
+      infrastructure: {
+        mfa: {
+          radius: {
+            radiusServers: ['10.0.0.1'],
+            sharedSecret: SecretValue.unsafePlainText('test-secret'),
+            radiusTimeout: 21,
+          },
+        },
+      },
+    });
+  }).toThrow(/radiusTimeout/);
+});
+
+test('throws when radiusRetries is above 10', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new AwsWorkspaces(stack, 'TestWorkspaces', {
+      directory: {existingDirectoryId: 'd-1234567890'},
+      infrastructure: {
+        mfa: {
+          radius: {
+            radiusServers: ['10.0.0.1'],
+            sharedSecret: SecretValue.unsafePlainText('test-secret'),
+            radiusRetries: 11,
+          },
+        },
+      },
+    });
+  }).toThrow(/radiusRetries/);
 });
 
 // ============================================================
