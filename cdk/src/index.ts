@@ -5,6 +5,7 @@ export * as aws_centergauge from './aws-centergauge/index';
 export * as aws_cloudfront from './aws-cloudfront/index';
 export * as aws_cloudwatch from './aws-cloudwatch/index';
 export * as aws_codepipeline from './aws-codepipeline/index';
+export * as aws_directory_service from './aws-directory-service/index';
 export * as aws_dynamodb from './aws-dynamodb/index';
 export * as aws_ecs from './aws-ecs/index';
 export * as aws_lambda from './aws-lambda/index';

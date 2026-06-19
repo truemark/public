@@ -6,7 +6,6 @@ import {
   type SecretValue,
   Stack,
 } from 'aws-cdk-lib';
-import * as directoryservice from 'aws-cdk-lib/aws-directoryservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
@@ -21,6 +20,7 @@ import {
   type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
+import {ManagedAd} from '../../aws-directory-service';
 import {LibStandardTags} from '../../truemark';
 
 /**
@@ -330,7 +330,9 @@ export interface AwsWorkspacesCertificateBasedAuthProps {
 export interface AwsWorkspacesMfaProps {
   /**
    * RADIUS-based multi-factor authentication via a RADIUS server.
-   * Supported on Managed Microsoft AD, Simple AD, and AD Connector directories.
+   * Configured on the directory by the ManagedAd construct, so it is only
+   * supported when this construct creates the directory (directory.createManagedAd).
+   * Setting this with an imported directory (directory.existingDirectoryId) throws.
    */
   readonly radius?: AwsWorkspacesRadiusMfaProps;
 
@@ -728,9 +730,19 @@ export class AwsWorkspaces extends ExtendedConstruct {
       this.bucket = bucket;
     }
 
-    // Directory — use existing or create AWS Managed Microsoft AD
+    // Directory — use existing or create AWS Managed Microsoft AD.
+    // RADIUS MFA is owned by the ManagedAd construct, so it can only be configured
+    // when this construct creates the directory. RADIUS against an imported
+    // directory is not supported here — configure it on the directory directly.
     const dir = props.directory;
     if (dir.existingDirectoryId) {
+      if (props.infrastructure?.mfa?.radius) {
+        throw new Error(
+          'RADIUS MFA is only supported when this construct creates the directory ' +
+            '(directory.createManagedAd). Configure RADIUS directly on the existing directory, ' +
+            'or use directory.createManagedAd.',
+        );
+      }
       this.directoryId = dir.existingDirectoryId;
     } else if (dir.createManagedAd) {
       if (!dir.adDomainName) {
@@ -743,25 +755,15 @@ export class AwsWorkspaces extends ExtendedConstruct {
           'adAdminPassword is required when directory.createManagedAd is true',
         );
       }
-      if (this.privateSubnets.length < 2) {
-        throw new Error(
-          'At least 2 subnets in different AZs are required for Managed AD',
-        );
-      }
-      const managedAd = new directoryservice.CfnMicrosoftAD(this, 'ManagedAD', {
-        name: dir.adDomainName,
-        // unsafeUnwrap is required — CfnMicrosoftAD expects a plain string, not a SecretValue token
-        password: dir.adAdminPassword.unsafeUnwrap(),
-        vpcSettings: {
-          vpcId: this.vpc.vpcId,
-          subnetIds: this.privateSubnets
-            .slice(0, 2)
-            .map((subnet) => subnet.subnetId),
-        },
-        edition: 'Standard',
+      const managedAd = new ManagedAd(this, 'ManagedAD', {
+        domainName: dir.adDomainName,
+        password: dir.adAdminPassword,
+        vpc: this.vpc,
+        subnets: this.privateSubnets,
         shortName: dir.adShortName,
+        radius: props.infrastructure?.mfa?.radius,
       });
-      this.directoryId = managedAd.ref;
+      this.directoryId = managedAd.directoryId;
     } else {
       throw new Error(
         'Either directory.existingDirectoryId must be provided, or directory.createManagedAd must be true',
@@ -1016,40 +1018,6 @@ export class AwsWorkspaces extends ExtendedConstruct {
           );
         }
 
-        if (mfa.radius) {
-          const {radiusTimeout, radiusRetries} = mfa.radius;
-          if (
-            radiusTimeout !== undefined &&
-            (radiusTimeout < 1 || radiusTimeout > 20)
-          ) {
-            throw new Error(
-              `AwsWorkspacesRadiusMfaProps.radiusTimeout must be between 1 and 20 seconds (got ${radiusTimeout})`,
-            );
-          }
-          if (
-            radiusRetries !== undefined &&
-            (radiusRetries < 0 || radiusRetries > 10)
-          ) {
-            throw new Error(
-              `AwsWorkspacesRadiusMfaProps.radiusRetries must be between 0 and 10 (got ${radiusRetries})`,
-            );
-          }
-        }
-
-        if (mfa.radius) {
-          customResourcePolicy.addStatements(
-            new iam.PolicyStatement({
-              sid: 'AllowDirectoryMfa',
-              effect: iam.Effect.ALLOW,
-              actions: [
-                'ds:EnableRadius',
-                'ds:DisableRadius',
-                'ds:UpdateRadius',
-              ],
-              resources: ['*'],
-            }),
-          );
-        }
         if (mfa.saml) {
           customResourcePolicy.addStatements(
             new iam.PolicyStatement({
@@ -1072,64 +1040,10 @@ export class AwsWorkspaces extends ExtendedConstruct {
         }
       }
 
-      // Authentication — RADIUS MFA, SAML 2.0, or certificate-based auth.
-      // All three are applied after directory registration; WorkSpaces evaluates
-      // these settings at login time, not during workspace provisioning.
-      if (infra.mfa?.radius) {
-        const radius = infra.mfa.radius;
-        const radiusSettings = {
-          AuthenticationProtocol: radius.authenticationProtocol ?? 'MS-CHAPv2',
-          DisplayLabel: radius.displayLabel ?? 'MFA',
-          RadiusPort: radius.radiusPort ?? 1812,
-          RadiusRetries: radius.radiusRetries ?? 0,
-          RadiusServers: radius.radiusServers,
-          RadiusTimeout: radius.radiusTimeout ?? 20,
-          // unsafeUnwrap resolves to a CloudFormation dynamic reference
-          // (e.g. {{resolve:secretsmanager:...}}) — CloudFormation resolves the
-          // reference before invoking the custom resource Lambda.
-          SharedSecret: radius.sharedSecret.unsafeUnwrap(),
-          UseSameUsername: radius.useSameUsername ?? false,
-        };
-
-        const workspacesMfa = new cr.AwsCustomResource(this, 'WorkspacesMfa', {
-          onCreate: {
-            service: 'DirectoryService',
-            action: 'EnableRadius',
-            parameters: {
-              DirectoryId: this.directoryId,
-              RadiusSettings: radiusSettings,
-            },
-            physicalResourceId: cr.PhysicalResourceId.of(
-              `${this.directoryId}-mfa`,
-            ),
-            // EntityAlreadyExistsException: RADIUS already enabled — treat as no-op.
-            ignoreErrorCodesMatching: 'EntityAlreadyExistsException',
-          },
-          onUpdate: {
-            service: 'DirectoryService',
-            action: 'UpdateRadius',
-            parameters: {
-              DirectoryId: this.directoryId,
-              RadiusSettings: radiusSettings,
-            },
-            physicalResourceId: cr.PhysicalResourceId.of(
-              `${this.directoryId}-mfa`,
-            ),
-          },
-          onDelete: {
-            service: 'DirectoryService',
-            action: 'DisableRadius',
-            parameters: {DirectoryId: this.directoryId},
-            // EntityDoesNotExistException: RADIUS not enabled — safe to ignore.
-            // UnsupportedOperationException: directory type doesn't support RADIUS.
-            ignoreErrorCodesMatching:
-              'EntityDoesNotExistException|UnsupportedOperationException',
-          },
-          role: customResourceRole,
-        });
-        workspacesMfa.node.addDependency(workspacesDirectory);
-      }
-
+      // Authentication — SAML 2.0 or certificate-based auth. Both are applied
+      // after directory registration; WorkSpaces evaluates these settings at
+      // login time, not during workspace provisioning. RADIUS MFA is configured
+      // on the directory itself by the ManagedAd construct, not here.
       if (infra.mfa?.saml) {
         const saml = infra.mfa.saml;
         const samlProperties = {

@@ -449,8 +449,14 @@ test('no MFA resources created without mfa props', () => {
   expect(allJson).not.toContain('AllowWorkspacesCertAuth');
 });
 
-test('RADIUS MFA policy and custom resource created when radius provided', () => {
-  const template = makeTemplate({
+test('RADIUS MFA configured via ManagedAd when radius provided with createManagedAd', () => {
+  const stack = HelperTest.stack();
+  new AwsWorkspaces(stack, 'TestWorkspaces', {
+    directory: {
+      createManagedAd: true,
+      adDomainName: 'corp.example.com',
+      adAdminPassword: SecretValue.unsafePlainText('Sup3rS3cret!'),
+    },
     infrastructure: {
       mfa: {
         radius: {
@@ -460,25 +466,30 @@ test('RADIUS MFA policy and custom resource created when radius provided', () =>
       },
     },
   });
-  template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
-    PolicyDocument: Match.objectLike({
-      Statement: Match.arrayWith([
-        Match.objectLike({
-          Sid: 'AllowDirectoryMfa',
-          Action: Match.arrayWith([
-            'ds:EnableRadius',
-            'ds:DisableRadius',
-            'ds:UpdateRadius',
-          ]),
-        }),
-      ]),
-    }),
-  });
+  const template = Template.fromStack(stack);
+  template.resourceCountIs('AWS::DirectoryService::MicrosoftAD', 1);
   const customResources = template.findResources('Custom::AWS');
   const hasRadius = Object.values(customResources).some((r) =>
     JSON.stringify(r).includes('EnableRadius'),
   );
   expect(hasRadius).toBe(true);
+});
+
+test('throws when radius provided with an existing directory', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new AwsWorkspaces(stack, 'TestWorkspaces', {
+      directory: {existingDirectoryId: 'd-1234567890'},
+      infrastructure: {
+        mfa: {
+          radius: {
+            radiusServers: ['10.0.0.1'],
+            sharedSecret: SecretValue.unsafePlainText('test-secret'),
+          },
+        },
+      },
+    });
+  }).toThrow(/RADIUS MFA is only supported/);
 });
 
 test('SAML policy and custom resource created when saml provided', () => {
@@ -541,69 +552,15 @@ test('throws when more than one mfa type is set', () => {
       directory: {existingDirectoryId: 'd-1234567890'},
       infrastructure: {
         mfa: {
-          radius: {
-            radiusServers: ['10.0.0.1'],
-            sharedSecret: SecretValue.unsafePlainText('test-secret'),
-          },
           saml: {userAccessUrl: 'https://idp.example.com/saml/acs'},
+          certificateBased: {
+            certificateAuthorityArn:
+              'arn:aws:acm-pca:us-east-2:100000000000:certificate-authority/00000000-0000-0000-0000-000000000000',
+          },
         },
       },
     });
   }).toThrow(/exactly one/);
-});
-
-test('throws when radiusTimeout is below 1', () => {
-  const stack = HelperTest.stack();
-  expect(() => {
-    new AwsWorkspaces(stack, 'TestWorkspaces', {
-      directory: {existingDirectoryId: 'd-1234567890'},
-      infrastructure: {
-        mfa: {
-          radius: {
-            radiusServers: ['10.0.0.1'],
-            sharedSecret: SecretValue.unsafePlainText('test-secret'),
-            radiusTimeout: 0,
-          },
-        },
-      },
-    });
-  }).toThrow(/radiusTimeout/);
-});
-
-test('throws when radiusTimeout is above 20', () => {
-  const stack = HelperTest.stack();
-  expect(() => {
-    new AwsWorkspaces(stack, 'TestWorkspaces', {
-      directory: {existingDirectoryId: 'd-1234567890'},
-      infrastructure: {
-        mfa: {
-          radius: {
-            radiusServers: ['10.0.0.1'],
-            sharedSecret: SecretValue.unsafePlainText('test-secret'),
-            radiusTimeout: 21,
-          },
-        },
-      },
-    });
-  }).toThrow(/radiusTimeout/);
-});
-
-test('throws when radiusRetries is above 10', () => {
-  const stack = HelperTest.stack();
-  expect(() => {
-    new AwsWorkspaces(stack, 'TestWorkspaces', {
-      directory: {existingDirectoryId: 'd-1234567890'},
-      infrastructure: {
-        mfa: {
-          radius: {
-            radiusServers: ['10.0.0.1'],
-            sharedSecret: SecretValue.unsafePlainText('test-secret'),
-            radiusRetries: 11,
-          },
-        },
-      },
-    });
-  }).toThrow(/radiusRetries/);
 });
 
 // ============================================================
