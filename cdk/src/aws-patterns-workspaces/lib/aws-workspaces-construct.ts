@@ -214,6 +214,19 @@ export interface AwsWorkspacesInfrastructureProps {
   readonly packages?: AwsWorkspacesPackagesProps;
 
   /**
+   * Maximum number of WorkSpaces that can register using the golden image SSM
+   * hybrid activation. The activation is rotated on every deploy, so this limit
+   * applies per deploy cycle.
+   *
+   * Set to `1` when all WorkSpaces self-register via a VPC-private endpoint
+   * (where each registration uses its own single-use activation), so this shared
+   * activation is only needed for the golden image workspace itself.
+   *
+   * @default 50
+   */
+  readonly activationRegistrationLimit?: number;
+
+  /**
    * Authentication configuration. Enables RADIUS MFA, SAML 2.0 federation, or
    * certificate-based authentication on the WorkSpaces directory.
    * Exactly one of radius, saml, or certificateBased must be set.
@@ -1178,7 +1191,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
         parameters: {
           Description: `${stack.stackName} WorkSpace golden image`,
           IamRole: ssmHybridActivationRole.roleName,
-          RegistrationLimit: 50,
+          RegistrationLimit: infra.activationRegistrationLimit ?? 50,
           ExpirationDate: activationExpiry.toISOString(),
           ...(activationTagList ? {Tags: activationTagList} : {}),
         },
