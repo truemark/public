@@ -4,7 +4,7 @@ import {
   ExtendedConstruct,
   type ExtendedConstructProps,
   StandardTags,
-} from '../../aws-cdk/index';
+} from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
 
 /**
