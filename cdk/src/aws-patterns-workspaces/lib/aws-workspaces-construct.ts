@@ -485,6 +485,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
     if (props.encryption?.existingKeyArn) {
       key = kms.Key.fromKeyArn(this, 'Key', props.encryption.existingKeyArn);
     } else {
+      // TODO Why are we doing this? Shouldn't things be encrypted using AWS managed keys by default? I'm good with a key being passed in and using it if provided. I don't think we should always be generating a key. I don't think this is required for HIPPA if encryption happens with AWS Managed keys.
       key = new kms.Key(this, 'Key', {
         enableKeyRotation: true,
         alias: `${stack.stackName}-workspace-encryption`,
@@ -565,6 +566,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
         `${stack.region}a`,
         `${stack.region}b`,
       ];
+      // TODO Don't create a network in this construct. Always have a VPC passed in and use it. The VPC will be created with our new standard-network construct.
       const vpc = new ec2.Vpc(this, 'Vpc', {
         ipAddresses: ec2.IpAddresses.cidr(vpcCidr),
         availabilityZones,
@@ -590,12 +592,14 @@ export class AwsWorkspaces extends ExtendedConstruct {
 
     if (isNewVpc && enableFlowLogs) {
       const flowLogGroup = new logs.LogGroup(this, 'FlowLogGroup', {
+        // TODO Isn't the /aws path a reserved path for AWS? We should use a different path?
         logGroupName: `/aws/vpc/flowlogs/${stack.stackName}`,
         retention: logRetention,
         encryptionKey: key,
         removalPolicy: RemovalPolicy.DESTROY,
       });
 
+      // TODO Flow logs should be handled by standard-network construct. Doing too much in this construct.
       const flowLogBucket = new s3.Bucket(this, 'FlowLogBucket', {
         encryption: s3.BucketEncryption.KMS,
         encryptionKey: key,
@@ -654,6 +658,8 @@ export class AwsWorkspaces extends ExtendedConstruct {
       });
     }
 
+    // TODO Seems like access logging should be an option, not a requirement. I am open to having it enabled by default. If I don't need it I shouldn't be forced to pay for it because your construct forces it.
+
     // Storage — access log bucket (S3-managed encryption, retained) + HIPAA main bucket (KMS, WORM, retained)
     // Access log bucket uses S3-managed encryption — KMS is not permitted for log delivery destinations.
     // EventBridge is wired via L1 CfnBucket.notificationConfiguration to avoid CDK's
@@ -702,6 +708,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
         props.storage.existingBucketName,
       );
     } else {
+      // TODO Why is this here? Does everyone need a bucket? You're just trying to create a workspace with the construct, I don't think this should be part of the construct. You are also making assumptions they need tiering.
       const bucket = new s3.Bucket(this, 'StorageBucket', {
         bucketName: props.storage?.bucketName,
         encryption: s3.BucketEncryption.KMS,
@@ -848,6 +855,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
       });
     }
 
+    // TODO I think maybe look at breaking this out into it's own construct used by this. Seems like this could be reused outside of this construct.
     // Directory registration — always runs when a directory is supplied or created.
     // Required before any CfnWorkspace can be provisioned; WorkSpaces returns
     // ResourceNotFound.Directory if the directory has not been registered.
@@ -1185,6 +1193,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
           }))
         : undefined;
 
+      // TODO Same thing with these, does it make sense to break them out for re-use?
       const activationCall: cr.AwsSdkCall = {
         service: 'SSM',
         action: 'CreateActivation',
