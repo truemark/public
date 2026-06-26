@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.24.0
+### Minor Changes
+
+- ef6b750: Add StandardNetwork VPC construct with a `none | single | multi` NatType string union
+
 ## 1.23.1
 ### Patch Changes
 
