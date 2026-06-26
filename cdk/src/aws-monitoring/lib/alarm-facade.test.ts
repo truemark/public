@@ -1,9 +1,9 @@
-import {test, expect} from 'vitest';
-import {AlarmFacade} from '../index';
-import * as sns from 'aws-cdk-lib/aws-sns';
-import * as actions from 'aws-cdk-lib/aws-cloudwatch-actions';
-import {HelperTest} from '../../helper.test';
 import {Duration} from 'aws-cdk-lib';
+import * as actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import {expect, test} from 'vitest';
+import {HelperTest} from '../../helper.test';
+import {AlarmFacade} from '../index';
 
 test('Create AlarmFacade', () => {
   const stack = HelperTest.stack();
@@ -17,10 +17,9 @@ test('Create AlarmFacade', () => {
     actions: [action],
   });
   expect(facade.actions.length).toBe(2);
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   const threshold: any = facade.toCustomAlarmThreshold();
   expect(threshold?.actionsEnabled).toBe(true);
-  expect(threshold?.['TestProp']).toBe(1);
+  expect(threshold?.TestProp).toBe(1);
 });
 
 test('Create AlarmFacade Default Number Threshold', () => {
@@ -29,10 +28,9 @@ test('Create AlarmFacade Default Number Threshold', () => {
     threshold: undefined,
     defaultThreshold: 0,
   });
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   const threshold: any = facade.toCustomAlarmThreshold();
   expect(threshold?.actionsEnabled).toBe(true);
-  expect(threshold?.['TestProp']).toBe(0);
+  expect(threshold?.TestProp).toBe(0);
 });
 
 test('Create AlarmFacade Default Duration Threshold', () => {
@@ -41,10 +39,9 @@ test('Create AlarmFacade Default Duration Threshold', () => {
     threshold: undefined,
     defaultThreshold: Duration.hours(1),
   });
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   const threshold: any = facade.toCustomAlarmThreshold();
   expect(threshold?.actionsEnabled).toBe(true);
-  expect(threshold?.['TestProp']).toStrictEqual(Duration.hours(1));
+  expect(threshold?.TestProp).toStrictEqual(Duration.hours(1));
 });
 
 test('Create AlarmFacade Disable Number Threshold', () => {

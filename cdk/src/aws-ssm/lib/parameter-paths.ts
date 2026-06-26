@@ -1,6 +1,6 @@
-import {Grant, IGrantable} from 'aws-cdk-lib/aws-iam';
 import {Stack} from 'aws-cdk-lib';
-import {Construct} from 'constructs';
+import {Grant, type IGrantable} from 'aws-cdk-lib/aws-iam';
+import type {Construct} from 'constructs';
 
 /**
  * Represents a group of SSM Parameter paths.

@@ -1,19 +1,18 @@
+import {Duration} from 'aws-cdk-lib';
 import {
   Architecture,
   DockerImageFunction,
-  DockerImageFunctionProps,
+  type DockerImageFunctionProps,
   LoggingFormat,
 } from 'aws-cdk-lib/aws-lambda';
-import {Construct} from 'constructs';
-import {FunctionAlarms, FunctionAlarmsOptions} from './function-alarms';
 import {RetentionDays} from 'aws-cdk-lib/aws-logs';
+import type {Construct} from 'constructs';
+import type {DeployedFunctionOptions} from './extended-function';
+import {FunctionAlarms, type FunctionAlarmsOptions} from './function-alarms';
 import {FunctionDeployment} from './function-deployment';
-import {Duration} from 'aws-cdk-lib';
-import {DeployedFunctionOptions} from './extended-function';
 
 export interface ExtendedDockerImageFunctionProps
-  extends
-    DockerImageFunctionProps,
+  extends DockerImageFunctionProps,
     FunctionAlarmsOptions,
     DeployedFunctionOptions {}
 
@@ -35,9 +34,9 @@ export class ExtendedDockerImageFunction extends DockerImageFunction {
       loggingFormat: props.loggingFormat ?? LoggingFormat.JSON,
     });
     this.alarms = new FunctionAlarms(this, 'Alarms', {
+      ...props,
       function: this,
       logGroup: this.logGroup,
-      ...props,
     });
     if (props.deploymentOptions?.createDeployment ?? true) {
       this.deployment = new FunctionDeployment(this, 'Deployment', {

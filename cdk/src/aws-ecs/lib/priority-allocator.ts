@@ -1,16 +1,16 @@
-import {Construct} from 'constructs';
-import {NodejsFunction} from 'aws-cdk-lib/aws-lambda-nodejs';
-import {CustomResource, Duration, Stack, Token} from 'aws-cdk-lib';
-import {Provider} from 'aws-cdk-lib/custom-resources';
-import {Runtime} from 'aws-cdk-lib/aws-lambda';
+import * as crypto from 'node:crypto';
 import * as path from 'node:path';
+import {CustomResource, Duration, Stack, Token} from 'aws-cdk-lib';
 import {
   Effect,
   PolicyStatement,
   Role,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import * as crypto from 'node:crypto';
+import {Runtime} from 'aws-cdk-lib/aws-lambda';
+import {NodejsFunction} from 'aws-cdk-lib/aws-lambda-nodejs';
+import {Provider} from 'aws-cdk-lib/custom-resources';
+import {Construct} from 'constructs';
 
 const HASH_SUBSTRING_LENGTH = 12;
 const LAMBDA_TIMEOUT_SECONDS = 30;

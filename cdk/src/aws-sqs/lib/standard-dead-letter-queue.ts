@@ -4,9 +4,9 @@ import {
   ComparisonOperator,
   TreatMissingData,
 } from 'aws-cdk-lib/aws-cloudwatch';
-import {IKey} from 'aws-cdk-lib/aws-kms';
+import type {IKey} from 'aws-cdk-lib/aws-kms';
 import {Queue, QueueEncryption} from 'aws-cdk-lib/aws-sqs';
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
 
 /**
  * Properties for a StandardDeadLetterQueue.

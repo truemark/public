@@ -1,20 +1,20 @@
-import {
-  ARecord,
-  CnameRecord,
-  HostedZone,
-  IHostedZone,
-  RecordTarget,
-} from 'aws-cdk-lib/aws-route53';
-import {Construct} from 'constructs';
-import {WeightedARecord} from './weighted-a-record';
-import {LatencyARecord} from './latency-a-record';
+import type {Duration} from 'aws-cdk-lib';
 import {
   Certificate,
   CertificateValidation,
 } from 'aws-cdk-lib/aws-certificatemanager';
-import {Duration} from 'aws-cdk-lib';
+import {
+  ARecord,
+  CnameRecord,
+  HostedZone,
+  type IHostedZone,
+  type RecordTarget,
+} from 'aws-cdk-lib/aws-route53';
+import type {Construct} from 'constructs';
 import {toPascalCase} from '../../helpers/index';
+import {LatencyARecord} from './latency-a-record';
 import {LatencyCnameRecord} from './latency-cname-record';
+import {WeightedARecord} from './weighted-a-record';
 
 /**
  * Properties for DomainName
@@ -178,7 +178,7 @@ export class DomainName {
    * Returns the string version of this domain name.
    */
   toString(): string {
-    return (this.prefix === '' ? '' : this.prefix + '.') + this.zone;
+    return (this.prefix === '' ? '' : `${this.prefix}.`) + this.zone;
   }
 
   /**
@@ -223,7 +223,7 @@ export class DomainName {
   }
 
   private scrubIdentifier(identifier: string): string {
-    return /^\d/.test(identifier) ? 'x' + identifier : identifier;
+    return /^\d/.test(identifier) ? `x${identifier}` : identifier;
   }
 
   createCnameRecord(

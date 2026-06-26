@@ -1,12 +1,12 @@
+import {Duration, Stack} from 'aws-cdk-lib';
+import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
 import {
   AwsCustomResource,
-  AwsSdkCall,
+  type AwsSdkCall,
   PhysicalResourceId,
 } from 'aws-cdk-lib/custom-resources';
 import {Construct} from 'constructs';
-import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
-import {Duration, Stack} from 'aws-cdk-lib';
-import {configureLogGroupForFunction} from '../../aws-lambda/lib/function-log-options';
+import {configureLogGroupForCustomResource} from '../../aws-lambda/lib/function-log-options';
 
 /**
  * Properties for PutItem.
@@ -20,7 +20,6 @@ export interface PutItemProps {
   /**
    * The item to store.
    */
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   readonly item: any;
 
   /**
@@ -56,9 +55,9 @@ export class PutItem extends Construct {
       physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
     };
 
-    const logGroup = configureLogGroupForFunction(
-      scope,
-      `${id}LogGroup`,
+    const logGroup = configureLogGroupForCustomResource(
+      this,
+      'LogGroup',
       props,
     );
 

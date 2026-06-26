@@ -1,7 +1,7 @@
 {
   "name": "truemark-cdk-lib",
   "description": "AWS CDK constructs created by TrueMark",
-  "version": "1.22.14",
+  "version": "1.23.1",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "typesVersions": {
@@ -90,33 +90,31 @@
     "dist"
   ],
   "scripts": {
-    "prebuild": "prettier --check . && eslint .",
     "build": "tsc",
-    "watch": "tsc -w",
-    "test": "vitest run src/*",
     "clean": "rm -rf dist",
-    "fmt": "prettier --write ."
+    "fix": "biome check --write .",
+    "fmt": "biome format --write .",
+    "prebuild": "biome check",
+    "test": "vitest run src/*",
+    "watch": "tsc -w"
   },
   "devDependencies": {
-    "@aws-sdk/util-dynamodb": "catalog:",
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/client-elastic-load-balancing-v2": "catalog:",
-    "@eslint/js": "catalog:",
+    "@aws-sdk/util-dynamodb": "catalog:",
+    "@biomejs/biome": "catalog:",
     "@opensearch-project/opensearch": "catalog:",
     "@types/node": "catalog:",
     "esbuild": "catalog:",
-    "eslint": "catalog:",
-    "prettier": "catalog:",
     "ts-node": "catalog:",
     "typescript": "catalog:",
-    "typescript-eslint": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@aws-sdk/credential-provider-node": "catalog:",
     "@aws-cdk/aws-lambda-go-alpha": "catalog:",
     "@aws-cdk/aws-lambda-python-alpha": "catalog:",
     "@aws-cdk/aws-redshift-alpha": "catalog:",
+    "@aws-sdk/credential-provider-node": "catalog:",
     "aws-cdk-lib": "catalog:",
     "cdk-monitoring-constructs": "catalog:",
     "constructs": "catalog:"

@@ -1,21 +1,21 @@
-import {Construct} from 'constructs';
-import {Connections, IVpc, Vpc} from 'aws-cdk-lib/aws-ec2';
+import {RemovalPolicy, type ResourceEnvironment, type Stack} from 'aws-cdk-lib';
+import type {IAutoScalingGroup} from 'aws-cdk-lib/aws-autoscaling';
+import {type Connections, type IVpc, Vpc} from 'aws-cdk-lib/aws-ec2';
 import {
+  type CloudMapNamespaceOptions,
   Cluster,
-  ClusterReference,
-  ExecuteCommandConfiguration,
+  type ClusterReference,
+  type ExecuteCommandConfiguration,
   ExecuteCommandLogging,
-  ICluster,
-  CloudMapNamespaceOptions,
+  type ICluster,
 } from 'aws-cdk-lib/aws-ecs';
-import {IKey} from 'aws-cdk-lib/aws-kms';
+import type {IKey} from 'aws-cdk-lib/aws-kms';
 import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
-import {RemovalPolicy, ResourceEnvironment, Stack} from 'aws-cdk-lib';
-import {INamespace} from 'aws-cdk-lib/aws-servicediscovery';
-import {IAutoScalingGroup} from 'aws-cdk-lib/aws-autoscaling';
+import type {INamespace} from 'aws-cdk-lib/aws-servicediscovery';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk/index';
 import {LibStandardTags} from '../../truemark';
@@ -125,7 +125,7 @@ export class StandardFargateCluster
   readonly env: ResourceEnvironment;
 
   protected resolveVpc(
-    scope: StandardFargateCluster,
+    _scope: StandardFargateCluster,
     props: StandardFargateClusterProps,
   ): IVpc {
     if (
@@ -161,7 +161,7 @@ export class StandardFargateCluster
   }
 
   protected resolveExecuteCommandConfiguration(
-    scope: StandardFargateCluster,
+    _scope: StandardFargateCluster,
     logGroup: LogGroup | undefined,
     props: StandardFargateClusterProps,
   ): ExecuteCommandConfiguration | undefined {

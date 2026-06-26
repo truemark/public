@@ -1,8 +1,8 @@
-import {BlockPublicAccess, Bucket} from 'aws-cdk-lib/aws-s3';
-import {IKey} from 'aws-cdk-lib/aws-kms';
-import {Construct} from 'constructs';
 import {RemovalPolicy} from 'aws-cdk-lib';
 import {AccountPrincipal, Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
+import type {IKey} from 'aws-cdk-lib/aws-kms';
+import {BlockPublicAccess, Bucket} from 'aws-cdk-lib/aws-s3';
+import type {Construct} from 'constructs';
 
 /**
  * Properties for ArtifactBucket.

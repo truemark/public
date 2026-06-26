@@ -1,23 +1,27 @@
-import {Construct} from 'constructs';
+import {Duration, RemovalPolicy} from 'aws-cdk-lib';
+import type * as iam from 'aws-cdk-lib/aws-iam';
+import type {Grant, IGrantable} from 'aws-cdk-lib/aws-iam';
+import {
+  type ARecord,
+  type IHostedZone,
+  RecordTarget,
+} from 'aws-cdk-lib/aws-route53';
+import {BucketWebsiteTarget} from 'aws-cdk-lib/aws-route53-targets';
 import {
   BlockPublicAccess,
-  CorsRule,
-  RedirectTarget,
-  RoutingRule,
+  type CorsRule,
+  type RedirectTarget,
+  type RoutingRule,
 } from 'aws-cdk-lib/aws-s3';
+import {CacheControl} from 'aws-cdk-lib/aws-s3-deployment';
+import type {Construct} from 'constructs';
+import {ExtendedConstruct} from '../../aws-cdk/index';
 import {
   DomainName,
-  LatencyARecord,
-  WeightedARecord,
+  type LatencyARecord,
+  type WeightedARecord,
 } from '../../aws-route53/index';
-import {ARecord, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
-import {BucketWebsiteTarget} from 'aws-cdk-lib/aws-route53-targets';
-import {RemovalPolicy, Duration} from 'aws-cdk-lib';
-import {CacheControl} from 'aws-cdk-lib/aws-s3-deployment';
-import {Grant, IGrantable} from 'aws-cdk-lib/aws-iam';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import {ExtendedConstruct} from '../../aws-cdk/index';
-import {BucketDeploymentConfig, ExtendedBucket} from './extended-bucket';
+import {type BucketDeploymentConfig, ExtendedBucket} from './extended-bucket';
 
 /**
  * Domain name properties for a bucket based website.
@@ -166,7 +170,6 @@ export class WebsiteBucket extends ExtendedConstruct {
    * @param identity The principal
    * @param objectsKeyPattern Restrict the permission to a certain key pattern (default '*')
    */
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   grantRead(identity: IGrantable, objectsKeyPattern?: any): Grant {
     return this.bucket.grantRead(identity, objectsKeyPattern);
   }
@@ -191,7 +194,6 @@ export class WebsiteBucket extends ExtendedConstruct {
    */
   grantWrite(
     identity: IGrantable,
-    // eslint-disable-next-line  @typescript-eslint/no-explicit-any
     objectsKeyPattern?: any,
     allowedActionPatterns?: string[],
   ): Grant {
@@ -210,7 +212,6 @@ export class WebsiteBucket extends ExtendedConstruct {
    * @param identity The principal
    * @param objectsKeyPattern Restrict the permission to a certain key pattern (default '*')
    */
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   grantPut(identity: IGrantable, objectsKeyPattern?: any): Grant {
     return this.bucket.grantPut(identity, objectsKeyPattern);
   }
@@ -236,7 +237,6 @@ export class WebsiteBucket extends ExtendedConstruct {
    * @param identity The principal
    * @param objectsKeyPattern Restrict the permission to a certain key pattern (default '*')
    */
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   grantDelete(identity: IGrantable, objectsKeyPattern?: any): Grant {
     return this.bucket.grantDelete(identity, objectsKeyPattern);
   }
@@ -259,7 +259,6 @@ export class WebsiteBucket extends ExtendedConstruct {
    * @param identity The principal
    * @param objectsKeyPattern Restrict the permission to a certain key pattern (default '*')
    */
-  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   grantReadWrite(identity: IGrantable, objectsKeyPattern?: any): Grant {
     return this.bucket.grantReadWrite(identity, objectsKeyPattern);
   }

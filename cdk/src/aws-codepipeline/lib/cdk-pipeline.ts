@@ -1,35 +1,35 @@
-import {Construct} from 'constructs';
-import {
-  CfnPipeline,
-  GitPushFilter,
-  Pipeline,
-  PipelineType,
-} from 'aws-cdk-lib/aws-codepipeline';
-import {Key} from 'aws-cdk-lib/aws-kms';
-import {ArtifactBucket} from './artifact-bucket';
-import {
-  AddStageOpts,
-  CodePipeline,
-  CodePipelineSource,
-  IFileSetProducer,
-  ShellStep,
-  StageDeployment,
-  Wave,
-  WaveOptions,
-} from 'aws-cdk-lib/pipelines';
+import {Arn, Stack, type Stage} from 'aws-cdk-lib';
+import type {ISlackChannelConfiguration} from 'aws-cdk-lib/aws-chatbot';
 import {
   BuildSpec,
   ComputeType,
-  IBuildImage,
+  type IBuildImage,
   LinuxBuildImage,
 } from 'aws-cdk-lib/aws-codebuild';
-import {PipelineNotificationRule} from './pipeline-notification-rule';
-import {Arn, Stack, Stage} from 'aws-cdk-lib';
 import {Repository} from 'aws-cdk-lib/aws-codecommit';
-import {NodePackageManager} from './enums';
+import {
+  type CfnPipeline,
+  type GitPushFilter,
+  Pipeline,
+  PipelineType,
+} from 'aws-cdk-lib/aws-codepipeline';
 import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
-import {ISlackChannelConfiguration} from 'aws-cdk-lib/aws-chatbot';
-import {ITopic} from 'aws-cdk-lib/aws-sns';
+import {Key} from 'aws-cdk-lib/aws-kms';
+import type {ITopic} from 'aws-cdk-lib/aws-sns';
+import {
+  type AddStageOpts,
+  CodePipeline,
+  CodePipelineSource,
+  type IFileSetProducer,
+  ShellStep,
+  type StageDeployment,
+  type Wave,
+  type WaveOptions,
+} from 'aws-cdk-lib/pipelines';
+import {Construct} from 'constructs';
+import {ArtifactBucket} from './artifact-bucket';
+import {NodePackageManager} from './enums';
+import {PipelineNotificationRule} from './pipeline-notification-rule';
 
 /**
  * Node runtimes supported by CodebBuild
@@ -491,7 +491,7 @@ export class CdkPipeline extends Construct {
                 dotnet: props.dotnetVersion,
                 python: props.pythonVersion,
               },
-              'commands': ['npm config set fund false', 'npm -g i esbuild']
+              commands: ['npm config set fund false', 'npm -g i esbuild']
                 .concat(props.additionalInstallCommands ?? [])
                 .concat(['node --version']),
             },

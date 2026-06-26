@@ -1,10 +1,10 @@
-import {IAlarmAction, TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
-import {ITopic} from 'aws-cdk-lib/aws-sns';
+import type {Duration} from 'aws-cdk-lib';
+import type {IAlarmAction, TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
 import {SnsAction} from 'aws-cdk-lib/aws-cloudwatch-actions';
-import {CustomAlarmThreshold} from 'cdk-monitoring-constructs';
-import {Duration} from 'aws-cdk-lib';
+import type {ITopic} from 'aws-cdk-lib/aws-sns';
+import type {CustomAlarmThreshold} from 'cdk-monitoring-constructs';
 import {AlarmFacadeSet} from './alarm-facade';
-import {AlarmsCategoryOptions, AlarmsOptions} from './alarms-base';
+import type {AlarmsCategoryOptions, AlarmsOptions} from './alarms-base';
 
 export class AlarmHelper {
   /**

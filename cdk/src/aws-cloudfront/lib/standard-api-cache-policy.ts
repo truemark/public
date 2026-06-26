@@ -1,11 +1,11 @@
+import {Duration} from 'aws-cdk-lib';
 import {
   CacheCookieBehavior,
   CacheHeaderBehavior,
   CachePolicy,
   CacheQueryStringBehavior,
 } from 'aws-cdk-lib/aws-cloudfront';
-import {Construct} from 'constructs';
-import {Duration} from 'aws-cdk-lib';
+import type {Construct} from 'constructs';
 
 export const DEFAULT_API_CACHE_HEADERS = [
   'Accept',

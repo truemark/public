@@ -1,8 +1,8 @@
-import {Construct} from 'constructs';
 import {StringListParameter, StringParameter} from 'aws-cdk-lib/aws-ssm';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';

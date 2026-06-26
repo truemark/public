@@ -1,23 +1,22 @@
 import {
   PythonFunction,
-  PythonFunctionProps,
+  type PythonFunctionProps,
 } from '@aws-cdk/aws-lambda-python-alpha';
-import {FunctionAlarms, FunctionAlarmsOptions} from './function-alarms';
-import {DeployedFunctionOptions} from './extended-function';
-import {FunctionDeployment} from './function-deployment';
-import {Construct} from 'constructs';
 import {LoggingFormat} from 'aws-cdk-lib/aws-lambda';
+import type {Construct} from 'constructs';
+import type {DeployedFunctionOptions} from './extended-function';
+import {FunctionAlarms, type FunctionAlarmsOptions} from './function-alarms';
+import {FunctionDeployment} from './function-deployment';
 import {
   configureLogGroupForFunction,
-  FunctionLogOptions,
+  type FunctionLogOptions,
 } from './function-log-options';
 
 /**
  * Properties for PythonFunctionAlpha
  */
 export interface ExtendedPythonFunctionProps
-  extends
-    PythonFunctionProps,
+  extends PythonFunctionProps,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
     FunctionLogOptions {}
@@ -43,9 +42,9 @@ export class ExtendedPythonFunction extends PythonFunction {
     });
 
     this.alarms = new FunctionAlarms(this, 'Alarms', {
+      ...props,
       function: this,
       logGroup: this.logGroup,
-      ...props,
     });
 
     if (props.deploymentOptions?.createDeployment ?? false) {

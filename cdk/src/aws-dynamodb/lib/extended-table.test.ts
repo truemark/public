@@ -1,8 +1,8 @@
-import {test} from 'vitest';
-import {ExtendedTable} from '../index';
 import {Template} from 'aws-cdk-lib/assertions';
 import {AttributeType, BillingMode} from 'aws-cdk-lib/aws-dynamodb';
-import {ResourceType, HelperTest} from '../../helper.test';
+import {test} from 'vitest';
+import {HelperTest, ResourceType} from '../../helper.test';
+import {ExtendedTable} from '../index';
 
 test('Create Table', () => {
   const stack = HelperTest.stack();

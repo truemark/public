@@ -1,5 +1,8 @@
-import {Duration} from 'aws-cdk-lib';
-import {
+import type {Duration} from 'aws-cdk-lib';
+import type {AlarmBase} from 'aws-cdk-lib/aws-cloudwatch';
+import type {IFunction} from 'aws-cdk-lib/aws-lambda';
+import type {ILogGroup} from 'aws-cdk-lib/aws-logs';
+import type {
   DurationThreshold,
   ErrorCountThreshold,
   ErrorRateThreshold,
@@ -10,17 +13,14 @@ import {
   RunningTaskCountThreshold,
   UsageThreshold,
 } from 'cdk-monitoring-constructs';
+import type {Construct} from 'constructs';
+import {LogMetricAlarm} from '../../aws-cloudwatch/index';
 import {
   AlarmCategory,
   AlarmsBase,
-  AlarmsCategoryOptions,
-  AlarmsOptions,
+  type AlarmsCategoryOptions,
+  type AlarmsOptions,
 } from '../../aws-monitoring/index';
-import {IFunction} from 'aws-cdk-lib/aws-lambda';
-import {ILogGroup} from 'aws-cdk-lib/aws-logs';
-import {Construct} from 'constructs';
-import {LogMetricAlarm} from '../../aws-cloudwatch/index';
-import {AlarmBase} from 'aws-cdk-lib/aws-cloudwatch';
 
 /**
  * Category options for CloudWatch alarms for Lambda Functions.
@@ -155,7 +155,8 @@ export interface FunctionAlarmsCategoryOptions extends AlarmsCategoryOptions {
 /**
  * Options for CloudWatch alarms for Lambda Functions
  */
-export interface FunctionAlarmsOptions extends AlarmsOptions<FunctionAlarmsCategoryOptions> {
+export interface FunctionAlarmsOptions
+  extends AlarmsOptions<FunctionAlarmsCategoryOptions> {
   /**
    * Flag to create alarms.
    *
@@ -300,13 +301,13 @@ export class FunctionAlarms extends AlarmsBase<
     const evaluationPeriods = fprops?.logEvaluationPeriods ?? 2;
     const datapointsToAlarm = fprops?.logDataPointsToAlarm ?? 1;
     if (threshold !== undefined && threshold > 0) {
-      const logAlarm = new LogMetricAlarm(this, category + 'LogCount', {
+      const logAlarm = new LogMetricAlarm(this, `${category}LogCount`, {
         logGroup: this.props.logGroup,
         pattern,
         threshold,
         evaluationPeriods,
         datapointsToAlarm,
-        metricName: category + 'LogCount',
+        metricName: `${category}LogCount`,
       });
       if (category === AlarmCategory.Critical) {
         this.criticalLogAlarm = logAlarm;

@@ -1,5 +1,5 @@
 import {Construct} from 'constructs';
-import {StandardTags, StandardTagsProps} from './standard-tags';
+import {StandardTags, type StandardTagsProps} from './standard-tags';
 
 /**
  * Props for ExtendedConstruct.

@@ -1,7 +1,9 @@
 node_modules
 notes.txt
 *.sw?
+*.old
 *.old?
+*.bak
 *.bak?
 *.tgz
 *.tmp
@@ -9,3 +11,6 @@ notes.txt
 .DS_Store
 vite.config.ts.timestamp-*
 coverage
+
+# Claude Code
+.claude

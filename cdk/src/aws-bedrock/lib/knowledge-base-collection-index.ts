@@ -1,15 +1,15 @@
-import {Construct} from 'constructs';
-import {NodejsFunction} from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as path from 'node:path';
 import {CustomResource, Duration} from 'aws-cdk-lib';
-import {Provider} from 'aws-cdk-lib/custom-resources';
-import {Runtime} from 'aws-cdk-lib/aws-lambda';
-import * as path from 'path';
 import {
   Effect,
   PolicyStatement,
   Role,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
+import {Runtime} from 'aws-cdk-lib/aws-lambda';
+import {NodejsFunction} from 'aws-cdk-lib/aws-lambda-nodejs';
+import {Provider} from 'aws-cdk-lib/custom-resources';
+import {Construct} from 'constructs';
 
 export interface CollectionIndexProps {
   readonly openSearchEndpoint: string;

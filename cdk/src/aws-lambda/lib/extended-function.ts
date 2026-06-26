@@ -1,16 +1,21 @@
-import {FunctionAlarms, FunctionAlarmsOptions} from './function-alarms';
-import {Construct} from 'constructs';
+import {
+  Function,
+  type FunctionProps,
+  LoggingFormat,
+} from 'aws-cdk-lib/aws-lambda';
+import type {Construct} from 'constructs';
+import {FunctionAlarms, type FunctionAlarmsOptions} from './function-alarms';
 import {
   FunctionDeployment,
-  FunctionDeploymentOptions,
+  type FunctionDeploymentOptions,
 } from './function-deployment';
-import {Function, FunctionProps, LoggingFormat} from 'aws-cdk-lib/aws-lambda';
 import {
   configureLogGroupForFunction,
-  FunctionLogOptions,
+  type FunctionLogOptions,
 } from './function-log-options';
 
-export interface DeployedFunctionDeploymentOptions extends FunctionDeploymentOptions {
+export interface DeployedFunctionDeploymentOptions
+  extends FunctionDeploymentOptions {
   /**
    * Include Warning CloudWatch alarms.
    *
@@ -45,8 +50,7 @@ export interface DeployedFunctionOptions {
  * Properties for Function
  */
 export interface ExtendedFunctionProps
-  extends
-    FunctionProps,
+  extends FunctionProps,
     FunctionAlarmsOptions,
     DeployedFunctionOptions,
     FunctionLogOptions {}
@@ -68,9 +72,9 @@ export class ExtendedFunction extends Function {
     });
 
     this.alarms = new FunctionAlarms(this, 'Alarms', {
+      ...props,
       function: this,
       logGroup: this.logGroup,
-      ...props,
     });
 
     if (props.deploymentOptions?.createDeployment ?? false) {

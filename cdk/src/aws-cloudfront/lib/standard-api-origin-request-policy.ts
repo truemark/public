@@ -4,7 +4,7 @@ import {
   OriginRequestPolicy,
   OriginRequestQueryStringBehavior,
 } from 'aws-cdk-lib/aws-cloudfront';
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
 
 export const DEFAULT_API_ORIGIN_HEADERS = [
   'Accept',

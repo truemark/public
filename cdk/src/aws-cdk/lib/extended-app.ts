@@ -1,5 +1,5 @@
-import {App, AppProps} from 'aws-cdk-lib';
-import {StandardTagsProps} from './standard-tags';
+import {App, type AppProps} from 'aws-cdk-lib';
+import type {StandardTagsProps} from './standard-tags';
 
 /**
  * Properties for ExtendedApp.

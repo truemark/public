@@ -1,17 +1,19 @@
 import {
-  GlobalSecondaryIndexPropsV2,
-  TablePropsV2,
+  type GlobalSecondaryIndexPropsV2,
+  type TablePropsV2,
   TableV2,
 } from 'aws-cdk-lib/aws-dynamodb';
-import {ExtendedConstructProps} from '../../aws-cdk/index';
-import {TableAlarms, TableAlarmsOptions} from './table-alarms';
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
+import type {ExtendedConstructProps} from '../../aws-cdk/index';
+import {TableAlarms, type TableAlarmsOptions} from './table-alarms';
 
 /**
  * Properties for ExtendedTableV2.
  */
 export interface ExtendedTablePropsV2
-  extends TablePropsV2, TableAlarmsOptions, ExtendedConstructProps {}
+  extends TablePropsV2,
+    TableAlarmsOptions,
+    ExtendedConstructProps {}
 
 /**
  * DynamoDB Table with CloudWatch Alarms.
