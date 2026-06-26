@@ -62,9 +62,9 @@ export interface StandardNetworkProps extends ExtendedConstructProps {
   readonly azCount?: number;
 
   /**
-   * NAT gateway configuration. Default is NONE.
+   * NAT gateway configuration. Default is 'none'.
    *
-   * @default NatType.NONE
+   * @default 'none'
    */
   readonly natType?: NatType;
 
@@ -315,6 +315,29 @@ function validateAddressSpace(
   enabledGroups: {mask: number; name: string}[],
 ): void {
   const vpcPrefix = Number(vpcCidr.split('/')[1]);
+
+  // AWS allows VPC netmasks between /16 and /28.
+  if (!Number.isInteger(vpcPrefix) || vpcPrefix < 16 || vpcPrefix > 28) {
+    throw new Error(
+      `Invalid VPC CIDR ${vpcCidr}: prefix must be an integer between /16 and /28.`,
+    );
+  }
+
+  if (!Number.isInteger(azCount) || azCount < 1) {
+    throw new Error(`azCount must be a positive integer, got ${azCount}.`);
+  }
+
+  // AWS subnet masks must be between /16 and /28, and never larger than the
+  // VPC itself.
+  for (const g of enabledGroups) {
+    if (!Number.isInteger(g.mask) || g.mask < vpcPrefix || g.mask > 28) {
+      throw new Error(
+        `Invalid CIDR mask /${g.mask} for ${g.name} subnets: must be an ` +
+          `integer between the VPC prefix (/${vpcPrefix}) and /28.`,
+      );
+    }
+  }
+
   const vpcIps = 2 ** (32 - vpcPrefix);
   let requiredIps = 0;
   const detail: string[] = [];
