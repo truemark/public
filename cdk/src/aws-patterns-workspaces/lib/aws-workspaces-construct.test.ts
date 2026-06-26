@@ -21,7 +21,9 @@ let testScriptPath: string;
 let testScriptDir: string;
 
 beforeAll(() => {
-  testScriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aws-workspaces-test-'));
+  testScriptDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'aws-workspaces-test-'),
+  );
   testScriptPath = path.join(testScriptDir, 'test-script.sh');
   fs.writeFileSync(testScriptPath, '#!/bin/bash\necho "test script"\n');
 });
