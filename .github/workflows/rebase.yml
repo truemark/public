@@ -1,0 +1,81 @@
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+name: Rebase
+concurrency:
+  group: rebase-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  rebase:
+    name: Rebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Generate token"
+        id: app-token
+        uses: getsentry/action-github-app-token@v3
+        with:
+          app_id: ${{ secrets.RELEASE_BOT_ID }}
+          private_key: ${{ secrets.RELEASE_BOT_KEY }}
+      - name: "Checkout"
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+      - name: "Rebase open pull requests"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "rebase-bot"
+          git config user.email "rebase-bot@users.noreply.github.com"
+          git fetch origin main
+
+          # Rebase every open PR targeting main, one at a time. A conflicting PR
+          # is aborted and skipped so it can't poison the rest of the run.
+          gh pr list --base main --state open --limit 200 \
+            --json number,headRefName,isCrossRepository \
+            | jq -c '.[]' | while read -r pr; do
+            number=$(jq -r '.number' <<<"$pr")
+            branch=$(jq -r '.headRefName' <<<"$pr")
+            cross=$(jq -r '.isCrossRepository' <<<"$pr")
+
+            echo "::group::PR #${number} (${branch})"
+            if [ "$cross" = "true" ]; then
+              echo "Skipping: cross-repository (fork) head ref."
+              echo "::endgroup::"
+              continue
+            fi
+
+            if ! git fetch origin -- "$branch"; then
+              echo "Skipping: could not fetch head ref."
+              echo "::endgroup::"
+              continue
+            fi
+            git checkout -B "rebase/${number}" "origin/${branch}"
+
+            # Preserve the head ref's committer identity across the rebase.
+            git config user.name "$(git log -1 --format='%cn')"
+            git config user.email "$(git log -1 --format='%ce')"
+
+            if git rebase origin/main; then
+              if git push --force-with-lease="${branch}:origin/${branch}" origin "HEAD:${branch}"; then
+                echo "Rebased and pushed."
+              else
+                echo "Push failed (ref moved or protected); leaving PR unchanged."
+              fi
+            else
+              # Abort the failed rebase; hard-reset as a fallback so the next
+              # iteration always starts from a clean index.
+              git rebase --abort || git reset --hard
+              echo "Conflicts; left unchanged, must be resolved manually."
+            fi
+
+            git config user.name "rebase-bot"
+            git config user.email "rebase-bot@users.noreply.github.com"
+            echo "::endgroup::"
+          done
