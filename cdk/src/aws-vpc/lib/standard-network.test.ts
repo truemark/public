@@ -1,7 +1,7 @@
+import {Template} from 'aws-cdk-lib/assertions';
 import {test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {StandardNetwork} from './standard-network';
-import {Template} from 'aws-cdk-lib/assertions';
 
 test('Happy path test for StandardNetwork', () => {
   const stack = HelperTest.stack();

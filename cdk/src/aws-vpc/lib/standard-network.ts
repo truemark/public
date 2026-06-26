@@ -1,9 +1,9 @@
 import {CfnOutput, Stack, Tags} from 'aws-cdk-lib';
-import {Construct} from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
-  ExtendedConstructProps,
+  type ExtendedConstructProps,
   StandardTags,
 } from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
