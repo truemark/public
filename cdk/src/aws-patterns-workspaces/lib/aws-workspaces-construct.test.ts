@@ -1,6 +1,9 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import {SecretValue} from 'aws-cdk-lib';
 import {Match, Template} from 'aws-cdk-lib/assertions';
-import {expect, test} from 'vitest';
+import {afterAll, beforeAll, expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {AwsWorkspaces} from './aws-workspaces-construct';
 
@@ -12,6 +15,20 @@ function makeTemplate(extraProps: Record<string, unknown> = {}) {
   });
   return Template.fromStack(stack);
 }
+
+// Create the test script on the fly so it does not need to be committed.
+let testScriptPath: string;
+let testScriptDir: string;
+
+beforeAll(() => {
+  testScriptDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aws-workspaces-test-'));
+  testScriptPath = path.join(testScriptDir, 'test-script.sh');
+  fs.writeFileSync(testScriptPath, '#!/bin/bash\necho "test script"\n');
+});
+
+afterAll(() => {
+  fs.rmSync(testScriptDir, {recursive: true, force: true});
+});
 
 // ============================================================
 // KMS encryption
@@ -393,7 +410,7 @@ test('packages association generated command includes package names', () => {
 test('packages association created with scriptPath', () => {
   const template = makeTemplate({
     infrastructure: {
-      packages: {scriptPath: HelperTest.resolveTestFiles('test-script.sh')},
+      packages: {scriptPath: testScriptPath},
     },
   });
   template.resourceCountIs('AWS::SSM::Association', 1);
@@ -405,7 +422,7 @@ test('packages association created with scriptPath', () => {
 test('scriptPath content is embedded in the association', () => {
   const template = makeTemplate({
     infrastructure: {
-      packages: {scriptPath: HelperTest.resolveTestFiles('test-script.sh')},
+      packages: {scriptPath: testScriptPath},
     },
   });
   const associations = template.findResources('AWS::SSM::Association');
