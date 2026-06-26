@@ -5,23 +5,13 @@ import {
   ExtendedConstruct,
   ExtendedConstructProps,
   StandardTags,
-} from '../../aws-cdk/index';
+} from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
 import {NetworkParameters} from './network-parameters';
 
-/**
- * NAT configuration for the VPC.
- *
- * Mirrors the `nat_type` variable in the truemark/terraform-aws-vpc module.
- */
-export enum NatType {
-  /** No NAT gateways. Private subnets have no outbound internet access. */
-  NONE = 'none',
-  /** Single NAT gateway in one availability zone. Lower cost, single point of failure. */
-  SINGLE_AZ = 'single_az',
-  /** One NAT gateway per availability zone. Highest availability. */
-  MULTI_AZ = 'multi_az',
-}
+export type NatType = 'none' | 'single' | 'multi'; // TODO Add  | 'regional' | 'poor';
+
+// TODO Need ipv6 support and we need to support ipv6 only
 
 /**
  * Subnet sizing lookup table keyed by VPC prefix length.
@@ -63,6 +53,7 @@ export interface StandardNetworkProps extends ExtendedConstructProps {
    */
   readonly vpcCidr: string;
 
+  // TODO Suggest both this and the terraform module default to 3
   /**
    * Number of availability zones to deploy subnets into. Default is 2.
    *
@@ -339,7 +330,7 @@ function validateAddressSpace(
     throw new Error(
       `VPC CIDR ${vpcCidr} (${vpcIps} IPs) is too small.\n` +
         `Required: ${requiredIps} IPs across ${enabledGroups.length} subnet groups:\n` +
-        detail.map(d => `  ${d}`).join('\n') +
+        detail.map((d) => `  ${d}`).join('\n') +
         '\nIncrease the VPC size, reduce azCount, or disable some subnet groups.',
     );
   }
@@ -414,15 +405,17 @@ export class StandardNetwork extends ExtendedConstruct {
       standardTags: StandardTags.merge(props.standardTags, LibStandardTags),
     });
 
+    // TODO You change the default here Daren
     const azCount = props.azCount ?? 2;
-    const natType = props.natType ?? NatType.NONE;
+    const natType = props.natType ?? 'none';
 
     const natGateways =
-      natType === NatType.MULTI_AZ
-        ? azCount
-        : natType === NatType.SINGLE_AZ
-          ? 1
-          : 0;
+      natType === 'multi' ? azCount : natType === 'single' ? 1 : 0;
+
+    // TODO Need to add support for regional NAT
+    // TODO Need to add support for poor NAT
+
+    // TODO Need to add support for network firewall
 
     const createPublic = props.createPublicSubnets ?? true;
     const createPrivate = props.createPrivateSubnets ?? true;
@@ -653,8 +646,7 @@ export class StandardNetwork extends ExtendedConstruct {
             ? this.vpc.selectSubnets({subnetGroupName: 'database'}).subnetIds
             : undefined,
           elasticacheSubnetIds: createElasticache
-            ? this.vpc.selectSubnets({subnetGroupName: 'elasticache'})
-                .subnetIds
+            ? this.vpc.selectSubnets({subnetGroupName: 'elasticache'}).subnetIds
             : undefined,
           redshiftSubnetIds: createRedshift
             ? this.vpc.selectSubnets({subnetGroupName: 'redshift'}).subnetIds
