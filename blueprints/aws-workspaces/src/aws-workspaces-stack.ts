@@ -1,4 +1,8 @@
-import {CfnOutput} from 'aws-cdk-lib';
+import {CfnOutput, RemovalPolicy} from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {
@@ -6,14 +10,39 @@ import {
   type AwsWorkspacesDirectoryProps,
   type AwsWorkspacesInfrastructureProps,
   type AwsWorkspacesLoggingProps,
-  type AwsWorkspacesNetworkingProps,
   type AwsWorkspacesStorageProps,
   AwsWorkspacesUser,
   type AwsWorkspacesUserProps,
 } from 'truemark-cdk-lib/aws-patterns-workspaces';
 
+/**
+ * Networking configuration for the blueprint foundation stack.
+ * The stack creates a VPC when no existingVpcId is provided.
+ */
+export interface BlueprintNetworkingProps {
+  /**
+   * ID of an existing VPC to deploy WorkSpaces into. When omitted, a new VPC
+   * with private and public subnets across 2 AZs is created.
+   */
+  readonly existingVpcId?: string;
+
+  /**
+   * Specific subnet IDs to use for directory registration.
+   * Only meaningful when existingVpcId is provided. Defaults to the VPC's private subnets.
+   */
+  readonly existingSubnetIds?: string[];
+
+  /**
+   * Enable VPC flow logs when creating a new VPC.
+   * Has no effect when existingVpcId is provided.
+   *
+   * @default true
+   */
+  readonly enableFlowLogs?: boolean;
+}
+
 export interface AwsWorkspacesFoundationStackProps extends ExtendedStackProps {
-  readonly networking?: AwsWorkspacesNetworkingProps;
+  readonly networking?: BlueprintNetworkingProps;
   readonly directory: AwsWorkspacesDirectoryProps;
   readonly logging?: AwsWorkspacesLoggingProps;
   readonly storage?: AwsWorkspacesStorageProps;
@@ -22,11 +51,14 @@ export interface AwsWorkspacesFoundationStackProps extends ExtendedStackProps {
 
 /**
  * Foundation stack — deploy once per environment.
- * Provisions VPC, KMS key, S3 storage, directory, and the WorkSpaces
- * infrastructure layer (SSM, patch baseline, SSH hardening, hybrid activation).
+ * Provisions KMS key, VPC (or looks up an existing one), S3 storage, directory,
+ * and the WorkSpaces infrastructure layer (SSM, patch baseline, SSH hardening,
+ * hybrid activation).
  */
 export class AwsWorkspacesFoundationStack extends ExtendedStack {
   readonly foundation: AwsWorkspaces;
+  /** KMS customer-managed key used for WorkSpaces volume and storage encryption. */
+  readonly encryptionKey: kms.IKey;
 
   constructor(
     scope: Construct,
@@ -41,8 +73,53 @@ export class AwsWorkspacesFoundationStack extends ExtendedStack {
       'https://github.com/truemark/public/tree/main/blueprints/aws-workspaces',
     );
 
+    this.encryptionKey = new kms.Key(this, 'Key', {
+      description: `${this.stackName} WorkSpaces encryption key`,
+      enableKeyRotation: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
+    const vpc = props.networking?.existingVpcId
+      ? ec2.Vpc.fromLookup(this, 'Vpc', {vpcId: props.networking.existingVpcId})
+      : new ec2.Vpc(this, 'Vpc', {
+          maxAzs: 2,
+          natGateways: 1,
+          subnetConfiguration: [
+            {
+              name: 'private',
+              subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+            },
+            {name: 'public', subnetType: ec2.SubnetType.PUBLIC},
+          ],
+        });
+
+    if (
+      !props.networking?.existingVpcId &&
+      (props.networking?.enableFlowLogs ?? true)
+    ) {
+      const flowLogGroup = new logs.LogGroup(this, 'FlowLogGroup', {
+        retention: logs.RetentionDays.THREE_MONTHS,
+        removalPolicy: RemovalPolicy.RETAIN,
+      });
+      const flowLogRole = new iam.Role(this, 'FlowLogRole', {
+        assumedBy: new iam.ServicePrincipal('vpc-flow-logs.amazonaws.com'),
+      });
+      new ec2.FlowLog(this, 'FlowLog', {
+        resourceType: ec2.FlowLogResourceType.fromVpc(vpc),
+        destination: ec2.FlowLogDestination.toCloudWatchLogs(
+          flowLogGroup,
+          flowLogRole,
+        ),
+      });
+    }
+
+    const subnets = props.networking?.existingSubnetIds?.map((subnetId, i) =>
+      ec2.Subnet.fromSubnetId(this, `Subnet${i}`, subnetId),
+    );
+
     this.foundation = new AwsWorkspaces(this, 'AwsWorkspaces', {
-      networking: props.networking,
+      networking: {vpc, subnets},
+      encryption: {encryptionKey: this.encryptionKey},
       directory: props.directory,
       logging: props.logging,
       storage: props.storage,
@@ -50,19 +127,21 @@ export class AwsWorkspacesFoundationStack extends ExtendedStack {
     });
 
     new CfnOutput(this, 'VpcId', {
-      value: this.foundation.vpc.vpcId,
+      value: vpc.vpcId,
       description: 'VPC ID',
     });
     new CfnOutput(this, 'DirectoryId', {
       value: this.foundation.directoryId,
       description: 'Directory Service ID',
     });
-    new CfnOutput(this, 'BucketName', {
-      value: this.foundation.bucket.bucketName,
-      description: 'S3 storage bucket name (retained on delete)',
-    });
+    if (this.foundation.bucket) {
+      new CfnOutput(this, 'BucketName', {
+        value: this.foundation.bucket.bucketName,
+        description: 'S3 storage bucket name (retained on delete)',
+      });
+    }
     new CfnOutput(this, 'KmsKeyArn', {
-      value: this.foundation.encryptionKey.keyArn,
+      value: this.encryptionKey.keyArn,
       description: 'KMS encryption key ARN',
     });
     new CfnOutput(this, 'PatchGroupName', {

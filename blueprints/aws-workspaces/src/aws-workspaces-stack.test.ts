@@ -87,7 +87,7 @@ test('WorkSpace resource created in user stack', () => {
 test('flow logs created for new VPC', () => {
   const stack = makeFoundationStack();
   const template = Template.fromStack(stack);
-  template.resourceCountIs('AWS::EC2::FlowLog', 2);
+  template.resourceCountIs('AWS::EC2::FlowLog', 1);
 });
 
 test('no flow logs created when using existing VPC', () => {

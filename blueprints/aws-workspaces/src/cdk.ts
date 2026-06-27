@@ -26,13 +26,8 @@ const existingSubnetIdsRaw = app.node.tryGetContext('existingSubnetIds') as
 const existingSubnetIds = existingSubnetIdsRaw
   ? existingSubnetIdsRaw.split(',').filter(Boolean)
   : undefined;
-const vpcCidr = (app.node.tryGetContext('vpcCidr') as string) || undefined;
-const availabilityZonesRaw = app.node.tryGetContext('availabilityZones') as
-  | string
-  | undefined;
-const availabilityZones = availabilityZonesRaw
-  ? availabilityZonesRaw.split(',').filter(Boolean)
-  : undefined;
+const enableFlowLogs =
+  (app.node.tryGetContext('enableFlowLogs') as string) !== 'false';
 
 // Directory
 const existingDirectoryId =
@@ -47,16 +42,12 @@ const adAdminPasswordSecretArn =
   (app.node.tryGetContext('adAdminPasswordSecretArn') as string) || undefined;
 
 // Logging
-const enableFlowLogs =
-  (app.node.tryGetContext('enableFlowLogs') as string) !== 'false';
 const enableCloudWatchLogs =
   (app.node.tryGetContext('enableCloudWatchLogs') as string) !== 'false';
-const flowLogRetentionDaysRaw = app.node.tryGetContext(
-  'flowLogRetentionDays',
-) as string | undefined;
-const retentionDays = flowLogRetentionDaysRaw
-  ? parseInt(flowLogRetentionDaysRaw, 10)
-  : 90;
+const retentionDaysRaw = app.node.tryGetContext('retentionDays') as
+  | string
+  | undefined;
+const retentionDays = retentionDaysRaw ? parseInt(retentionDaysRaw, 10) : 90;
 
 // Storage
 const bucketName =
@@ -77,7 +68,7 @@ const foundation = new AwsWorkspacesFoundationStack(
   'AwsWorkspacesFoundation',
   {
     env,
-    networking: {existingVpcId, existingSubnetIds, vpcCidr, availabilityZones},
+    networking: {existingVpcId, existingSubnetIds, enableFlowLogs},
     directory: {
       existingDirectoryId,
       createManagedAd,
@@ -87,7 +78,7 @@ const foundation = new AwsWorkspacesFoundationStack(
         ? SecretValue.secretsManager(adAdminPasswordSecretArn)
         : undefined,
     },
-    logging: {enableFlowLogs, enableCloudWatchLogs, retentionDays},
+    logging: {enableCloudWatchLogs, retentionDays},
     storage: {bucketName},
     infrastructure: {
       workspacesDefaultRoleExists,
@@ -126,7 +117,7 @@ if (userName) {
     {
       env,
       directoryId: foundation.foundation.directoryId,
-      kmsKeyArn: foundation.foundation.encryptionKey.keyArn,
+      kmsKeyArn: foundation.encryptionKey.keyArn,
       patchGroupName: foundation.foundation.patchGroupName,
       userName,
       bundleId,
