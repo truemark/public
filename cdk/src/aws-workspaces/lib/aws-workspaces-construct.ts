@@ -13,7 +13,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import * as cr from 'aws-cdk-lib/custom-resources';
 import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
@@ -23,7 +22,9 @@ import {
 import {ManagedAd} from '../../aws-directory-service';
 import {SsmHybridActivation} from '../../aws-ssm-activation';
 import {LibStandardTags} from '../../truemark';
+import {AwsWorkspacesCertificateBasedAuth} from './aws-workspaces-certificate-based-auth-construct';
 import {AwsWorkspacesDirectoryRegistration} from './aws-workspaces-directory-registration-construct';
+import {AwsWorkspacesSamlAuth} from './aws-workspaces-saml-auth-construct';
 
 /**
  * Networking configuration for AwsWorkspaces.
@@ -326,11 +327,11 @@ export interface AwsWorkspacesSamlProps {
 }
 
 /**
- * Certificate-based authentication configuration for WorkSpaces.
+ * Certificate-based authentication configuration for AwsWorkspaces.
  * Enables smart card / device certificate login via an ACM Private CA.
  * The CA must already exist and be in ACTIVE state before deployment.
  */
-export interface AwsWorkspacesCertificateBasedAuthProps {
+export interface AwsWorkspacesCertificateBasedAuthConfig {
   /**
    * ARN of the ACM Private Certificate Authority used to issue WorkSpaces client certificates.
    */
@@ -360,7 +361,7 @@ export interface AwsWorkspacesMfaProps {
    * Certificate-based authentication for smart card or device certificate login.
    * Requires an ACM Private CA and Managed Microsoft AD.
    */
-  readonly certificateBased?: AwsWorkspacesCertificateBasedAuthProps;
+  readonly certificateBased?: AwsWorkspacesCertificateBasedAuthConfig;
 }
 
 /**
@@ -766,130 +767,26 @@ export class AwsWorkspaces extends ExtendedConstruct {
         // login time, not during workspace provisioning. RADIUS MFA is configured
         // on the directory itself by the ManagedAd construct, not here.
         if (mfa.saml) {
-          const saml = mfa.saml;
-          const samlProperties = {
-            UserAccessUrl: saml.userAccessUrl,
-            RelayStateParameterName:
-              saml.relayStateParameterName ?? 'RelayState',
-            Status: saml.status ?? 'ENABLED',
-          };
-
-          directoryRegistration.policy.addStatements(
-            new iam.PolicyStatement({
-              sid: 'AllowWorkspacesSaml',
-              effect: iam.Effect.ALLOW,
-              actions: ['workspaces:ModifySamlProperties'],
-              resources: ['*'],
-            }),
-          );
-
-          const workspacesSaml = new cr.AwsCustomResource(
-            this,
-            'WorkspacesSaml',
-            {
-              onCreate: {
-                service: 'WorkSpaces',
-                action: 'ModifySamlProperties',
-                parameters: {
-                  DirectoryId: this.directoryId,
-                  SamlProperties: samlProperties,
-                },
-                physicalResourceId: cr.PhysicalResourceId.of(
-                  `${this.directoryId}-saml`,
-                ),
-              },
-              onUpdate: {
-                service: 'WorkSpaces',
-                action: 'ModifySamlProperties',
-                parameters: {
-                  DirectoryId: this.directoryId,
-                  SamlProperties: samlProperties,
-                },
-                physicalResourceId: cr.PhysicalResourceId.of(
-                  `${this.directoryId}-saml`,
-                ),
-              },
-              onDelete: {
-                service: 'WorkSpaces',
-                action: 'ModifySamlProperties',
-                parameters: {
-                  DirectoryId: this.directoryId,
-                  SamlProperties: {Status: 'DISABLED'},
-                },
-                ignoreErrorCodesMatching:
-                  'ResourceNotFoundException|InvalidResourceStateException',
-              },
-              role: directoryRegistration.role,
-            },
-          );
-          workspacesSaml.node.addDependency(
-            directoryRegistration.node.findChild('Resource'),
-          );
+          const samlAuth = new AwsWorkspacesSamlAuth(this, 'SamlAuth', {
+            directoryId: this.directoryId,
+            userAccessUrl: mfa.saml.userAccessUrl,
+            relayStateParameterName: mfa.saml.relayStateParameterName,
+            status: mfa.saml.status,
+          });
+          samlAuth.node.addDependency(directoryRegistration);
         }
 
         if (mfa.certificateBased) {
-          const certAuth = mfa.certificateBased;
-
-          directoryRegistration.policy.addStatements(
-            new iam.PolicyStatement({
-              sid: 'AllowWorkspacesCertAuth',
-              effect: iam.Effect.ALLOW,
-              actions: ['workspaces:ModifyCertificateBasedAuthProperties'],
-              resources: ['*'],
-            }),
-          );
-
-          const workspacesCertAuth = new cr.AwsCustomResource(
+          const certAuth = new AwsWorkspacesCertificateBasedAuth(
             this,
-            'WorkspacesCertAuth',
+            'CertAuth',
             {
-              onCreate: {
-                service: 'WorkSpaces',
-                action: 'ModifyCertificateBasedAuthProperties',
-                parameters: {
-                  DirectoryId: this.directoryId,
-                  CertificateBasedAuthProperties: {
-                    CertificateAuthorityArn: certAuth.certificateAuthorityArn,
-                    Status: 'ENABLED',
-                  },
-                },
-                physicalResourceId: cr.PhysicalResourceId.of(
-                  `${this.directoryId}-cert-auth`,
-                ),
-              },
-              onUpdate: {
-                service: 'WorkSpaces',
-                action: 'ModifyCertificateBasedAuthProperties',
-                parameters: {
-                  DirectoryId: this.directoryId,
-                  CertificateBasedAuthProperties: {
-                    CertificateAuthorityArn: certAuth.certificateAuthorityArn,
-                    Status: 'ENABLED',
-                  },
-                },
-                physicalResourceId: cr.PhysicalResourceId.of(
-                  `${this.directoryId}-cert-auth`,
-                ),
-              },
-              onDelete: {
-                service: 'WorkSpaces',
-                action: 'ModifyCertificateBasedAuthProperties',
-                parameters: {
-                  DirectoryId: this.directoryId,
-                  CertificateBasedAuthProperties: {Status: 'DISABLED'},
-                  PropertiesToDelete: [
-                    'CERTIFICATE_BASED_AUTH_PROPERTIES_CERTIFICATE_AUTHORITY_ARN',
-                  ],
-                },
-                ignoreErrorCodesMatching:
-                  'ResourceNotFoundException|InvalidResourceStateException',
-              },
-              role: directoryRegistration.role,
+              directoryId: this.directoryId,
+              certificateAuthorityArn:
+                mfa.certificateBased.certificateAuthorityArn,
             },
           );
-          workspacesCertAuth.node.addDependency(
-            directoryRegistration.node.findChild('Resource'),
-          );
+          certAuth.node.addDependency(directoryRegistration);
         }
       }
 

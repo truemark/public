@@ -20,6 +20,7 @@ export * as aws_ses from './aws-ses/index';
 export * as aws_sqs from './aws-sqs/index';
 export * as aws_ssm from './aws-ssm/index';
 export * as aws_ssm_activation from './aws-ssm-activation/index';
+export * as aws_ssm_patch from './aws-ssm-patch/index';
 export * as aws_workspaces from './aws-workspaces/index';
 export * as aws_vpc from './aws-vpc/index';
 export * as aws_wafv2 from './aws-wafv2/index';
