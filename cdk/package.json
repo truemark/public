@@ -63,11 +63,17 @@
       "aws-ssm": [
         "./dist/aws-ssm/index.d.ts"
       ],
+      "aws-ssm-activation": [
+        "./dist/aws-ssm-activation/index.d.ts"
+      ],
       "aws-tags": [
         "./dist/aws-tags/index.d.ts"
       ],
       "aws-vpc": [
         "./dist/aws-vpc/index.d.ts"
+      ],
+      "aws-workspaces": [
+        "./dist/aws-workspaces/index.d.ts"
       ],
       "aws-wafv2": [
         "./dist/aws-wafv2/index.d.ts"
@@ -209,6 +215,10 @@
       "types": "./dist/aws-ssm/index.d.ts",
       "default": "./dist/aws-ssm/index.js"
     },
+    "./aws-ssm-activation": {
+      "types": "./dist/aws-ssm-activation/index.d.ts",
+      "default": "./dist/aws-ssm-activation/index.js"
+    },
     "./aws-tags": {
       "types": "./dist/aws-tags/index.d.ts",
       "default": "./dist/aws-tags/index.js"
@@ -216,6 +226,10 @@
     "./aws-vpc": {
       "types": "./dist/aws-vpc/index.d.ts",
       "default": "./dist/aws-vpc/index.js"
+    },
+    "./aws-workspaces": {
+      "types": "./dist/aws-workspaces/index.d.ts",
+      "default": "./dist/aws-workspaces/index.js"
     },
     "./aws-wafv2": {
       "types": "./dist/aws-wafv2/index.d.ts",

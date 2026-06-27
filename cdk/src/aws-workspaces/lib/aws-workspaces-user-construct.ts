@@ -195,14 +195,16 @@ export interface AwsWorkspacesUserProps extends ExtendedConstructProps {
   readonly directoryId: string;
 
   /**
-   * KMS key ARN from the AwsWorkspaces foundation construct for volume encryption.
+   * KMS key ARN for volume encryption.
+   * Required when volumeEncryptionEnabled is true.
+   * WorkSpaces volume encryption requires a customer-managed KMS key.
    */
-  readonly kmsKeyArn: string;
+  readonly kmsKeyArn?: string;
 
   /**
    * Patch group name from the AwsWorkspaces foundation construct.
    * The WorkSpace is tagged with this value so SSM Patch Manager applies the
-   * HIPAA patch baseline.
+   * configured patch baseline.
    */
   readonly patchGroupName: string;
 
@@ -222,6 +224,15 @@ export interface AwsWorkspacesUserProps extends ExtendedConstructProps {
    * @default 'AUTO_STOP'
    */
   readonly runningMode?: 'AUTO_STOP' | 'ALWAYS_ON';
+
+  /**
+   * Number of minutes before an AUTO_STOP WorkSpace automatically stops after
+   * the last user disconnects. Only applies when runningMode is AUTO_STOP.
+   * Must be a multiple of 60 (e.g. 60, 120, 180).
+   *
+   * @default 60
+   */
+  readonly autoStopTimeoutInMinutes?: number;
 
   /**
    * WorkSpaces compute type.
@@ -252,10 +263,11 @@ export interface AwsWorkspacesUserProps extends ExtendedConstructProps {
 
   /**
    * Enable KMS encryption on the WorkSpace root and user volumes.
-   * Set to false only for a dedicated golden-image build WorkSpace — AWS WorkSpaces
+   * Requires kmsKeyArn to be set when true.
+   * Set to false for golden-image build WorkSpaces — AWS WorkSpaces
    * cannot capture a custom bundle from a WorkSpace with encrypted volumes.
    *
-   * @default true
+   * @default true when kmsKeyArn is provided, false otherwise
    */
   readonly volumeEncryptionEnabled?: boolean;
 }
@@ -265,11 +277,11 @@ export interface AwsWorkspacesUserProps extends ExtendedConstructProps {
  *
  * Deploy one AwsWorkspacesUser (or a stack containing one) per user. Destroying it
  * removes only that user's WorkSpace without affecting the shared AwsWorkspaces
- * foundation (VPC, KMS, Directory, S3, SSM infrastructure).
+ * foundation (VPC, Directory, S3, SSM infrastructure).
  *
  * The WorkSpace is tagged with ManagedBy=CDK so SSM Associations defined in the
  * AwsWorkspaces infrastructure layer automatically apply to it, and with
- * Patch Group=<patchGroupName> so the HIPAA patch baseline applies.
+ * Patch Group=<patchGroupName> so SSM Patch Manager applies the configured baseline.
  */
 export class AwsWorkspacesUser extends ExtendedConstruct {
   static readonly DEFAULT_COMPUTE_TYPE = 'PERFORMANCE';
@@ -301,10 +313,19 @@ export class AwsWorkspacesUser extends ExtendedConstruct {
       }
     }
 
+    // Volume encryption requires a CMK; default to enabled when a key is supplied.
+    const volumeEncryptionEnabled =
+      props.volumeEncryptionEnabled ?? props.kmsKeyArn !== undefined;
+
+    if (volumeEncryptionEnabled && !props.kmsKeyArn) {
+      throw new Error(
+        'kmsKeyArn is required when volumeEncryptionEnabled is true',
+      );
+    }
+
     const runningMode = props.runningMode ?? 'AUTO_STOP';
     const computeType =
       props.computeType ?? AwsWorkspacesUser.DEFAULT_COMPUTE_TYPE;
-    const volumeEncryptionEnabled = props.volumeEncryptionEnabled ?? true;
 
     this.workspace = new workspaces.CfnWorkspace(this, 'Workspace', {
       directoryId: props.directoryId,
@@ -318,7 +339,9 @@ export class AwsWorkspacesUser extends ExtendedConstruct {
       workspaceProperties: {
         runningMode,
         runningModeAutoStopTimeoutInMinutes:
-          runningMode === 'AUTO_STOP' ? 60 : undefined,
+          runningMode === 'AUTO_STOP'
+            ? (props.autoStopTimeoutInMinutes ?? 60)
+            : undefined,
         rootVolumeSizeGib:
           props.rootVolumeSizeGib ?? AwsWorkspacesUser.DEFAULT_ROOT_VOLUME_GIB,
         userVolumeSizeGib:
@@ -327,7 +350,6 @@ export class AwsWorkspacesUser extends ExtendedConstruct {
       },
       tags: [
         {key: 'ManagedBy', value: 'CDK'},
-        {key: 'Compliance', value: 'HIPAA'},
         {key: 'Patch Group', value: props.patchGroupName},
       ],
     });

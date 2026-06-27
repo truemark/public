@@ -1,2 +1,3 @@
-export * from './aws-workspaces-construct';
-export * from './aws-workspaces-user-construct';
+export * from '../../aws-workspaces';
+export * from './workspaces-foundation-stack';
+export * from './workspaces-user-stack';

@@ -21,37 +21,26 @@ import {
   StandardTags,
 } from '../../aws-cdk';
 import {ManagedAd} from '../../aws-directory-service';
+import {SsmHybridActivation} from '../../aws-ssm-activation';
 import {LibStandardTags} from '../../truemark';
+import {AwsWorkspacesDirectoryRegistration} from './aws-workspaces-directory-registration-construct';
 
 /**
  * Networking configuration for AwsWorkspaces.
+ * The VPC should be created externally using the standard-network construct.
  */
 export interface AwsWorkspacesNetworkingProps {
   /**
-   * Existing VPC ID. If omitted, a new VPC is created.
+   * VPC to deploy WorkSpaces into. Must have at least two subnets across
+   * two availability zones as required by WorkSpaces.
    */
-  readonly existingVpcId?: string;
+  readonly vpc: ec2.IVpc;
 
   /**
-   * Subnet IDs within an existing VPC. Falls back to the VPC's private subnets if omitted.
-   * Only used when existingVpcId is provided.
+   * Subnets to use for the WorkSpaces directory registration and Managed AD.
+   * Falls back to the VPC's private subnets when omitted.
    */
-  readonly existingSubnetIds?: string[];
-
-  /**
-   * CIDR block for the new VPC. Only used when creating a new VPC.
-   *
-   * @default '10.0.0.0/16'
-   */
-  readonly vpcCidr?: string;
-
-  /**
-   * Availability zones for the new VPC's subnets. WorkSpaces requires at least 2 AZs.
-   * Only used when creating a new VPC.
-   *
-   * @default ['<region>a', '<region>b']
-   */
-  readonly availabilityZones?: string[];
+  readonly subnets?: ec2.ISubnet[];
 }
 
 /**
@@ -102,11 +91,13 @@ export interface AwsWorkspacesLoggingProps {
   readonly enableCloudWatchLogs?: boolean;
 
   /**
-   * Enable VPC flow logs. Only applies when the construct creates a new VPC.
+   * Enable S3 access logging for the WorkSpaces storage bucket.
+   * Creates a dedicated access log bucket when true. Disable if access
+   * logging is not required to avoid the associated storage cost.
    *
    * @default true
    */
-  readonly enableFlowLogs?: boolean;
+  readonly enableAccessLogging?: boolean;
 
   /**
    * Retention period for logs in days.
@@ -118,10 +109,11 @@ export interface AwsWorkspacesLoggingProps {
 
 /**
  * Storage configuration for AwsWorkspaces.
+ * When omitted entirely, no storage bucket is created.
  */
 export interface AwsWorkspacesStorageProps {
   /**
-   * Custom name for the HIPAA storage bucket. Only used when creating a new bucket.
+   * Custom name for the storage bucket. Only used when creating a new bucket.
    */
   readonly bucketName?: string;
 
@@ -367,12 +359,12 @@ export interface AwsWorkspacesMfaProps {
  */
 export interface AwsWorkspacesEncryptionProps {
   /**
-   * Import an existing KMS key by ARN instead of creating a new one.
-   * The existing key's policy must already allow CloudWatch Logs, VPC Flow Logs,
-   * S3, and WorkSpaces service principals as required by the environment.
-   * Use when migrating from an existing deployment that already owns the key.
+   * KMS customer-managed key to use for encrypting CloudWatch Logs and S3 storage.
+   * Pass the IKey object (not an ARN string) so CDK can add the required key policy
+   * grants for CloudWatch Logs and other service principals automatically.
+   * When omitted, AWS-managed keys are used for all encryption.
    */
-  readonly existingKeyArn?: string;
+  readonly encryptionKey?: kms.IKey;
 }
 
 /**
@@ -380,9 +372,10 @@ export interface AwsWorkspacesEncryptionProps {
  */
 export interface AwsWorkspacesProps extends ExtendedConstructProps {
   /**
-   * Networking configuration. A new isolated VPC is created when omitted.
+   * Networking configuration. The VPC should be created externally using
+   * the standard-network construct and passed in here.
    */
-  readonly networking?: AwsWorkspacesNetworkingProps;
+  readonly networking: AwsWorkspacesNetworkingProps;
 
   /**
    * Directory configuration. Provide an existing directory or create a Managed AD.
@@ -395,12 +388,12 @@ export interface AwsWorkspacesProps extends ExtendedConstructProps {
   readonly logging?: AwsWorkspacesLoggingProps;
 
   /**
-   * Storage configuration.
+   * Storage configuration. When omitted, no S3 bucket is created.
    */
   readonly storage?: AwsWorkspacesStorageProps;
 
   /**
-   * Encryption configuration. A new HIPAA-compliant KMS key is created when omitted.
+   * Encryption configuration. When omitted, AWS-managed keys are used.
    */
   readonly encryption?: AwsWorkspacesEncryptionProps;
 
@@ -435,11 +428,14 @@ function mapRetentionDays(days: number): logs.RetentionDays {
 }
 
 /**
- * Deploys HIPAA-compliant AWS WorkSpaces infrastructure: isolated VPC (or existing), KMS
- * encryption, CloudWatch and VPC flow logging, WORM-protected S3 storage, AWS Managed AD
- * or existing directory, and an optional infrastructure layer that registers the directory
- * with WorkSpaces, manages SSM patch compliance, hardens WorkSpaces security groups, and
- * provisions golden-image SSM hybrid activation credentials.
+ * Deploys AWS WorkSpaces infrastructure: optional KMS encryption, CloudWatch logging,
+ * optional WORM-protected S3 storage, AWS Managed AD or existing directory, and an
+ * optional infrastructure layer that registers the directory with WorkSpaces, manages
+ * SSM patch compliance, hardens WorkSpaces security groups, and provisions golden-image
+ * SSM hybrid activation credentials.
+ *
+ * Networking and VPC flow logs are handled externally by the standard-network construct.
+ * Pass the VPC via networking.vpc.
  *
  * Use AwsWorkspacesUser to create individual WorkSpaces that reference this foundation.
  *
@@ -452,9 +448,21 @@ export class AwsWorkspaces extends ExtendedConstruct {
 
   readonly vpc: ec2.IVpc;
   readonly privateSubnets: ec2.ISubnet[];
-  readonly encryptionKey: kms.IKey;
-  readonly bucket: s3.IBucket;
-  readonly accessLogBucket: s3.IBucket;
+  /**
+   * Customer-managed KMS key passed via encryption.encryptionKey.
+   * Undefined when no key is provided — AWS-managed keys are used in that case.
+   */
+  readonly encryptionKey: kms.IKey | undefined;
+  /**
+   * WORM-protected storage bucket, when storage props are provided.
+   * Undefined when no storage props are set.
+   */
+  readonly bucket: s3.IBucket | undefined;
+  /**
+   * Access log bucket, when access logging is enabled (the default).
+   * Undefined when logging.enableAccessLogging is false.
+   */
+  readonly accessLogBucket: s3.IBucket | undefined;
   readonly directoryId: string;
   readonly workspacesRole: iam.IRole;
   /** Patch group name for tagging AwsWorkspacesUser instances. */
@@ -479,175 +487,24 @@ export class AwsWorkspaces extends ExtendedConstruct {
     this.patchGroupName = `${stack.stackName}-workspaces`;
     this.ssmActivationParamPrefix = `/workspaces/${stack.stackName}/ssm-activation`;
 
-    // KMS key — import existing or create new with CloudWatch Logs + VPC Flow Logs permissions.
-    // When importing, the existing key policy must already allow the necessary service principals.
-    let key: kms.IKey;
-    if (props.encryption?.existingKeyArn) {
-      key = kms.Key.fromKeyArn(this, 'Key', props.encryption.existingKeyArn);
-    } else {
-      // TODO Why are we doing this? Shouldn't things be encrypted using AWS managed keys by default? I'm good with a key being passed in and using it if provided. I don't think we should always be generating a key. I don't think this is required for HIPPA if encryption happens with AWS Managed keys.
-      key = new kms.Key(this, 'Key', {
-        enableKeyRotation: true,
-        alias: `${stack.stackName}-workspace-encryption`,
-        description: 'KMS key for WorkSpaces environment encryption',
-        removalPolicy: RemovalPolicy.DESTROY,
-        policy: new iam.PolicyDocument({
-          statements: [
-            new iam.PolicyStatement({
-              sid: 'AllowRootAccess',
-              effect: iam.Effect.ALLOW,
-              principals: [new iam.AccountRootPrincipal()],
-              actions: ['kms:*'],
-              resources: ['*'],
-            }),
-            new iam.PolicyStatement({
-              sid: 'AllowCloudWatchLogs',
-              effect: iam.Effect.ALLOW,
-              principals: [
-                new iam.ServicePrincipal(`logs.${stack.region}.amazonaws.com`),
-              ],
-              actions: [
-                'kms:Encrypt',
-                'kms:Decrypt',
-                'kms:ReEncrypt*',
-                'kms:GenerateDataKey*',
-                'kms:DescribeKey',
-              ],
-              resources: ['*'],
-              conditions: {
-                ArnLike: {
-                  'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:${stack.region}:${stack.account}:*`,
-                },
-              },
-            }),
-            new iam.PolicyStatement({
-              sid: 'AllowVPCFlowLogs',
-              effect: iam.Effect.ALLOW,
-              principals: [
-                new iam.ServicePrincipal('delivery.logs.amazonaws.com'),
-              ],
-              actions: [
-                'kms:Encrypt',
-                'kms:Decrypt',
-                'kms:ReEncrypt*',
-                'kms:GenerateDataKey*',
-                'kms:DescribeKey',
-              ],
-              resources: ['*'],
-            }),
-          ],
-        }),
-      });
-    }
+    // KMS key — only when a CMK is supplied by the caller.
+    // Accepting IKey directly (not a string ARN) ensures CDK can add the required
+    // key policy grants for CloudWatch Logs and other service principals.
+    // When omitted, AWS-managed keys handle encryption throughout.
+    const key = props.encryption?.encryptionKey;
     this.encryptionKey = key;
 
-    // Networking — create isolated VPC or import existing
-    const networking = props.networking;
-    let isNewVpc = false;
-    if (networking?.existingVpcId) {
-      this.vpc = ec2.Vpc.fromLookup(this, 'Vpc', {
-        vpcId: networking.existingVpcId,
-      });
-      if (
-        networking.existingSubnetIds &&
-        networking.existingSubnetIds.length >= 2
-      ) {
-        this.privateSubnets = networking.existingSubnetIds.map(
-          (subnetId, index) =>
-            ec2.Subnet.fromSubnetId(this, `Subnet${index}`, subnetId),
-        );
-      } else {
-        this.privateSubnets = this.vpc.privateSubnets;
-      }
-    } else {
-      isNewVpc = true;
-      const vpcCidr = networking?.vpcCidr ?? '10.0.0.0/16';
-      const availabilityZones = networking?.availabilityZones ?? [
-        `${stack.region}a`,
-        `${stack.region}b`,
-      ];
-      // TODO Don't create a network in this construct. Always have a VPC passed in and use it. The VPC will be created with our new standard-network construct.
-      const vpc = new ec2.Vpc(this, 'Vpc', {
-        ipAddresses: ec2.IpAddresses.cidr(vpcCidr),
-        availabilityZones,
-        natGateways: 0,
-        subnetConfiguration: [
-          {
-            name: 'Private',
-            subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-            cidrMask: 24,
-          },
-        ],
-        enableDnsHostnames: true,
-        enableDnsSupport: true,
-      });
-      this.vpc = vpc;
-      this.privateSubnets = vpc.isolatedSubnets;
-    }
+    // Networking — VPC and subnets are always supplied by the caller.
+    // Flow logs are the responsibility of the standard-network construct.
+    this.vpc = props.networking.vpc;
+    this.privateSubnets = props.networking.subnets?.length
+      ? props.networking.subnets
+      : this.vpc.privateSubnets;
 
-    // Logging — CloudWatch log groups and, for new VPCs, dual-destination flow logs
+    // Logging — CloudWatch log group for WorkSpaces events
     const enableCloudWatchLogs = props.logging?.enableCloudWatchLogs ?? true;
-    const enableFlowLogs = props.logging?.enableFlowLogs ?? true;
+    const enableAccessLogging = props.logging?.enableAccessLogging ?? true;
     const logRetention = mapRetentionDays(props.logging?.retentionDays ?? 90);
-
-    if (isNewVpc && enableFlowLogs) {
-      const flowLogGroup = new logs.LogGroup(this, 'FlowLogGroup', {
-        // TODO Isn't the /aws path a reserved path for AWS? We should use a different path?
-        logGroupName: `/aws/vpc/flowlogs/${stack.stackName}`,
-        retention: logRetention,
-        encryptionKey: key,
-        removalPolicy: RemovalPolicy.DESTROY,
-      });
-
-      // TODO Flow logs should be handled by standard-network construct. Doing too much in this construct.
-      const flowLogBucket = new s3.Bucket(this, 'FlowLogBucket', {
-        encryption: s3.BucketEncryption.KMS,
-        encryptionKey: key,
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        enforceSSL: true,
-        versioned: true,
-        removalPolicy: RemovalPolicy.DESTROY,
-        autoDeleteObjects: true,
-        lifecycleRules: [
-          {
-            id: 'TransitionToIA',
-            transitions: [
-              {
-                storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-                transitionAfter: Duration.days(90),
-              },
-              {
-                storageClass: s3.StorageClass.GLACIER,
-                transitionAfter: Duration.days(365),
-              },
-            ],
-          },
-        ],
-      });
-
-      const flowLogRole = new iam.Role(this, 'FlowLogRole', {
-        assumedBy: new iam.ServicePrincipal('vpc-flow-logs.amazonaws.com'),
-      });
-      flowLogGroup.grantWrite(flowLogRole);
-
-      new ec2.FlowLog(this, 'FlowLogCW', {
-        resourceType: ec2.FlowLogResourceType.fromVpc(this.vpc),
-        destination: ec2.FlowLogDestination.toCloudWatchLogs(
-          flowLogGroup,
-          flowLogRole,
-        ),
-        trafficType: ec2.FlowLogTrafficType.ALL,
-      });
-
-      new ec2.FlowLog(this, 'FlowLogS3', {
-        resourceType: ec2.FlowLogResourceType.fromVpc(this.vpc),
-        destination: ec2.FlowLogDestination.toS3(
-          flowLogBucket,
-          'vpc-flow-logs',
-        ),
-        trafficType: ec2.FlowLogTrafficType.ALL,
-      });
-    }
 
     if (enableCloudWatchLogs) {
       new logs.LogGroup(this, 'WorkspacesLogGroup', {
@@ -658,47 +515,47 @@ export class AwsWorkspaces extends ExtendedConstruct {
       });
     }
 
-    // TODO Seems like access logging should be an option, not a requirement. I am open to having it enabled by default. If I don't need it I shouldn't be forced to pay for it because your construct forces it.
-
-    // Storage — access log bucket (S3-managed encryption, retained) + HIPAA main bucket (KMS, WORM, retained)
+    // Storage — access log bucket (S3-managed encryption, retained) + optional main bucket.
     // Access log bucket uses S3-managed encryption — KMS is not permitted for log delivery destinations.
     // EventBridge is wired via L1 CfnBucket.notificationConfiguration to avoid CDK's
     // BucketNotificationsHandler Lambda, which would attach an inline policy violating
-    // HIPAA iam-no-inline-policy-check.
-    if (props.storage?.existingAccessLogBucketName) {
-      this.accessLogBucket = s3.Bucket.fromBucketName(
-        this,
-        'AccessLogBucket',
-        props.storage.existingAccessLogBucketName,
-      );
-    } else {
-      const accessLogBucket = new s3.Bucket(this, 'AccessLogBucket', {
-        bucketName: props.storage?.accessLogBucketName,
-        encryption: s3.BucketEncryption.S3_MANAGED,
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        enforceSSL: true,
-        versioned: true,
-        removalPolicy: RemovalPolicy.RETAIN,
-        lifecycleRules: [
-          {
-            id: 'ExpireOldLogs',
-            expiration: Duration.days(365),
-            noncurrentVersionExpiration: Duration.days(90),
-            transitions: [
-              {
-                storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-                transitionAfter: Duration.days(90),
-              },
-            ],
-          },
-        ],
-      });
-      (
-        accessLogBucket.node.defaultChild as s3.CfnBucket
-      ).notificationConfiguration = {
-        eventBridgeConfiguration: {eventBridgeEnabled: true},
-      };
-      this.accessLogBucket = accessLogBucket;
+    // the iam-no-inline-policy-check Config rule.
+    if (enableAccessLogging) {
+      if (props.storage?.existingAccessLogBucketName) {
+        this.accessLogBucket = s3.Bucket.fromBucketName(
+          this,
+          'AccessLogBucket',
+          props.storage.existingAccessLogBucketName,
+        );
+      } else {
+        const accessLogBucket = new s3.Bucket(this, 'AccessLogBucket', {
+          bucketName: props.storage?.accessLogBucketName,
+          encryption: s3.BucketEncryption.S3_MANAGED,
+          blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+          enforceSSL: true,
+          versioned: true,
+          removalPolicy: RemovalPolicy.RETAIN,
+          lifecycleRules: [
+            {
+              id: 'ExpireOldLogs',
+              expiration: Duration.days(365),
+              noncurrentVersionExpiration: Duration.days(90),
+              transitions: [
+                {
+                  storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+                  transitionAfter: Duration.days(90),
+                },
+              ],
+            },
+          ],
+        });
+        (
+          accessLogBucket.node.defaultChild as s3.CfnBucket
+        ).notificationConfiguration = {
+          eventBridgeConfiguration: {eventBridgeEnabled: true},
+        };
+        this.accessLogBucket = accessLogBucket;
+      }
     }
 
     if (props.storage?.existingBucketName) {
@@ -707,19 +564,23 @@ export class AwsWorkspaces extends ExtendedConstruct {
         'StorageBucket',
         props.storage.existingBucketName,
       );
-    } else {
-      // TODO Why is this here? Does everyone need a bucket? You're just trying to create a workspace with the construct, I don't think this should be part of the construct. You are also making assumptions they need tiering.
+    } else if (props.storage) {
       const bucket = new s3.Bucket(this, 'StorageBucket', {
-        bucketName: props.storage?.bucketName,
-        encryption: s3.BucketEncryption.KMS,
-        encryptionKey: key,
-        bucketKeyEnabled: true,
+        bucketName: props.storage.bucketName,
+        encryption: key
+          ? s3.BucketEncryption.KMS
+          : s3.BucketEncryption.KMS_MANAGED,
+        ...(key ? {encryptionKey: key, bucketKeyEnabled: true} : {}),
         blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         enforceSSL: true,
         versioned: true,
         objectLockEnabled: true,
-        serverAccessLogsBucket: this.accessLogBucket,
-        serverAccessLogsPrefix: 'access-logs/',
+        ...(this.accessLogBucket
+          ? {
+              serverAccessLogsBucket: this.accessLogBucket,
+              serverAccessLogsPrefix: 'access-logs/',
+            }
+          : {}),
         removalPolicy: RemovalPolicy.RETAIN,
         autoDeleteObjects: false,
         lifecycleRules: [
@@ -803,37 +664,44 @@ export class AwsWorkspaces extends ExtendedConstruct {
         existingRoleArn,
       );
     } else {
+      const policyStatements: iam.PolicyStatement[] = [
+        new iam.PolicyStatement({
+          sid: 'AllowSSMAssociationManagement',
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'ssm:CreateAssociation',
+            'ssm:UpdateAssociation',
+            'ssm:DescribeAssociation',
+            'ssm:ListAssociations',
+          ],
+          resources: ['*'],
+        }),
+      ];
+
+      if (key) {
+        policyStatements.unshift(
+          new iam.PolicyStatement({
+            sid: 'AllowKmsForWorkspaces',
+            effect: iam.Effect.ALLOW,
+            actions: [
+              'kms:CreateGrant',
+              'kms:Decrypt',
+              'kms:DescribeKey',
+              'kms:Encrypt',
+              'kms:GenerateDataKey*',
+              'kms:ReEncrypt*',
+            ],
+            resources: [key.keyArn],
+          }),
+        );
+      }
+
       const workspacesCustomPolicy = new iam.ManagedPolicy(
         this,
         'WorkspacesCustomPolicy',
         {
           managedPolicyName: `${stack.stackName}-workspaces-default-custom`,
-          statements: [
-            new iam.PolicyStatement({
-              sid: 'AllowKmsForWorkspaces',
-              effect: iam.Effect.ALLOW,
-              actions: [
-                'kms:CreateGrant',
-                'kms:Decrypt',
-                'kms:DescribeKey',
-                'kms:Encrypt',
-                'kms:GenerateDataKey*',
-                'kms:ReEncrypt*',
-              ],
-              resources: [key.keyArn],
-            }),
-            new iam.PolicyStatement({
-              sid: 'AllowSSMAssociationManagement',
-              effect: iam.Effect.ALLOW,
-              actions: [
-                'ssm:CreateAssociation',
-                'ssm:UpdateAssociation',
-                'ssm:DescribeAssociation',
-                'ssm:ListAssociations',
-              ],
-              resources: ['*'],
-            }),
-          ],
+          statements: policyStatements,
         },
       );
 
@@ -855,177 +723,22 @@ export class AwsWorkspaces extends ExtendedConstruct {
       });
     }
 
-    // TODO I think maybe look at breaking this out into it's own construct used by this. Seems like this could be reused outside of this construct.
-    // Directory registration — always runs when a directory is supplied or created.
-    // Required before any CfnWorkspace can be provisioned; WorkSpaces returns
-    // ResourceNotFound.Directory if the directory has not been registered.
-    // CfnWorkspacesDirectory does not exist as a CDK L2 construct so we call the API directly.
-    // All AwsCustomResource instances in this construct share a single Lambda/role via
-    // CustomResourceRole. The infrastructure block extends this policy with SSM/KMS permissions.
-    const customResourcePolicy = new iam.ManagedPolicy(
+    // Directory registration — delegates to AwsWorkspacesDirectoryRegistration.
+    // Can be reused independently of this construct for other directory registration scenarios.
+    const directoryRegistration = new AwsWorkspacesDirectoryRegistration(
       this,
-      'CustomResourcePolicy',
+      'DirectoryRegistration',
       {
-        managedPolicyName: `${stack.stackName}-workspaces-custom-resource`,
-        statements: [
-          new iam.PolicyStatement({
-            sid: 'AllowWorkspacesDirectoryRegistration',
-            effect: iam.Effect.ALLOW,
-            // RegisterWorkspaceDirectory validates the VPC/subnets and sets up the
-            // directory's networking using the *caller's* credentials, so the custom
-            // resource Lambda needs the EC2 describe/networking permissions in addition
-            // to the workspaces:/ds:/iam: actions. Without ec2:* the API returns the
-            // generic "You do not have sufficient access to perform this action" error.
-            // Mirrors the AWS-documented register-a-directory policy:
-            // https://docs.aws.amazon.com/workspaces/latest/adminguide/workspaces-access-control.html
-            actions: [
-              'workspaces:RegisterWorkspaceDirectory',
-              'workspaces:DeregisterWorkspaceDirectory',
-              'workspaces:DescribeWorkspaceDirectories',
-              'ds:DescribeDirectories',
-              'ds:AuthorizeApplication',
-              'ds:UnauthorizeApplication',
-              'ds:EnableSso',
-              'ds:DisableSso',
-              'ec2:DescribeVpcs',
-              'ec2:DescribeSubnets',
-              'ec2:DescribeAvailabilityZones',
-              'ec2:DescribeNetworkInterfaces',
-              'ec2:DescribeSecurityGroups',
-              'ec2:DescribeRouteTables',
-              'ec2:DescribeInternetGateways',
-              'ec2:CreateNetworkInterface',
-              'ec2:DeleteNetworkInterface',
-              'ec2:CreateSecurityGroup',
-              'ec2:DeleteSecurityGroup',
-              'ec2:AuthorizeSecurityGroupIngress',
-              'ec2:AuthorizeSecurityGroupEgress',
-              'ec2:RevokeSecurityGroupIngress',
-              'ec2:RevokeSecurityGroupEgress',
-              'ec2:CreateTags',
-              'iam:GetRole',
-              'iam:CreateRole',
-              'iam:AttachRolePolicy',
-              'iam:PutRolePolicy',
-              'iam:CreatePolicy',
-              'iam:ListRoles',
-              'iam:CreateServiceLinkedRole',
-              'iam:PassRole',
-            ],
-            resources: ['*'],
-          }),
-        ],
+        directoryId: this.directoryId,
+        subnets: this.privateSubnets,
+        workspacesRole: this.workspacesRole,
       },
     );
-
-    const customResourceRole = new iam.Role(this, 'CustomResourceRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole',
-        ),
-        customResourcePolicy,
-      ],
-    });
-
-    const workspacesDirectory = new cr.AwsCustomResource(
-      this,
-      'WorkspacesDirectory',
-      {
-        onCreate: {
-          service: 'WorkSpaces',
-          action: 'RegisterWorkspaceDirectory',
-          parameters: {
-            DirectoryId: this.directoryId,
-            SubnetIds: this.privateSubnets.slice(0, 2).map((s) => s.subnetId),
-            EnableWorkDocs: false,
-            EnableSelfService: true,
-            Tenancy: 'SHARED',
-          },
-          physicalResourceId: cr.PhysicalResourceId.of(this.directoryId),
-          // InvalidResourceStateException: directory is already registered — treat as no-op.
-          ignoreErrorCodesMatching: 'InvalidResourceStateException',
-        },
-        onUpdate: {
-          service: 'WorkSpaces',
-          action: 'DescribeWorkspaceDirectories',
-          parameters: {DirectoryIds: [this.directoryId]},
-          physicalResourceId: cr.PhysicalResourceId.of(this.directoryId),
-        },
-        onDelete: {
-          service: 'WorkSpaces',
-          action: 'DeregisterWorkspaceDirectory',
-          parameters: {DirectoryId: this.directoryId},
-          ignoreErrorCodesMatching:
-            'InvalidResourceStateException|ResourceNotFoundException',
-        },
-        role: customResourceRole,
-      },
-    );
-    workspacesDirectory.node.addDependency(this.workspacesRole);
 
     // Infrastructure layer — only created when props.infrastructure is provided
     if (props.infrastructure) {
       const infra = props.infrastructure;
 
-      // IAM role used for SSM hybrid activation registration
-      const ssmHybridActivationRole = new iam.Role(
-        this,
-        'SsmHybridActivationRole',
-        {
-          roleName: `${stack.stackName}-ssm-hybrid-activation`,
-          assumedBy: new iam.ServicePrincipal('ssm.amazonaws.com'),
-          managedPolicies: [
-            iam.ManagedPolicy.fromAwsManagedPolicyName(
-              'AmazonSSMManagedInstanceCore',
-            ),
-          ],
-        },
-      );
-      this.ssmHybridActivationRole = ssmHybridActivationRole;
-
-      // Extend the shared custom resource policy with infrastructure-specific permissions.
-      customResourcePolicy.addStatements(
-        new iam.PolicyStatement({
-          sid: 'AllowSsmActivation',
-          effect: iam.Effect.ALLOW,
-          // CreateActivation requires ssm:AddTagsToResource when the call includes
-          // Tags, so grant it only when activation tags are configured.
-          actions: infra.activationTags
-            ? [
-                'ssm:CreateActivation',
-                'ssm:DeleteActivation',
-                'ssm:AddTagsToResource',
-              ]
-            : ['ssm:CreateActivation', 'ssm:DeleteActivation'],
-          resources: ['*'],
-        }),
-        new iam.PolicyStatement({
-          sid: 'AllowPassSsmHybridActivationRole',
-          effect: iam.Effect.ALLOW,
-          actions: ['iam:PassRole'],
-          resources: [ssmHybridActivationRole.roleArn],
-        }),
-        new iam.PolicyStatement({
-          sid: 'AllowSsmActivationParam',
-          effect: iam.Effect.ALLOW,
-          actions: ['ssm:PutParameter', 'ssm:DeleteParameter'],
-          resources: [
-            `arn:aws:ssm:${stack.region}:${stack.account}:parameter${this.ssmActivationParamPrefix}/*`,
-          ],
-        }),
-        new iam.PolicyStatement({
-          sid: 'AllowKmsForActivationParam',
-          effect: iam.Effect.ALLOW,
-          actions: [
-            'kms:Encrypt',
-            'kms:GenerateDataKey',
-            'kms:Decrypt',
-            'kms:DescribeKey',
-          ],
-          resources: [key.keyArn],
-        }),
-      );
       if (infra.mfa) {
         const mfa = infra.mfa;
         const mfaTypeCount = [
@@ -1039,8 +752,20 @@ export class AwsWorkspaces extends ExtendedConstruct {
           );
         }
 
+        // Authentication — SAML 2.0 or certificate-based auth. Both are applied
+        // after directory registration; WorkSpaces evaluates these settings at
+        // login time, not during workspace provisioning. RADIUS MFA is configured
+        // on the directory itself by the ManagedAd construct, not here.
         if (mfa.saml) {
-          customResourcePolicy.addStatements(
+          const saml = mfa.saml;
+          const samlProperties = {
+            UserAccessUrl: saml.userAccessUrl,
+            RelayStateParameterName:
+              saml.relayStateParameterName ?? 'RelayState',
+            Status: saml.status ?? 'ENABLED',
+          };
+
+          directoryRegistration.policy.addStatements(
             new iam.PolicyStatement({
               sid: 'AllowWorkspacesSaml',
               effect: iam.Effect.ALLOW,
@@ -1048,9 +773,55 @@ export class AwsWorkspaces extends ExtendedConstruct {
               resources: ['*'],
             }),
           );
+
+          const workspacesSaml = new cr.AwsCustomResource(
+            this,
+            'WorkspacesSaml',
+            {
+              onCreate: {
+                service: 'WorkSpaces',
+                action: 'ModifySamlProperties',
+                parameters: {
+                  DirectoryId: this.directoryId,
+                  SamlProperties: samlProperties,
+                },
+                physicalResourceId: cr.PhysicalResourceId.of(
+                  `${this.directoryId}-saml`,
+                ),
+              },
+              onUpdate: {
+                service: 'WorkSpaces',
+                action: 'ModifySamlProperties',
+                parameters: {
+                  DirectoryId: this.directoryId,
+                  SamlProperties: samlProperties,
+                },
+                physicalResourceId: cr.PhysicalResourceId.of(
+                  `${this.directoryId}-saml`,
+                ),
+              },
+              onDelete: {
+                service: 'WorkSpaces',
+                action: 'ModifySamlProperties',
+                parameters: {
+                  DirectoryId: this.directoryId,
+                  SamlProperties: {Status: 'DISABLED'},
+                },
+                ignoreErrorCodesMatching:
+                  'ResourceNotFoundException|InvalidResourceStateException',
+              },
+              role: directoryRegistration.role,
+            },
+          );
+          workspacesSaml.node.addDependency(
+            directoryRegistration.node.findChild('Resource'),
+          );
         }
+
         if (mfa.certificateBased) {
-          customResourcePolicy.addStatements(
+          const certAuth = mfa.certificateBased;
+
+          directoryRegistration.policy.addStatements(
             new iam.PolicyStatement({
               sid: 'AllowWorkspacesCertAuth',
               effect: iam.Effect.ALLOW,
@@ -1058,230 +829,74 @@ export class AwsWorkspaces extends ExtendedConstruct {
               resources: ['*'],
             }),
           );
+
+          const workspacesCertAuth = new cr.AwsCustomResource(
+            this,
+            'WorkspacesCertAuth',
+            {
+              onCreate: {
+                service: 'WorkSpaces',
+                action: 'ModifyCertificateBasedAuthProperties',
+                parameters: {
+                  DirectoryId: this.directoryId,
+                  CertificateBasedAuthProperties: {
+                    CertificateAuthorityArn: certAuth.certificateAuthorityArn,
+                    Status: 'ENABLED',
+                  },
+                },
+                physicalResourceId: cr.PhysicalResourceId.of(
+                  `${this.directoryId}-cert-auth`,
+                ),
+              },
+              onUpdate: {
+                service: 'WorkSpaces',
+                action: 'ModifyCertificateBasedAuthProperties',
+                parameters: {
+                  DirectoryId: this.directoryId,
+                  CertificateBasedAuthProperties: {
+                    CertificateAuthorityArn: certAuth.certificateAuthorityArn,
+                    Status: 'ENABLED',
+                  },
+                },
+                physicalResourceId: cr.PhysicalResourceId.of(
+                  `${this.directoryId}-cert-auth`,
+                ),
+              },
+              onDelete: {
+                service: 'WorkSpaces',
+                action: 'ModifyCertificateBasedAuthProperties',
+                parameters: {
+                  DirectoryId: this.directoryId,
+                  CertificateBasedAuthProperties: {Status: 'DISABLED'},
+                  PropertiesToDelete: [
+                    'CERTIFICATE_BASED_AUTH_PROPERTIES_CERTIFICATE_AUTHORITY_ARN',
+                  ],
+                },
+                ignoreErrorCodesMatching:
+                  'ResourceNotFoundException|InvalidResourceStateException',
+              },
+              role: directoryRegistration.role,
+            },
+          );
+          workspacesCertAuth.node.addDependency(
+            directoryRegistration.node.findChild('Resource'),
+          );
         }
       }
 
-      // Authentication — SAML 2.0 or certificate-based auth. Both are applied
-      // after directory registration; WorkSpaces evaluates these settings at
-      // login time, not during workspace provisioning. RADIUS MFA is configured
-      // on the directory itself by the ManagedAd construct, not here.
-      if (infra.mfa?.saml) {
-        const saml = infra.mfa.saml;
-        const samlProperties = {
-          UserAccessUrl: saml.userAccessUrl,
-          RelayStateParameterName: saml.relayStateParameterName ?? 'RelayState',
-          Status: saml.status ?? 'ENABLED',
-        };
-
-        const workspacesSaml = new cr.AwsCustomResource(
-          this,
-          'WorkspacesSaml',
-          {
-            onCreate: {
-              service: 'WorkSpaces',
-              action: 'ModifySamlProperties',
-              parameters: {
-                DirectoryId: this.directoryId,
-                SamlProperties: samlProperties,
-              },
-              physicalResourceId: cr.PhysicalResourceId.of(
-                `${this.directoryId}-saml`,
-              ),
-            },
-            onUpdate: {
-              service: 'WorkSpaces',
-              action: 'ModifySamlProperties',
-              parameters: {
-                DirectoryId: this.directoryId,
-                SamlProperties: samlProperties,
-              },
-              physicalResourceId: cr.PhysicalResourceId.of(
-                `${this.directoryId}-saml`,
-              ),
-            },
-            onDelete: {
-              service: 'WorkSpaces',
-              action: 'ModifySamlProperties',
-              parameters: {
-                DirectoryId: this.directoryId,
-                SamlProperties: {Status: 'DISABLED'},
-              },
-              // ResourceNotFoundException: directory already deregistered.
-              ignoreErrorCodesMatching:
-                'ResourceNotFoundException|InvalidResourceStateException',
-            },
-            role: customResourceRole,
-          },
-        );
-        workspacesSaml.node.addDependency(workspacesDirectory);
-      }
-
-      if (infra.mfa?.certificateBased) {
-        const certAuth = infra.mfa.certificateBased;
-
-        const workspacesCertAuth = new cr.AwsCustomResource(
-          this,
-          'WorkspacesCertAuth',
-          {
-            onCreate: {
-              service: 'WorkSpaces',
-              action: 'ModifyCertificateBasedAuthProperties',
-              parameters: {
-                DirectoryId: this.directoryId,
-                CertificateBasedAuthProperties: {
-                  CertificateAuthorityArn: certAuth.certificateAuthorityArn,
-                  Status: 'ENABLED',
-                },
-              },
-              physicalResourceId: cr.PhysicalResourceId.of(
-                `${this.directoryId}-cert-auth`,
-              ),
-            },
-            onUpdate: {
-              service: 'WorkSpaces',
-              action: 'ModifyCertificateBasedAuthProperties',
-              parameters: {
-                DirectoryId: this.directoryId,
-                CertificateBasedAuthProperties: {
-                  CertificateAuthorityArn: certAuth.certificateAuthorityArn,
-                  Status: 'ENABLED',
-                },
-              },
-              physicalResourceId: cr.PhysicalResourceId.of(
-                `${this.directoryId}-cert-auth`,
-              ),
-            },
-            onDelete: {
-              service: 'WorkSpaces',
-              action: 'ModifyCertificateBasedAuthProperties',
-              parameters: {
-                DirectoryId: this.directoryId,
-                CertificateBasedAuthProperties: {Status: 'DISABLED'},
-                // Removes the CA ARN so the directory is fully disassociated.
-                PropertiesToDelete: [
-                  'CERTIFICATE_BASED_AUTH_PROPERTIES_CERTIFICATE_AUTHORITY_ARN',
-                ],
-              },
-              ignoreErrorCodesMatching:
-                'ResourceNotFoundException|InvalidResourceStateException',
-            },
-            role: customResourceRole,
-          },
-        );
-        workspacesCertAuth.node.addDependency(workspacesDirectory);
-      }
-
-      // SSM Hybrid Activation for golden image re-registration.
-      // New workspaces provisioned from the golden image bundle carry a stale SSM
-      // registration. On first login the operator runs `sudo -E ssm-register` to
-      // fetch these credentials from Parameter Store and re-register with a fresh
-      // managed instance ID. Re-deploy this stack to rotate the activation.
-      // SSM activations have a maximum expiry of 30 days — rotate before then.
-      const activationExpiry = new Date();
-      activationExpiry.setDate(activationExpiry.getDate() + 29);
-
-      // onUpdate mirrors onCreate so every stack deploy rotates the activation:
-      // a new one is created, Parameter Store is updated, then the old is deleted.
-      // Already-registered workspaces are unaffected — activation is for initial
-      // registration only.
-      // Tags assigned to the activation are automatically applied by SSM to every
-      // managed instance that registers with it (see activationTags prop docs).
-      const activationTagList = infra.activationTags
-        ? Object.entries(infra.activationTags).map(([Key, Value]) => ({
-            Key,
-            Value,
-          }))
-        : undefined;
-
-      // TODO Same thing with these, does it make sense to break them out for re-use?
-      const activationCall: cr.AwsSdkCall = {
-        service: 'SSM',
-        action: 'CreateActivation',
-        parameters: {
-          Description: `${stack.stackName} WorkSpace golden image`,
-          IamRole: ssmHybridActivationRole.roleName,
-          RegistrationLimit: infra.activationRegistrationLimit ?? 50,
-          ExpirationDate: activationExpiry.toISOString(),
-          ...(activationTagList ? {Tags: activationTagList} : {}),
-        },
-        physicalResourceId: cr.PhysicalResourceId.fromResponse('ActivationId'),
-      };
-
-      const ssmActivation = new cr.AwsCustomResource(
-        this,
-        'GoldenImageActivation',
-        {
-          onCreate: activationCall,
-          onUpdate: activationCall,
-          onDelete: {
-            service: 'SSM',
-            action: 'DeleteActivation',
-            parameters: {ActivationId: new cr.PhysicalResourceIdReference()},
-            ignoreErrorCodesMatching: 'InvalidActivation',
-          },
-          role: customResourceRole,
-        },
-      );
-
-      new ssm.StringParameter(this, 'ActivationIdParam', {
-        parameterName: `${this.ssmActivationParamPrefix}/id`,
-        stringValue: ssmActivation.getResponseField('ActivationId'),
-        description:
-          'SSM hybrid activation ID for WorkSpace golden image re-registration',
+      // SSM Hybrid Activation — delegates to SsmHybridActivation.
+      // Can be reused independently for non-WorkSpaces SSM hybrid activation scenarios.
+      const ssmActivation = new SsmHybridActivation(this, 'SsmActivation', {
+        roleName: `${stack.stackName}-ssm-hybrid-activation`,
+        paramPrefix: this.ssmActivationParamPrefix,
+        description: `${stack.stackName} WorkSpace golden image`,
+        activationTags: infra.activationTags,
+        registrationLimit: infra.activationRegistrationLimit,
+        encryptionKey: key,
       });
+      this.ssmHybridActivationRole = ssmActivation.hybridActivationRole;
 
-      new ssm.StringParameter(this, 'ActivationRegionParam', {
-        parameterName: `${this.ssmActivationParamPrefix}/region`,
-        stringValue: stack.region,
-        description: 'AWS region for SSM hybrid activation',
-      });
-
-      // Neither CfnSSMParameter nor CloudFormation's AWS::SSM::Parameter support
-      // SecureString. Call ssm:PutParameter directly via a custom resource.
-      new cr.AwsCustomResource(this, 'ActivationCodeParam', {
-        onCreate: {
-          service: 'SSM',
-          action: 'PutParameter',
-          parameters: {
-            Name: `${this.ssmActivationParamPrefix}/code`,
-            Value: ssmActivation.getResponseField('ActivationCode'),
-            Type: 'SecureString',
-            KeyId: key.keyArn,
-            Description:
-              'SSM hybrid activation code for WorkSpace golden image re-registration',
-            Overwrite: true,
-          },
-          physicalResourceId: cr.PhysicalResourceId.of(
-            `${this.ssmActivationParamPrefix}/code`,
-          ),
-        },
-        onUpdate: {
-          service: 'SSM',
-          action: 'PutParameter',
-          parameters: {
-            Name: `${this.ssmActivationParamPrefix}/code`,
-            Value: ssmActivation.getResponseField('ActivationCode'),
-            Type: 'SecureString',
-            KeyId: key.keyArn,
-            Description:
-              'SSM hybrid activation code for WorkSpace golden image re-registration',
-            Overwrite: true,
-          },
-          physicalResourceId: cr.PhysicalResourceId.of(
-            `${this.ssmActivationParamPrefix}/code`,
-          ),
-        },
-        onDelete: {
-          service: 'SSM',
-          action: 'DeleteParameter',
-          parameters: {Name: `${this.ssmActivationParamPrefix}/code`},
-          ignoreErrorCodesMatching: 'ParameterNotFound',
-        },
-        role: customResourceRole,
-      });
-
-      // HIPAA-compliant SSM Patch Baseline.
-      // Security-classified patches, Critical/Important severity, 7-day auto-approval.
+      // SSM Patch Baseline — security-classified patches, Critical/Important severity, 7-day auto-approval.
       // The patchGroups property ties this baseline to AwsWorkspacesUser instances
       // tagged with Patch Group=<patchGroupName>.
       new ssm.CfnPatchBaseline(this, 'PatchBaseline', {
@@ -1289,7 +904,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
         operatingSystem:
           infra.operatingSystem ?? AwsWorkspaces.DEFAULT_PATCH_OS,
         description:
-          'HIPAA patch baseline: Security classification, Critical/Important severity, 7-day auto-approval',
+          'WorkSpaces patch baseline: Security classification, Critical/Important severity, 7-day auto-approval',
         patchGroups: [this.patchGroupName],
         approvalRules: {
           patchRules: [
@@ -1308,7 +923,6 @@ export class AwsWorkspaces extends ExtendedConstruct {
         },
         tags: [
           {key: 'ManagedBy', value: 'CDK'},
-          {key: 'Compliance', value: 'HIPAA'},
         ],
       });
 
@@ -1351,6 +965,9 @@ export class AwsWorkspaces extends ExtendedConstruct {
       }
 
       // Revoke open-world ingress from all WorkSpaces-managed security groups.
+      // The Nonce property intentionally embeds the current timestamp so CloudFormation
+      // treats the resource as changed on every deploy, re-running the Lambda to catch
+      // any open-world rules that WorkSpaces may have re-added since the last deploy.
       // AWS WorkSpaces tags its auto-created SGs with "Created by Amazon WorkSpaces".
       // This custom resource scans all such SGs and removes any rule allowing traffic
       // from 0.0.0.0/0 or ::/0, satisfying restricted-ssh, restricted-common-ports,

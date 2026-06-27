@@ -19,6 +19,8 @@ export * as aws_s3 from './aws-s3/index';
 export * as aws_ses from './aws-ses/index';
 export * as aws_sqs from './aws-sqs/index';
 export * as aws_ssm from './aws-ssm/index';
+export * as aws_ssm_activation from './aws-ssm-activation/index';
+export * as aws_workspaces from './aws-workspaces/index';
 export * as aws_vpc from './aws-vpc/index';
 export * as aws_wafv2 from './aws-wafv2/index';
 export * as helpers from './helpers/index';
