@@ -155,6 +155,15 @@ export interface AwsWorkspacesPackagesProps {
    * Ignored when scriptPath is provided.
    */
   readonly packages?: string[];
+
+  /**
+   * SSM State Manager targets for the package installation association.
+   * Controls which managed instances the script runs on.
+   * Example: `[{key: 'tag:ManagedBy', values: ['CDK']}]`
+   *
+   * @default - all managed instances (`[{key: 'InstanceIds', values: ['*']}]`)
+   */
+  readonly targets?: ssm.CfnAssociation.TargetProperty[];
 }
 
 /**
@@ -954,7 +963,9 @@ export class AwsWorkspaces extends ExtendedConstruct {
         new ssm.CfnAssociation(this, 'PackagesAssociation', {
           name: 'AWS-RunShellScript',
           associationName: `${stack.stackName}-package-install`,
-          targets: [{key: 'tag:ManagedBy', values: ['CDK']}],
+          targets: infra.packages.targets ?? [
+            {key: 'InstanceIds', values: ['*']},
+          ],
           parameters: {commands},
           scheduleExpression: 'rate(30 days)',
           applyOnlyAtCronInterval: false,
