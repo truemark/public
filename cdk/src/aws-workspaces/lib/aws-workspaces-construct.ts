@@ -6,9 +6,9 @@ import {
   type SecretValue,
   Stack,
 } from 'aws-cdk-lib';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import type * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as kms from 'aws-cdk-lib/aws-kms';
+import type * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -827,9 +827,7 @@ export class AwsWorkspaces extends ExtendedConstruct {
             },
           ],
         },
-        tags: [
-          {key: 'ManagedBy', value: 'CDK'},
-        ],
+        tags: [{key: 'ManagedBy', value: 'CDK'}],
       });
 
       // Package installation via State Manager (conditional).

@@ -108,10 +108,8 @@ export class SsmPatchBaseline extends ExtendedConstruct {
     const stack = Stack.of(this);
 
     const baseline = new ssm.CfnPatchBaseline(this, 'Resource', {
-      name:
-        props.name ?? `${stack.stackName}-patch-baseline`,
-      operatingSystem:
-        props.operatingSystem ?? SsmPatchBaseline.DEFAULT_OS,
+      name: props.name ?? `${stack.stackName}-patch-baseline`,
+      operatingSystem: props.operatingSystem ?? SsmPatchBaseline.DEFAULT_OS,
       description: props.description,
       patchGroups: props.patchGroups ?? [],
       approvalRules: {
@@ -127,8 +125,7 @@ export class SsmPatchBaseline extends ExtendedConstruct {
                 },
                 {
                   key: 'SEVERITY',
-                  values:
-                    props.severity ?? SsmPatchBaseline.DEFAULT_SEVERITY,
+                  values: props.severity ?? SsmPatchBaseline.DEFAULT_SEVERITY,
                 },
               ],
             },

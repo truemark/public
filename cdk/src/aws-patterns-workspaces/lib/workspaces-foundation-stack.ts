@@ -1,7 +1,7 @@
-import * as cdk from 'aws-cdk-lib/core';
+import type {SecretValue} from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as kms from 'aws-cdk-lib/aws-kms';
-import type {SecretValue} from 'aws-cdk-lib';
+import * as cdk from 'aws-cdk-lib/core';
 import type {Construct} from 'constructs';
 import {
   DataClassification,

@@ -1,6 +1,6 @@
 import {CustomResource, Duration, Stack} from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as kms from 'aws-cdk-lib/aws-kms';
+import type * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import type {Construct} from 'constructs';
@@ -172,11 +172,7 @@ export class SsmHybridActivation extends ExtendedConstruct {
    */
   readonly paramPrefix: string;
 
-  constructor(
-    scope: Construct,
-    id: string,
-    props: SsmHybridActivationProps,
-  ) {
+  constructor(scope: Construct, id: string, props: SsmHybridActivationProps) {
     super(scope, id, {
       standardTags: StandardTags.merge(props.standardTags, LibStandardTags),
     });

@@ -113,11 +113,7 @@ export interface WorkspacesUserStackProps extends ExtendedStackProps {
  * ```
  */
 export class WorkspacesUserStack extends ExtendedStack {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: WorkspacesUserStackProps,
-  ) {
+  constructor(scope: Construct, id: string, props: WorkspacesUserStackProps) {
     super(scope, id, props);
 
     const instance = new AwsWorkspacesUser(this, 'Workspace', {

@@ -95,11 +95,7 @@ def handler(event, context):
  * needed in another context.
  */
 export class AwsWorkspacesSamlAuth extends ExtendedConstruct {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: AwsWorkspacesSamlAuthProps,
-  ) {
+  constructor(scope: Construct, id: string, props: AwsWorkspacesSamlAuthProps) {
     super(scope, id, {
       standardTags: StandardTags.merge(props.standardTags, LibStandardTags),
     });
@@ -139,8 +135,7 @@ export class AwsWorkspacesSamlAuth extends ExtendedConstruct {
       properties: {
         DirectoryId: props.directoryId,
         UserAccessUrl: props.userAccessUrl,
-        RelayStateParameterName:
-          props.relayStateParameterName ?? 'RelayState',
+        RelayStateParameterName: props.relayStateParameterName ?? 'RelayState',
         Status: props.status ?? 'ENABLED',
       },
     });
