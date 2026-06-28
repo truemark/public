@@ -9,6 +9,7 @@ test('Happy path test for StandardNetwork', () => {
     name: 'TestNetwork',
     vpcCidr: '10.0.0.0/16',
     azCount: 3,
+    natType: 'nat_instance',
   });
   const template = Template.fromStack(stack);
 
