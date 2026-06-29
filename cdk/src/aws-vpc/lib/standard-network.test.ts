@@ -40,3 +40,29 @@ test('Happy path test for StandardNetwork', () => {
     Export: {Name: `${stack.stackName}:VpcId`},
   });
 });
+
+test('StandardNetwork with IPv6 enabled', () => {
+  const stack = HelperTest.stack();
+  new StandardNetwork(stack, 'TestNetworkIpv6', {
+    name: 'TestNetworkIpv6',
+    vpcCidr: '10.0.0.0/20',
+    azCount: 2,
+    enableIpv6: true,
+  });
+  const template = Template.fromStack(stack);
+
+  // Verify VPC has IPv6 enabled (dual-stack mode)
+  template.resourceCountIs('AWS::EC2::VPC', 1);
+  template.hasResourceProperties('AWS::EC2::VPC', {
+    CidrBlock: '10.0.0.0/20',
+  });
+
+  // Verify IPv6 CIDR block is associated with the VPC
+  template.resourceCountIs('AWS::EC2::VPCCidrBlock', 1);
+  template.hasResourceProperties('AWS::EC2::VPCCidrBlock', {
+    AmazonProvidedIpv6CidrBlock: true,
+  });
+
+  // Five default subnet groups across 2 AZs => 10 subnets
+  template.resourceCountIs('AWS::EC2::Subnet', 10);
+});

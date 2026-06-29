@@ -12,7 +12,7 @@ import {NetworkParameters} from './network-parameters';
 
 export type NatType = 'none' | 'single' | 'multi' | 'nat_instance'; // TODO Add  | 'regional' | 'poor';
 
-// TODO Need ipv6 support and we need to support ipv6 only
+// TODO Need to add support for ipv6 only mode (currently supports dual-stack)
 
 /**
  * Subnet sizing lookup table keyed by VPC prefix length.
@@ -414,6 +414,10 @@ function applySubnetTags(
  * > which uses explicit `netnum` offsets to position subnet groups at specific
  * > addresses within the VPC. The subnet *sizes* match exactly; only the
  * > starting addresses within the VPC differ.
+ *
+ * **IPv6 Support:** Set `enableIpv6: true` to configure the VPC in dual-stack
+ * mode with both IPv4 and IPv6. AWS automatically assigns an Amazon-provided
+ * /56 IPv6 CIDR block to the VPC, and each subnet receives a /64 IPv6 CIDR.
  *
  * Gateway VPC endpoints for S3 and DynamoDB are created by default and attached
  * to private, intra, database, elasticache, and redshift route tables.
