@@ -502,6 +502,21 @@ export class CdkPipeline extends Construct {
           privileged: !(props.computeType?.includes('LAMBDA') ?? false),
           computeType: props.computeType ?? ComputeType.SMALL,
           buildImage: props.buildImage ?? LinuxBuildImage.AMAZON_LINUX_2_5,
+          environmentVariables: {
+            // pnpm 11 defaults minimumReleaseAge to 1440 (a 1-day publish
+            // cooldown). The synth build installs the committed, PR-reviewed
+            // lockfile with --frozen-lockfile, so it never resolves new
+            // versions and the cooldown adds no protection here. It does,
+            // however, break aws-cdk-lib NodejsFunction bundling: that runs an
+            // isolated `pnpm install` over a copy of the workspace lockfile
+            // without the workspace's minimumReleaseAgeExclude, so a freshly
+            // published dependency fails the cooldown check. Disable it for the
+            // synth build; the cooldown still applies where it matters, at
+            // lockfile-update time on a developer machine or PR.
+            // pnpm reads its own settings only from the PNPM_CONFIG_ prefix,
+            // not NPM_CONFIG_.
+            PNPM_CONFIG_MINIMUM_RELEASE_AGE: {value: '0'},
+          },
         },
         rolePolicy,
       },
