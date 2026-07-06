@@ -1,5 +1,10 @@
 # TrueMark CDK Library Changelog
 
+## 1.25.1
+### Patch Changes
+
+- fbe9289: Loosen the `aws-cdk-lib` (`^2.256.0`) and `aws-cdk` (`^2.1124.0`) catalog dependencies to caret ranges so consumers can resolve compatible newer 2.x releases
+
 ## 1.25.0
 ### Minor Changes
 
