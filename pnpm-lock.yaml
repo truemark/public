@@ -37,10 +37,10 @@ catalogs:
       specifier: ^24.1.0
       version: 24.12.4
     aws-cdk:
-      specifier: 2.1124.0
+      specifier: ^2.1124.0
       version: 2.1124.0
     aws-cdk-lib:
-      specifier: 2.256.0
+      specifier: ^2.256.0
       version: 2.256.0
     cdk-monitoring-constructs:
       specifier: 10.0.0
