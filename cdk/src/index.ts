@@ -14,6 +14,7 @@ export * as domain_redirect from './aws-patterns-domain-redirect/index';
 export * as website from './aws-patterns-website/index';
 export * as wordpress from './aws-patterns-wordpress/index';
 export * as aws_patterns_workspaces from './aws-patterns-workspaces/index';
+export * as aws_rds from './aws-rds/index';
 export * as aws_route53 from './aws-route53/index';
 export * as aws_s3 from './aws-s3/index';
 export * as aws_ses from './aws-ses/index';

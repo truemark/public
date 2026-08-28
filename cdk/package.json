@@ -48,6 +48,9 @@
       "aws-patterns-wordpress": [
         "./dist/aws-patterns-wordpress/index.d.ts"
       ],
+      "aws-rds": [
+        "./dist/aws-rds/index.d.ts"
+      ],
       "aws-route53": [
         "./dist/aws-route53/index.d.ts"
       ],
@@ -194,6 +197,10 @@
     "./aws-patterns-wordpress": {
       "types": "./dist/aws-patterns-wordpress/index.d.ts",
       "default": "./dist/aws-patterns-wordpress/index.js"
+    },
+    "./aws-rds": {
+      "types": "./dist/aws-rds/index.d.ts",
+      "default": "./dist/aws-rds/index.js"
     },
     "./aws-route53": {
       "types": "./dist/aws-route53/index.d.ts",
