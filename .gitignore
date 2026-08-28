@@ -13,4 +13,9 @@ vite.config.ts.timestamp-*
 coverage
 
 # Claude Code
-.claude
+.claude/*
+!.claude/commands/
+!.claude/settings.json
+# This repo publishes its agent skills, so they are tracked.
+!.claude/skills/
+.claude/settings.local.json
