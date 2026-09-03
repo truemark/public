@@ -52,6 +52,8 @@ export interface StandardPostgresAuroraServerlessClusterProps
 
   /**
    * The minimum number of Aurora capacity units the cluster may scale down to.
+   * Half-step increments; 0 enables automatic pause on engine versions that
+   * support it.
    *
    * @default 0.5
    */
@@ -59,14 +61,16 @@ export interface StandardPostgresAuroraServerlessClusterProps
 
   /**
    * The maximum number of Aurora capacity units the cluster may scale up to.
+   * Half-step increments, at most 256.
    *
    * @default 4
    */
   readonly maxCapacity?: number;
 
   /**
-   * The time the cluster may remain idle before it is paused. Only supported
-   * when minCapacity is 0.
+   * The time in seconds the cluster may remain idle before it is paused,
+   * between 300 (5 minutes) and 86400 (24 hours). Only supported when
+   * minCapacity is 0.
    *
    * @default no automatic pause
    */
@@ -122,6 +126,9 @@ export class StandardPostgresAuroraServerlessCluster
   static readonly DEFAULT_MIN_CAPACITY = 0.5;
   static readonly DEFAULT_MAX_CAPACITY = 4;
   static readonly DEFAULT_READERS = 1;
+  static readonly MAX_CAPACITY_LIMIT = 256;
+  static readonly MIN_AUTO_PAUSE_SECONDS = 300;
+  static readonly MAX_AUTO_PAUSE_SECONDS = 86400;
 
   /** The underlying Aurora Serverless v2 cluster. */
   readonly cluster: DatabaseCluster;
@@ -172,13 +179,18 @@ export class StandardPostgresAuroraServerlessCluster
     const readerCount =
       props.readers ?? StandardPostgresAuroraServerlessCluster.DEFAULT_READERS;
     const readersInFailoverTier = props.readersInFailoverTier ?? true;
-
-    // Note: secondsUntilAutoPause is intentionally not implemented. The
-    // DatabaseCluster/ClusterInstance API used here (Aurora Serverless v2)
-    // has no configurable auto-pause timer in this version of aws-cdk-lib -
-    // that setting only exists on the older, separate ServerlessCluster
-    // (Serverless v1) class. If set, this prop is currently silently
-    // ignored.
+    const minCapacity =
+      props.minCapacity ??
+      StandardPostgresAuroraServerlessCluster.DEFAULT_MIN_CAPACITY;
+    const maxCapacity =
+      props.maxCapacity ??
+      StandardPostgresAuroraServerlessCluster.DEFAULT_MAX_CAPACITY;
+    StandardPostgresAuroraServerlessCluster.validate(
+      minCapacity,
+      maxCapacity,
+      readerCount,
+      props.secondsUntilAutoPause,
+    );
 
     // removalPolicy is the CDK-native control. skipFinalSnapshot has no
     // direct CDK equivalent - it only downgrades a SNAPSHOT removal policy
@@ -222,12 +234,12 @@ export class StandardPostgresAuroraServerlessCluster
           scaleWithWriter: readersInFailoverTier,
         }),
       ),
-      serverlessV2MinCapacity:
-        props.minCapacity ??
-        StandardPostgresAuroraServerlessCluster.DEFAULT_MIN_CAPACITY,
-      serverlessV2MaxCapacity:
-        props.maxCapacity ??
-        StandardPostgresAuroraServerlessCluster.DEFAULT_MAX_CAPACITY,
+      serverlessV2MinCapacity: minCapacity,
+      serverlessV2MaxCapacity: maxCapacity,
+      serverlessV2AutoPauseDuration:
+        props.secondsUntilAutoPause === undefined
+          ? undefined
+          : Duration.seconds(props.secondsUntilAutoPause),
       storageType: props.ioOptimized
         ? DBClusterStorageType.AURORA_IOPT1
         : DBClusterStorageType.AURORA,
@@ -271,6 +283,62 @@ export class StandardPostgresAuroraServerlessCluster
     this.dbClusterRef = this.cluster.dbClusterRef;
     this.stack = this.cluster.stack;
     this.env = this.cluster.env;
+  }
+
+  /**
+   * Validates the capacity range, reader count and auto-pause setting.
+   *
+   * @param minCapacity minimum ACUs
+   * @param maxCapacity maximum ACUs
+   * @param readers number of reader instances
+   * @param secondsUntilAutoPause idle time before pause, if any
+   */
+  static validate(
+    minCapacity: number,
+    maxCapacity: number,
+    readers: number,
+    secondsUntilAutoPause?: number,
+  ): void {
+    const isHalfStep = (value: number) => Number.isInteger(value * 2);
+    if (minCapacity < 0 || !isHalfStep(minCapacity)) {
+      throw new Error(
+        `minCapacity must be 0 or a positive half-step value, got ${minCapacity}`,
+      );
+    }
+    if (
+      maxCapacity <= 0.5 ||
+      maxCapacity >
+        StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT ||
+      !isHalfStep(maxCapacity)
+    ) {
+      throw new Error(
+        `maxCapacity must be a half-step value greater than 0.5 and at most ${StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT}, got ${maxCapacity}`,
+      );
+    }
+    if (minCapacity > maxCapacity) {
+      throw new Error(
+        `minCapacity (${minCapacity}) must not exceed maxCapacity (${maxCapacity})`,
+      );
+    }
+    if (!Number.isInteger(readers) || readers < 0) {
+      throw new Error(`readers must be a non-negative integer, got ${readers}`);
+    }
+    if (secondsUntilAutoPause !== undefined) {
+      if (minCapacity !== 0) {
+        throw new Error('secondsUntilAutoPause requires minCapacity to be 0');
+      }
+      if (
+        !Number.isInteger(secondsUntilAutoPause) ||
+        secondsUntilAutoPause <
+          StandardPostgresAuroraServerlessCluster.MIN_AUTO_PAUSE_SECONDS ||
+        secondsUntilAutoPause >
+          StandardPostgresAuroraServerlessCluster.MAX_AUTO_PAUSE_SECONDS
+      ) {
+        throw new Error(
+          `secondsUntilAutoPause must be an integer between ${StandardPostgresAuroraServerlessCluster.MIN_AUTO_PAUSE_SECONDS} and ${StandardPostgresAuroraServerlessCluster.MAX_AUTO_PAUSE_SECONDS}, got ${secondsUntilAutoPause}`,
+        );
+      }
+    }
   }
 
   // From IDatabaseCluster
