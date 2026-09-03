@@ -161,6 +161,12 @@ export class StandardPostgresAuroraServerlessCluster
       standardTags: StandardTags.merge(props.standardTags, LibStandardTags),
     });
 
+    if (props.parameterGroup && props.parameters) {
+      throw new Error(
+        'parameterGroup and parameters cannot be combined; pass either an existing group or parameters for a new one',
+      );
+    }
+
     const engine = DatabaseClusterEngine.auroraPostgres({
       version:
         props.engineVersion ??

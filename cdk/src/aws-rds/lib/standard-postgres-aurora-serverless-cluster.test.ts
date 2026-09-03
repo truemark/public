@@ -2,7 +2,7 @@ import {Duration, RemovalPolicy} from 'aws-cdk-lib';
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {SecurityGroup, Vpc} from 'aws-cdk-lib/aws-ec2';
 import {Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
-import {AuroraPostgresEngineVersion} from 'aws-cdk-lib/aws-rds';
+import {AuroraPostgresEngineVersion, ParameterGroup} from 'aws-cdk-lib/aws-rds';
 import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {StandardPostgresAuroraServerlessCluster} from '../index';
@@ -144,6 +144,47 @@ test('Reject invalid capacity, reader and auto-pause settings', () => {
   expect(create('F', {minCapacity: 0, secondsUntilAutoPause: 60})).toThrow(
     /between 300 and 86400/,
   );
+});
+
+test('Reject parameterGroup combined with parameters', () => {
+  const {stack, vpc} = network();
+  const group = ParameterGroup.fromParameterGroupName(
+    stack,
+    'Existing',
+    'default.aurora-postgresql17',
+  );
+  expect(
+    () =>
+      new StandardPostgresAuroraServerlessCluster(stack, 'Db', {
+        vpc,
+        parameterGroup: group,
+        parameters: {shared_preload_libraries: 'pg_stat_statements'},
+      }),
+  ).toThrow(/cannot be combined/);
+});
+
+test('Apply parameters through a construct-created parameter group', () => {
+  const {stack, vpc} = network();
+  new StandardPostgresAuroraServerlessCluster(stack, 'Db', {
+    vpc,
+    parameters: {shared_preload_libraries: 'pg_stat_statements'},
+  });
+  Template.fromStack(stack).hasResourceProperties(
+    'AWS::RDS::DBClusterParameterGroup',
+    {Parameters: {shared_preload_libraries: 'pg_stat_statements'}},
+  );
+});
+
+test('Module exports only implemented constructs', async () => {
+  const exported = Object.keys(await import('../index'));
+  expect(exported).toContain('StandardPostgresAuroraServerlessCluster');
+  for (const stub of [
+    'StandardPostgresAuroraCluster',
+    'StandardPostgresCluster',
+    'StandardPostgresInstance',
+  ]) {
+    expect(exported).not.toContain(stub);
+  }
 });
 
 test('allowFrom opens the database port to peers', () => {
