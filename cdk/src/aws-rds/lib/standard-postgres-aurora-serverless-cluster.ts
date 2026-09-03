@@ -1,6 +1,7 @@
 import {
   Duration,
   RemovalPolicy,
+  Resource,
   type ResourceEnvironment,
   type Stack,
 } from 'aws-cdk-lib';
@@ -112,10 +113,33 @@ export interface StandardPostgresAuroraServerlessClusterProps
    * @default false
    */
   readonly publiclyAccessible?: boolean;
+
+  /**
+   * Whether IAM database authentication is enabled. Required for
+   * `grantConnect` to have any effect and for RDS Proxy IAM authentication.
+   *
+   * @default true
+   */
+  readonly iamAuthentication?: boolean;
+
+  /**
+   * The removal policy applied to the generated master credentials secret.
+   *
+   * @default - follows the cluster: RETAIN unless the cluster's removal
+   * policy is DESTROY
+   */
+  readonly secretRemovalPolicy?: RemovalPolicy;
 }
 
 /**
  * A standard Aurora Serverless v2 PostgreSQL database cluster.
+ *
+ * The construct implements IDatabaseCluster by delegating to the underlying
+ * DatabaseCluster exposed as `cluster`. CDK APIs that inspect the construct
+ * tree rather than the interface, such as `ProxyTarget.fromCluster`, do not
+ * find the cluster's instances through this wrapper and would create a proxy
+ * target group without waiting for them; hand those APIs `cluster` instead,
+ * or use `addProxy`, which does so internally.
  */
 export class StandardPostgresAuroraServerlessCluster
   extends ExtendedConstruct
@@ -262,6 +286,7 @@ export class StandardPostgresAuroraServerlessCluster
 
       deletionProtection: props.deletionProtection ?? true,
       removalPolicy: effectiveRemovalPolicy,
+      iamAuthentication: props.iamAuthentication ?? true,
 
       monitoringInterval: props.monitoringInterval,
       enablePerformanceInsights: props.enablePerformanceInsights ?? false,
@@ -277,6 +302,19 @@ export class StandardPostgresAuroraServerlessCluster
     }
 
     this.secret = this.cluster.secret;
+    // A retained cluster is useless without its credentials: keep the generated
+    // secret unless the cluster itself is destroyed. DatabaseCluster creates
+    // the generated secret as its 'Secret' child; user-supplied secrets are
+    // left alone.
+    const generatedSecret = this.cluster.node.tryFindChild('Secret');
+    if (generatedSecret instanceof Resource) {
+      generatedSecret.applyRemovalPolicy(
+        props.secretRemovalPolicy ??
+          (effectiveRemovalPolicy === RemovalPolicy.DESTROY
+            ? RemovalPolicy.DESTROY
+            : RemovalPolicy.RETAIN),
+      );
+    }
     this.clusterIdentifier = this.cluster.clusterIdentifier;
     this.clusterResourceIdentifier = this.cluster.clusterResourceIdentifier;
     this.instanceIdentifiers = this.cluster.instanceIdentifiers;

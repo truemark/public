@@ -2,7 +2,12 @@ import {Duration, RemovalPolicy} from 'aws-cdk-lib';
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {SecurityGroup, Vpc} from 'aws-cdk-lib/aws-ec2';
 import {Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
-import {AuroraPostgresEngineVersion, ParameterGroup} from 'aws-cdk-lib/aws-rds';
+import {
+  AuroraPostgresEngineVersion,
+  DatabaseProxy,
+  ParameterGroup,
+  ProxyTarget,
+} from 'aws-cdk-lib/aws-rds';
 import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {StandardPostgresAuroraServerlessCluster} from '../index';
@@ -36,11 +41,14 @@ test('Create cluster with defaults', () => {
     BackupRetentionPeriod: 7,
     DeletionProtection: true,
     EnableCloudwatchLogsExports: ['postgresql'],
+    EnableIAMDatabaseAuthentication: true,
   });
   template.hasResource(DB_CLUSTER, {
     DeletionPolicy: 'Retain',
     UpdateReplacePolicy: 'Retain',
   });
+  // The generated credentials outlive the cluster the same way the data does.
+  template.hasResource(SECRET, {DeletionPolicy: 'Retain'});
   template.hasResourceProperties(DB_INSTANCE, {
     DBInstanceClass: 'db.serverless',
     PubliclyAccessible: false,
@@ -69,6 +77,7 @@ test('Create cluster with explicit settings', () => {
     removalPolicy: RemovalPolicy.DESTROY,
     enablePerformanceInsights: true,
     ioOptimized: true,
+    iamAuthentication: false,
   });
   const template = Template.fromStack(stack);
 
@@ -82,6 +91,10 @@ test('Create cluster with explicit settings', () => {
     StorageType: 'aurora-iopt1',
   });
   template.hasResource(DB_CLUSTER, {DeletionPolicy: 'Delete'});
+  template.hasResource(SECRET, {DeletionPolicy: 'Delete'});
+  template.hasResourceProperties(DB_CLUSTER, {
+    EnableIAMDatabaseAuthentication: false,
+  });
   // Cluster-level Performance Insights renders on the cluster resource.
   template.hasResourceProperties(DB_CLUSTER, {
     PerformanceInsightsEnabled: true,
@@ -238,4 +251,37 @@ test('Add proxy and grants through the IDatabaseCluster facade', () => {
     }),
   });
   expect(template.toJSON()).toMatchSnapshot();
+});
+
+test('External proxies must target the underlying cluster to inherit instance dependencies', () => {
+  const {stack, vpc} = network();
+  const standard = new StandardPostgresAuroraServerlessCluster(stack, 'Db', {
+    vpc,
+  });
+  new DatabaseProxy(stack, 'ExternalProxy', {
+    proxyTarget: ProxyTarget.fromCluster(standard.cluster),
+    secrets: [standard.secret!],
+    vpc,
+  });
+  const template = Template.fromStack(stack);
+  template.resourceCountIs(DB_PROXY, 1);
+  // CDK discovers the cluster's instances through the real DatabaseCluster's
+  // children and makes the target group wait for them.
+  template.hasResource('AWS::RDS::DBProxyTargetGroup', {
+    DependsOn: Match.arrayWith([
+      Match.stringLikeRegexp('DbReader1'),
+      Match.stringLikeRegexp('DbWriter'),
+    ]),
+  });
+});
+
+test('addProxy on the wrapper also waits for the instances', () => {
+  const {stack, vpc} = network();
+  const standard = new StandardPostgresAuroraServerlessCluster(stack, 'Db', {
+    vpc,
+  });
+  standard.addProxy('Proxy', {vpc, secrets: [standard.secret!]});
+  Template.fromStack(stack).hasResource('AWS::RDS::DBProxyTargetGroup', {
+    DependsOn: Match.arrayWith([Match.stringLikeRegexp('DbWriter')]),
+  });
 });

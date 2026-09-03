@@ -24,6 +24,7 @@ exports[`Add proxy and grants through the IDatabaseCluster facade 1`] = `
         "EnableCloudwatchLogsExports": [
           "postgresql",
         ],
+        "EnableIAMDatabaseAuthentication": true,
         "Engine": "aurora-postgresql",
         "EngineVersion": "17.4",
         "MasterUserPassword": {
@@ -334,7 +335,7 @@ exports[`Add proxy and grants through the IDatabaseCluster facade 1`] = `
       "Type": "AWS::SecretsManager::SecretTargetAttachment",
     },
     "DbSecretCF6D79B0": {
-      "DeletionPolicy": "Delete",
+      "DeletionPolicy": "Retain",
       "Properties": {
         "Description": {
           "Fn::Join": [
@@ -373,7 +374,7 @@ exports[`Add proxy and grants through the IDatabaseCluster facade 1`] = `
         ],
       },
       "Type": "AWS::SecretsManager::Secret",
-      "UpdateReplacePolicy": "Delete",
+      "UpdateReplacePolicy": "Retain",
     },
     "DbSecurityGroupC34ABFAB": {
       "Properties": {
@@ -1060,6 +1061,7 @@ exports[`Create cluster with defaults 1`] = `
         "EnableCloudwatchLogsExports": [
           "postgresql",
         ],
+        "EnableIAMDatabaseAuthentication": true,
         "Engine": "aurora-postgresql",
         "EngineVersion": "17.4",
         "MasterUserPassword": {
@@ -1198,7 +1200,7 @@ exports[`Create cluster with defaults 1`] = `
       "Type": "AWS::SecretsManager::SecretTargetAttachment",
     },
     "DbSecretCF6D79B0": {
-      "DeletionPolicy": "Delete",
+      "DeletionPolicy": "Retain",
       "Properties": {
         "Description": {
           "Fn::Join": [
@@ -1237,7 +1239,7 @@ exports[`Create cluster with defaults 1`] = `
         ],
       },
       "Type": "AWS::SecretsManager::Secret",
-      "UpdateReplacePolicy": "Delete",
+      "UpdateReplacePolicy": "Retain",
     },
     "DbSecurityGroupC34ABFAB": {
       "Properties": {
@@ -1795,6 +1797,7 @@ exports[`Create cluster with explicit settings 1`] = `
         "EnableCloudwatchLogsExports": [
           "postgresql",
         ],
+        "EnableIAMDatabaseAuthentication": false,
         "Engine": "aurora-postgresql",
         "EngineVersion": "16.13",
         "MasterUserPassword": {
