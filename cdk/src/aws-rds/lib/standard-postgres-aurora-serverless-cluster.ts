@@ -182,7 +182,14 @@ export class StandardPostgresAuroraServerlessCluster
     props: StandardPostgresAuroraServerlessClusterProps,
   ) {
     super(scope, id, {
-      standardTags: StandardTags.merge(props.standardTags, LibStandardTags),
+      standardTags: StandardTags.merge(
+        {
+          ...(props.standardTags ?? {}),
+          suppressTagging:
+            props.suppressTagging ?? props.standardTags?.suppressTagging,
+        },
+        LibStandardTags,
+      ),
     });
 
     if (props.parameterGroup && props.parameters) {
