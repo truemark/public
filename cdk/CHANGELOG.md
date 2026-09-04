@@ -1,5 +1,11 @@
 # TrueMark CDK Library Changelog
 
+## 1.27.0
+
+### Minor Changes
+
+- cf9923c: Add aws-rds module and implement StandardPostgresAuroraServerlessCluster (Aurora Serverless v2 PostgreSQL).
+
 ## 1.26.0
 ### Minor Changes
 
