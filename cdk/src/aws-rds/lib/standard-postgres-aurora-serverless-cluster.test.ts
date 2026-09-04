@@ -219,6 +219,21 @@ test('allowFrom opens the database port to peers', () => {
   );
 });
 
+test('suppressTagging disables construct-added standard tags', () => {
+  const {stack, vpc} = network();
+  new StandardPostgresAuroraServerlessCluster(stack, 'Db', {
+    vpc,
+    suppressTagging: true,
+  });
+  const cluster = Object.values(
+    Template.fromStack(stack).findResources(DB_CLUSTER),
+  )[0];
+  expect(cluster.Properties.Tags).not.toContainEqual({
+    Key: 'automation:component-id',
+    Value: 'StandardPostgresAuroraServerlessCluster',
+  });
+});
+
 test('Add proxy and grants through the IDatabaseCluster facade', () => {
   const {stack, vpc} = network();
   const cluster = new StandardPostgresAuroraServerlessCluster(stack, 'Db', {
