@@ -84,9 +84,11 @@ export interface StandardPostgresProps extends ExtendedConstructProps {
   readonly parameterGroup?: IParameterGroup;
 
   /**
-   * Additional parameters applied on top of the parameter group.
+   * Parameters for a parameter group created by the construct. Cannot be
+   * combined with parameterGroup: an existing group's parameters are not
+   * readable, so they cannot be merged.
    *
-   * @default no additional parameters
+   * @default no parameters; the engine default parameter group is used
    */
   readonly parameters?: Record<string, string>;
 
