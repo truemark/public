@@ -357,13 +357,13 @@ export class StandardPostgresAuroraServerlessCluster
       );
     }
     if (
-      maxCapacity <= 0.5 ||
+      maxCapacity < 0.5 ||
       maxCapacity >
         StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT ||
       !isHalfStep(maxCapacity)
     ) {
       throw new Error(
-        `maxCapacity must be a half-step value greater than 0.5 and at most ${StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT}, got ${maxCapacity}`,
+        `maxCapacity must be a half-step value of at least 0.5 and at most ${StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT}, got ${maxCapacity}`,
       );
     }
     if (minCapacity > maxCapacity) {
