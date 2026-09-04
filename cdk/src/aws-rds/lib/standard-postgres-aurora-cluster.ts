@@ -65,8 +65,8 @@ export interface StandardPostgresAuroraClusterProps
   readonly instanceParameterGroup?: IParameterGroup;
 
   /**
-   * The number of days automated cluster snapshots are retained in the backtrack
-   * window. Set to 0 to disable backtrack.
+   * The backtrack window length in days. Set to 0 to disable
+   * backtrack.
    *
    * @default 0
    */
