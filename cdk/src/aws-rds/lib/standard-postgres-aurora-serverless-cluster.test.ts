@@ -157,6 +157,9 @@ test('Reject invalid capacity, reader and auto-pause settings', () => {
   expect(create('F', {minCapacity: 0, secondsUntilAutoPause: 60})).toThrow(
     /between 300 and 86400/,
   );
+  expect(create('G', {minCapacity: 0.5, maxCapacity: 0.5})).toThrow(
+    /greater than 0.5/,
+  );
 });
 
 test('Reject parameterGroup combined with parameters', () => {

@@ -62,7 +62,7 @@ export interface StandardPostgresAuroraServerlessClusterProps
 
   /**
    * The maximum number of Aurora capacity units the cluster may scale up to.
-   * Half-step increments, at most 256.
+   * Half-step increments, greater than 0.5 and at most 256.
    *
    * @default 4
    */
@@ -357,13 +357,13 @@ export class StandardPostgresAuroraServerlessCluster
       );
     }
     if (
-      maxCapacity < 0.5 ||
+      maxCapacity <= 0.5 ||
       maxCapacity >
         StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT ||
       !isHalfStep(maxCapacity)
     ) {
       throw new Error(
-        `maxCapacity must be a half-step value of at least 0.5 and at most ${StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT}, got ${maxCapacity}`,
+        `maxCapacity must be a half-step value greater than 0.5 and at most ${StandardPostgresAuroraServerlessCluster.MAX_CAPACITY_LIMIT}, got ${maxCapacity}`,
       );
     }
     if (minCapacity > maxCapacity) {
