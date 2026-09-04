@@ -63,10 +63,10 @@ export interface StandardPostgresClusterProps extends StandardPostgresProps {
   readonly iops?: number;
 
   /**
-   * The parameter group associated with the instances in the cluster. Distinct
-   * from the cluster level parameterGroup.
+   * Additional parameters applied to the instance-level parameter group. Distinct
+   * from the cluster-level parameterGroup/parameters.
    *
-   * @default the default parameter group for the engine version
+   * @default no additional parameters
    */
   readonly instanceParameterGroupParameters?: Record<string, string>;
 
