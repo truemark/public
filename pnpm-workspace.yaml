@@ -62,7 +62,7 @@ catalog:
   "typescript": "~5.9.3"
   "typescript-eslint": "^8.59.1"
   "valibot": "^1.1.0"
-  "vitest": "4.1.7"
+  "vitest": "4.1.11"
 overrides:
   "tmp": ">=0.2.4"
   "diff": ">=5.2.2"
