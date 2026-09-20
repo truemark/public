@@ -1,4 +1,4 @@
-import {CfnOutput, Stack, Tags} from 'aws-cdk-lib';
+import {CfnOutput, Stack} from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import type {Construct} from 'constructs';
 import {
@@ -7,6 +7,7 @@ import {
   StandardTags,
 } from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
+import {ExtendedVpc} from './extended-vpc';
 import {NetworkParameters} from './network-parameters';
 
 export type NatType = 'none' | 'single' | 'multi'; // TODO Add  | 'regional' | 'poor';
@@ -359,17 +360,6 @@ function validateAddressSpace(
   }
 }
 
-function applySubnetTags(
-  subnets: ec2.ISubnet[],
-  tags: Record<string, string>,
-): void {
-  for (const subnet of subnets) {
-    for (const [key, value] of Object.entries(tags)) {
-      Tags.of(subnet).add(key, value);
-    }
-  }
-}
-
 /**
  * Creates a standard multi-tier VPC following TrueMark conventions, with subnet
  * sizing that mirrors the truemark/terraform-aws-vpc Terraform module.
@@ -415,7 +405,7 @@ export class StandardNetwork extends ExtendedConstruct {
   /**
    * The VPC created by this construct.
    */
-  readonly vpc: ec2.Vpc;
+  readonly vpc: ExtendedVpc;
 
   /**
    * The NetworkParameters construct holding SSM paths and created parameters.
@@ -508,74 +498,25 @@ export class StandardNetwork extends ExtendedConstruct {
       });
     }
 
-    this.vpc = new ec2.Vpc(this, 'Vpc', {
+    this.vpc = new ExtendedVpc(this, 'Vpc', {
       vpcName: props.name,
       maxAzs: azCount,
       natGateways,
       ipAddresses: ec2.IpAddresses.cidr(props.vpcCidr),
       subnetConfiguration,
+      subnetGroupTags: {
+        ...(props.publicSubnetTags && {public: props.publicSubnetTags}),
+        ...(props.privateSubnetTags && {private: props.privateSubnetTags}),
+        ...(props.intraSubnetTags && {intra: props.intraSubnetTags}),
+        ...(props.databaseSubnetTags && {database: props.databaseSubnetTags}),
+        ...(props.elasticacheSubnetTags && {
+          elasticache: props.elasticacheSubnetTags,
+        }),
+        ...(props.redshiftSubnetTags && {redshift: props.redshiftSubnetTags}),
+      },
+      createS3Endpoint: props.createS3Endpoint ?? true,
+      createDynamoDbEndpoint: props.createDynamoDbEndpoint ?? true,
     });
-
-    // Apply per-subnet-group tags
-    if (props.publicSubnetTags && createPublic) {
-      applySubnetTags(
-        this.vpc.selectSubnets({subnetGroupName: 'public'}).subnets,
-        props.publicSubnetTags,
-      );
-    }
-    if (props.privateSubnetTags && createPrivate) {
-      applySubnetTags(
-        this.vpc.selectSubnets({subnetGroupName: 'private'}).subnets,
-        props.privateSubnetTags,
-      );
-    }
-    if (props.intraSubnetTags && createIntra) {
-      applySubnetTags(
-        this.vpc.selectSubnets({subnetGroupName: 'intra'}).subnets,
-        props.intraSubnetTags,
-      );
-    }
-    if (props.databaseSubnetTags && createDatabase) {
-      applySubnetTags(
-        this.vpc.selectSubnets({subnetGroupName: 'database'}).subnets,
-        props.databaseSubnetTags,
-      );
-    }
-    if (props.elasticacheSubnetTags && createElasticache) {
-      applySubnetTags(
-        this.vpc.selectSubnets({subnetGroupName: 'elasticache'}).subnets,
-        props.elasticacheSubnetTags,
-      );
-    }
-    if (props.redshiftSubnetTags && createRedshift) {
-      applySubnetTags(
-        this.vpc.selectSubnets({subnetGroupName: 'redshift'}).subnets,
-        props.redshiftSubnetTags,
-      );
-    }
-
-    // Build the list of subnet groups for gateway endpoint route tables.
-    const endpointSubnets: ec2.SubnetSelection[] = [];
-    if (createPrivate) endpointSubnets.push({subnetGroupName: 'private'});
-    if (createIntra) endpointSubnets.push({subnetGroupName: 'intra'});
-    if (createDatabase) endpointSubnets.push({subnetGroupName: 'database'});
-    if (createElasticache)
-      endpointSubnets.push({subnetGroupName: 'elasticache'});
-    if (createRedshift) endpointSubnets.push({subnetGroupName: 'redshift'});
-
-    if ((props.createS3Endpoint ?? true) && endpointSubnets.length > 0) {
-      this.vpc.addGatewayEndpoint('S3GatewayEndpoint', {
-        service: ec2.GatewayVpcEndpointAwsService.S3,
-        subnets: endpointSubnets,
-      });
-    }
-
-    if ((props.createDynamoDbEndpoint ?? true) && endpointSubnets.length > 0) {
-      this.vpc.addGatewayEndpoint('DynamoDbGatewayEndpoint', {
-        service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
-        subnets: endpointSubnets,
-      });
-    }
 
     // CloudFormation outputs
     if (props.createOutputs ?? true) {
@@ -586,53 +527,21 @@ export class StandardNetwork extends ExtendedConstruct {
         exportName: `${stackName}:VpcId`,
       });
 
-      if (createPublic) {
-        new CfnOutput(this, 'PublicSubnetIds', {
-          value: this.vpc
-            .selectSubnets({subnetGroupName: 'public'})
-            .subnetIds.join(','),
-          exportName: `${stackName}:PublicSubnetIds`,
-        });
-      }
-      if (createPrivate) {
-        new CfnOutput(this, 'PrivateSubnetIds', {
-          value: this.vpc
-            .selectSubnets({subnetGroupName: 'private'})
-            .subnetIds.join(','),
-          exportName: `${stackName}:PrivateSubnetIds`,
-        });
-      }
-      if (createIntra) {
-        new CfnOutput(this, 'IntraSubnetIds', {
-          value: this.vpc
-            .selectSubnets({subnetGroupName: 'intra'})
-            .subnetIds.join(','),
-          exportName: `${stackName}:IntraSubnetIds`,
-        });
-      }
-      if (createDatabase) {
-        new CfnOutput(this, 'DatabaseSubnetIds', {
-          value: this.vpc
-            .selectSubnets({subnetGroupName: 'database'})
-            .subnetIds.join(','),
-          exportName: `${stackName}:DatabaseSubnetIds`,
-        });
-      }
-      if (createElasticache) {
-        new CfnOutput(this, 'ElasticacheSubnetIds', {
-          value: this.vpc
-            .selectSubnets({subnetGroupName: 'elasticache'})
-            .subnetIds.join(','),
-          exportName: `${stackName}:ElasticacheSubnetIds`,
-        });
-      }
-      if (createRedshift) {
-        new CfnOutput(this, 'RedshiftSubnetIds', {
-          value: this.vpc
-            .selectSubnets({subnetGroupName: 'redshift'})
-            .subnetIds.join(','),
-          exportName: `${stackName}:RedshiftSubnetIds`,
-        });
+      for (const [groupName, outputId] of [
+        ['public', 'PublicSubnetIds'],
+        ['private', 'PrivateSubnetIds'],
+        ['intra', 'IntraSubnetIds'],
+        ['database', 'DatabaseSubnetIds'],
+        ['elasticache', 'ElasticacheSubnetIds'],
+        ['redshift', 'RedshiftSubnetIds'],
+      ]) {
+        const subnetIds = this.vpc.subnetGroupIds(groupName);
+        if (subnetIds) {
+          new CfnOutput(this, outputId, {
+            value: subnetIds.join(','),
+            exportName: `${stackName}:${outputId}`,
+          });
+        }
       }
     }
 
@@ -656,24 +565,12 @@ export class StandardNetwork extends ExtendedConstruct {
           lookupOutpostSubnets: false,
           vpcId: this.vpc.vpcId,
           azs: this.vpc.availabilityZones,
-          publicSubnetIds: createPublic
-            ? this.vpc.selectSubnets({subnetGroupName: 'public'}).subnetIds
-            : undefined,
-          privateSubnetIds: createPrivate
-            ? this.vpc.selectSubnets({subnetGroupName: 'private'}).subnetIds
-            : undefined,
-          intraSubnetIds: createIntra
-            ? this.vpc.selectSubnets({subnetGroupName: 'intra'}).subnetIds
-            : undefined,
-          databaseSubnetIds: createDatabase
-            ? this.vpc.selectSubnets({subnetGroupName: 'database'}).subnetIds
-            : undefined,
-          elasticacheSubnetIds: createElasticache
-            ? this.vpc.selectSubnets({subnetGroupName: 'elasticache'}).subnetIds
-            : undefined,
-          redshiftSubnetIds: createRedshift
-            ? this.vpc.selectSubnets({subnetGroupName: 'redshift'}).subnetIds
-            : undefined,
+          publicSubnetIds: this.vpc.subnetGroupIds('public'),
+          privateSubnetIds: this.vpc.subnetGroupIds('private'),
+          intraSubnetIds: this.vpc.subnetGroupIds('intra'),
+          databaseSubnetIds: this.vpc.subnetGroupIds('database'),
+          elasticacheSubnetIds: this.vpc.subnetGroupIds('elasticache'),
+          redshiftSubnetIds: this.vpc.subnetGroupIds('redshift'),
         },
       );
     }
