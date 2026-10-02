@@ -1,5 +1,26 @@
 # TrueMark CDK Library Changelog
 
+## 1.27.0
+
+### Minor Changes
+
+- cf9923c: Add aws-rds module and implement StandardPostgresAuroraServerlessCluster (Aurora Serverless v2 PostgreSQL).
+
+## 1.26.0
+### Minor Changes
+
+- 6644d4d: Add AWS WorkSpaces constructs and supporting modules: `aws_workspaces`, `aws_patterns_workspaces`, `aws_directory_service` (Managed AD, Simple AD, directory groups), and SSM helpers `aws_ssm_activation` (hybrid activations) and `aws_ssm_patch` (patch baselines and run-shell-script associations).
+
+## 1.25.1
+### Patch Changes
+
+- fbe9289: Loosen the `aws-cdk-lib` (`^2.256.0`) and `aws-cdk` (`^2.1124.0`) catalog dependencies to caret ranges so consumers can resolve compatible newer 2.x releases
+
+## 1.25.0
+### Minor Changes
+
+- 7c5cfe2: Fixed CloudFrontBucketV2 ignoring the bucketName prop. Stacks that set bucketName previously had it silently ignored and an auto-generated name was used. The value now takes effect, so on the next deployment CloudFormation will replace the bucket to apply the new name (the old bucket is retained or deleted per its removal policy, and any existing objects must be migrated).
+
 ## 1.24.0
 ### Minor Changes
 

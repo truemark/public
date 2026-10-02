@@ -71,7 +71,17 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v7
         with:
+          # On pull requests, fetch full history so pnpm's change-detection
+          # filter has a merge-base against the base branch to diff against.
+          # Pushes and manual runs build the whole workspace and only need a
+          # shallow clone. (0 is falsy in Actions expressions, so the non-PR
+          # branch carries the truthy 1 and the PR branch falls through to
+          # 0 = full history.)
+          fetch-depth: ${{ github.event_name != 'pull_request' && 1 || 0 }}
           token: ${{ steps.app-token.outputs.token || github.token }}
+      - name: "Fetch base branch for change detection"
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
       - name: "Setup pnpm"
         uses: pnpm/action-setup@v4
         with:
@@ -110,9 +120,36 @@ jobs:
       - name: "Release version packages"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: pnpx @changesets/cli version
-      - name: "Build"
+      #------------------------------------------------------------------------
+      # On pull requests, scope build and test to the packages affected by the
+      # diff against the base branch, so the "cdk" and "autobackup" projects
+      # only build when files changed in them (or in something they depend on).
+      # The build set ("...[ref]...") is the changed packages plus their
+      # dependents (leading "...") and their dependencies (trailing "..."); the
+      # test set ("...[ref]") is the changed packages plus their dependents
+      # only. Pushes to main and manual runs build/test the whole workspace so
+      # releases always cover every package.
+      #
+      # --if-present keeps the step green when the affected set is empty (e.g. a
+      # PR that only touches workflow or root config files) instead of failing
+      # with ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT.
+      #
+      # The affected path only applies to pnpm workspaces (PNPM_RECURSIVE=-r
+      # from the "Check if monorepo" step). Non-workspace repos have no packages
+      # to filter, so they fall through to the full build/test regardless of
+      # event type.
+      #------------------------------------------------------------------------
+      - name: "Build (affected)"
+        if: github.event_name == 'pull_request' && env.PNPM_RECURSIVE == '-r'
+        run: pnpm --if-present --filter "...[origin/${{ github.base_ref }}]..." build
+      - name: "Build (full)"
+        if: github.event_name != 'pull_request' || env.PNPM_RECURSIVE != '-r'
         run: pnpm ${{ env.PNPM_RECURSIVE }} build
-      - name: "Test"
+      - name: "Test (affected)"
+        if: github.event_name == 'pull_request' && env.PNPM_RECURSIVE == '-r'
+        run: pnpm --if-present --filter "...[origin/${{ github.base_ref }}]" test
+      - name: "Test (full)"
+        if: github.event_name != 'pull_request' || env.PNPM_RECURSIVE != '-r'
         run: pnpm ${{ env.PNPM_RECURSIVE }} test
       - name: "Publish snapshot packages"
         if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'

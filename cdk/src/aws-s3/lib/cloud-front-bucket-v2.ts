@@ -19,7 +19,7 @@ import {
   ExtendedConstruct,
   type ExtendedConstructProps,
   StandardTags,
-} from '../../aws-cdk/index';
+} from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
 import {type BucketDeploymentConfig, ExtendedBucket} from './extended-bucket';
 
@@ -96,6 +96,7 @@ export class CloudFrontBucketV2 extends ExtendedConstruct {
       versioned: props?.versioned ?? false,
       transferAcceleration: props?.transferAcceleration ?? false,
       eventBridgeEnabled: props?.eventBridgeEnabled ?? false,
+      bucketName: props?.bucketName,
       cors: props?.cors,
     });
     this.bucketName = this.bucket.bucketName;
