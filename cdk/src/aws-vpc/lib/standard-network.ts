@@ -529,9 +529,11 @@ export class StandardNetwork extends ExtendedConstruct {
       natGateways,
       ipAddresses: ec2.IpAddresses.cidr(props.vpcCidr),
       subnetConfiguration,
-      ...(props.enableIpv6 ? {
-        ipProtocol: ec2.IpProtocol.DUAL_STACK,
-      } : {}),
+      ...(props.enableIpv6
+        ? {
+            ipProtocol: ec2.IpProtocol.DUAL_STACK,
+          }
+        : {}),
     });
 
     if (useNatInstance) {
@@ -549,10 +551,12 @@ export class StandardNetwork extends ExtendedConstruct {
         .subnets.map((s) => s.ipv4CidrBlock);
 
       // Get private subnet route tables - cast to ec2.Subnet to access routeTable
-      const privateSubnets = this.vpc
-        .selectSubnets({subnetGroupName: 'private'})
-        .subnets as ec2.Subnet[];
-      const routeTableIds = privateSubnets.map((s) => s.routeTable.routeTableId);
+      const privateSubnets = this.vpc.selectSubnets({
+        subnetGroupName: 'private',
+      }).subnets as ec2.Subnet[];
+      const routeTableIds = privateSubnets.map(
+        (s) => s.routeTable.routeTableId,
+      );
 
       new NatInstance(this, 'Nat', {
         vpc: this.vpc,
