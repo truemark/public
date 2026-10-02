@@ -108,9 +108,10 @@ if test -n "\${eni_id}"; then
         exit 1
     fi
     echo "NAT ENI \${eni_id} is Linux device \${nat_eni_linux_device}"
-    # Private subnet routes target the NAT ENI, but outbound SNAT should leave
-    # through the public/default interface.
-    nat_interface="\${primary_interface}"
+    # Private subnet routes target the NAT ENI, and outbound SNAT should also
+    # leave through the NAT ENI so that an Elastic IP attached to it becomes
+    # the source address for all egress traffic.
+    nat_interface="\${nat_eni_linux_device}"
     echo "Using outbound NAT interface \${nat_interface}"
 elif test -n "\${interface}"; then
     echo "Found interface configuration, using \${interface}"

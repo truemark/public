@@ -541,20 +541,21 @@ export class StandardNetwork extends ExtendedConstruct {
         throw new Error("natType 'nat_instance' requires public subnets.");
       }
 
-      if (!createPrivate) {
-        throw new Error("natType 'nat_instance' requires private subnets.");
+      // Use vpc.privateSubnets to get all private subnets (including database,
+      // elasticache, redshift, etc.) rather than just the 'private' group.
+      const allPrivateSubnets = this.vpc.privateSubnets as ec2.Subnet[];
+
+      if (allPrivateSubnets.length === 0) {
+        throw new Error(
+          "natType 'nat_instance' requires at least one private subnet.",
+        );
       }
 
-      // Collect all private subnet CIDR blocks
-      const privateCidrBlocks = this.vpc
-        .selectSubnets({subnetGroupName: 'private'})
-        .subnets.map((s) => s.ipv4CidrBlock);
+      // Collect all private subnet CIDR blocks for security group rules
+      const privateCidrBlocks = allPrivateSubnets.map((s) => s.ipv4CidrBlock);
 
-      // Get private subnet route tables - cast to ec2.Subnet to access routeTable
-      const privateSubnets = this.vpc.selectSubnets({
-        subnetGroupName: 'private',
-      }).subnets as ec2.Subnet[];
-      const routeTableIds = privateSubnets.map(
+      // Get private subnet route tables for NAT routing
+      const routeTableIds = allPrivateSubnets.map(
         (s) => s.routeTable.routeTableId,
       );
 
