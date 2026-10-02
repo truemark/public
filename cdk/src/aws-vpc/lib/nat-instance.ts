@@ -224,9 +224,10 @@ export interface NatInstanceProps extends ExtendedConstructProps {
 
   /**
    * EC2 instance types for the Auto Scaling Group mixed instances policy.
-   * Defaults to a single t4g.nano (ARM64, ~$3/month on-demand).
+   * Defaults based on architecture: t4g.nano for ARM64 (~$3/month on-demand),
+   * t3a.nano for X86_64 (~$3.80/month on-demand).
    *
-   * @default [new ec2.InstanceType('t4g.nano')]
+   * @default [new ec2.InstanceType('t4g.nano')] for ARM64, [new ec2.InstanceType('t3a.nano')] for X86_64
    */
   readonly instanceTypes?: ec2.InstanceType[];
 
@@ -369,9 +370,15 @@ export class NatInstance extends ExtendedConstruct {
     });
 
     const enabled = props.enabled ?? true;
-    const instanceTypes = props.instanceTypes ?? [
-      new ec2.InstanceType('t4g.nano'),
-    ];
+    const architecture = props.architecture ?? ec2.AmazonLinuxCpuType.ARM_64;
+
+    // Derive default instance type from architecture to avoid AMI/instance mismatch
+    const defaultInstanceType =
+      architecture === ec2.AmazonLinuxCpuType.X86_64
+        ? new ec2.InstanceType('t3a.nano')
+        : new ec2.InstanceType('t4g.nano');
+
+    const instanceTypes = props.instanceTypes ?? [defaultInstanceType];
     const useSpotInstance = props.useSpotInstance ?? false;
     const ssmPolicyArn =
       props.ssmPolicyArn ??
@@ -438,7 +445,7 @@ export class NatInstance extends ExtendedConstruct {
     const machineImage: ec2.IMachineImage = props.imageId
       ? new RawAmiMachineImage(props.imageId)
       : ec2.MachineImage.latestAmazonLinux2023({
-          cpuType: props.architecture ?? ec2.AmazonLinuxCpuType.ARM_64,
+          cpuType: architecture,
         });
 
     // ── User Data (cloud-init) ────────────────────────────────────────────────
