@@ -108,10 +108,11 @@ if test -n "\${eni_id}"; then
         exit 1
     fi
     echo "NAT ENI \${eni_id} is Linux device \${nat_eni_linux_device}"
-    # Private subnet routes target the NAT ENI, and outbound SNAT should also
-    # leave through the NAT ENI so that an Elastic IP attached to it becomes
-    # the source address for all egress traffic.
-    nat_interface="\${nat_eni_linux_device}"
+    # Private subnet routes target the NAT ENI for stable routing, but outbound
+    # SNAT leaves through the primary interface (which has the auto-assigned
+    # public IP or manually attached EIP). Secondary ENIs don't get auto-assigned
+    # public IPs, and setting up policy routing through eth1 is complex.
+    nat_interface="\${primary_interface}"
     echo "Using outbound NAT interface \${nat_interface}"
 elif test -n "\${interface}"; then
     echo "Found interface configuration, using \${interface}"
@@ -303,9 +304,10 @@ function writeFileEntry(
  *
  * This is a CDK port of the truemark/nat-instance Terraform module. It
  * provisions:
- * - A dedicated Elastic Network Interface (ENI) with source/dest check
- *   disabled. Attach an Elastic IP to the `eniId` output to get a fixed
- *   outbound IP address.
+ * - A dedicated secondary Elastic Network Interface (ENI) with source/dest
+ *   check disabled. Private subnets route to this ENI, which persists across
+ *   instance replacements. Actual NAT egress happens through the instance's
+ *   primary interface (which has an auto-assigned public IP by default).
  * - An IAM role with AmazonSSMManagedInstanceCore and the EC2 permissions
  *   needed for snat.sh to attach the secondary ENI at boot.
  * - An EC2 Launch Template running Amazon Linux 2023 minimal (ARM64 by
@@ -332,9 +334,10 @@ function writeFileEntry(
  *     .subnets.map(s => s.routeTable.routeTableId),
  * });
  *
- * // Attach an Elastic IP to the NAT instance ENI for a fixed outbound IP
- * new ec2.CfnEIP(this, 'NatEip', {domain: 'vpc', instanceId: undefined}).
- * // then associate via CfnEIPAssociation using nat.eniId
+ * // The instance's primary interface gets an auto-assigned public IP.
+ * // For a stable outbound IP, allocate an EIP and attach it to the
+ * // instance (not the secondary ENI). Use Tags or an ASG hook to
+ * // associate the EIP with new instances on replacement.
  * ```
  *
  * > **Note:** This construct is optimised for cost (ARM64 spot/on-demand
@@ -344,8 +347,9 @@ function writeFileEntry(
  */
 export class NatInstance extends ExtendedConstruct {
   /**
-   * CloudFormation resource ID of the dedicated ENI. Attach an Elastic IP
-   * to this to obtain a stable outbound IP address.
+   * CloudFormation resource ID of the dedicated secondary ENI. Private subnet
+   * routes point to this ENI, which persists across instance replacements.
+   * Note: NAT egress occurs through the primary interface, not this ENI.
    */
   readonly eniId: string;
 

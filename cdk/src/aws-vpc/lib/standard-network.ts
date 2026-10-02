@@ -559,6 +559,10 @@ export class StandardNetwork extends ExtendedConstruct {
         (s) => s.routeTable.routeTableId,
       );
 
+      // The NAT instance's primary interface will receive an auto-assigned
+      // public IP from the public subnet, enabling immediate Internet egress.
+      // For a stable outbound IP, allocate an EIP and associate it with the
+      // instance's primary interface using ASG lifecycle hooks or tags.
       new NatInstance(this, 'Nat', {
         vpc: this.vpc,
         publicSubnet: this.vpc.selectSubnets({subnetGroupName: 'public'})
