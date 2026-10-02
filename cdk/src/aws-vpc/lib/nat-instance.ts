@@ -225,10 +225,10 @@ export interface NatInstanceProps extends ExtendedConstructProps {
 
   /**
    * EC2 instance types for the Auto Scaling Group mixed instances policy.
-   * Defaults based on architecture: t4g.nano for ARM64 (~$3/month on-demand),
-   * t3a.nano for X86_64 (~$3.80/month on-demand).
+   * Defaults based on architecture: t4g.micro for ARM64 (~$6/month on-demand),
+   * t3a.micro for X86_64 (~$7.60/month on-demand).
    *
-   * @default [new ec2.InstanceType('t4g.nano')] for ARM64, [new ec2.InstanceType('t3a.nano')] for X86_64
+   * @default [new ec2.InstanceType('t4g.micro')] for ARM64, [new ec2.InstanceType('t3a.micro')] for X86_64
    */
   readonly instanceTypes?: ec2.InstanceType[];
 
@@ -343,7 +343,7 @@ function writeFileEntry(
  * ```
  *
  * > **Note:** This construct is optimised for cost (ARM64 spot/on-demand
- * > t4g.nano at ~$1–3/month) and is suitable for dev/staging environments.
+ * > t4g.micro at ~$2–6/month) and is suitable for dev/staging environments.
  * > For production use prefer AWS NAT Gateway or a larger instance type with
  * > `useSpotInstance: false`.
  */
@@ -379,10 +379,11 @@ export class NatInstance extends ExtendedConstruct {
     const architecture = props.architecture ?? ec2.AmazonLinuxCpuType.ARM_64;
 
     // Derive default instance type from architecture to avoid AMI/instance mismatch
+    // Use micro (1GB RAM) instead of nano (512MB) to prevent OOM during package installation
     const defaultInstanceType =
       architecture === ec2.AmazonLinuxCpuType.X86_64
-        ? new ec2.InstanceType('t3a.nano')
-        : new ec2.InstanceType('t4g.nano');
+        ? new ec2.InstanceType('t3a.micro')
+        : new ec2.InstanceType('t4g.micro');
 
     const instanceTypes = props.instanceTypes ?? [defaultInstanceType];
     const useSpotInstance = props.useSpotInstance ?? false;
