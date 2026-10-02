@@ -7,11 +7,12 @@ import {
   StandardTags,
 } from '../../aws-cdk';
 import {LibStandardTags} from '../../truemark';
+import {NatInstance} from './nat-instance';
 import {NetworkParameters} from './network-parameters';
 
-export type NatType = 'none' | 'single' | 'multi'; // TODO Add  | 'regional' | 'poor';
+export type NatType = 'none' | 'single' | 'multi' | 'nat_instance'; // TODO Add  | 'regional' | 'poor';
 
-// TODO Need ipv6 support and we need to support ipv6 only
+// TODO Need to add support for ipv6 only mode (currently supports dual-stack)
 
 /**
  * Subnet sizing lookup table keyed by VPC prefix length.
@@ -55,11 +56,20 @@ export interface StandardNetworkProps extends ExtendedConstructProps {
 
   // TODO Suggest both this and the terraform module default to 3
   /**
-   * Number of availability zones to deploy subnets into. Default is 2.
+   * Number of availability zones to deploy subnets into. Default is 3.
    *
-   * @default 2
+   * @default 3
    */
   readonly azCount?: number;
+
+  /**
+   * Whether to enable IPv6 for the VPC. When enabled, an Amazon-provided IPv6 CIDR
+   * block is associated with the VPC and subnets are configured with IPv6 addresses.
+   * Default is false.
+   *
+   * @default false
+   */
+  readonly enableIpv6?: boolean;
 
   /**
    * NAT gateway configuration. Default is 'none'.
@@ -405,6 +415,10 @@ function applySubnetTags(
  * > addresses within the VPC. The subnet *sizes* match exactly; only the
  * > starting addresses within the VPC differ.
  *
+ * **IPv6 Support:** Set `enableIpv6: true` to configure the VPC in dual-stack
+ * mode with both IPv4 and IPv6. AWS automatically assigns an Amazon-provided
+ * /56 IPv6 CIDR block to the VPC, and each subnet receives a /64 IPv6 CIDR.
+ *
  * Gateway VPC endpoints for S3 and DynamoDB are created by default and attached
  * to private, intra, database, elasticache, and redshift route tables.
  *
@@ -429,7 +443,7 @@ export class StandardNetwork extends ExtendedConstruct {
     });
 
     // TODO You change the default here Daren
-    const azCount = props.azCount ?? 2;
+    const azCount = props.azCount ?? 3;
     const natType = props.natType ?? 'none';
 
     const natGateways =
@@ -437,6 +451,7 @@ export class StandardNetwork extends ExtendedConstruct {
 
     // TODO Need to add support for regional NAT
     // TODO Need to add support for poor NAT
+    const useNatInstance = natType === 'nat_instance';
 
     // TODO Need to add support for network firewall
 
@@ -514,7 +529,48 @@ export class StandardNetwork extends ExtendedConstruct {
       natGateways,
       ipAddresses: ec2.IpAddresses.cidr(props.vpcCidr),
       subnetConfiguration,
+      ...(props.enableIpv6
+        ? {
+            ipProtocol: ec2.IpProtocol.DUAL_STACK,
+          }
+        : {}),
     });
+
+    if (useNatInstance) {
+      if (!createPublic) {
+        throw new Error("natType 'nat_instance' requires public subnets.");
+      }
+
+      // Use vpc.privateSubnets to get all private subnets (including database,
+      // elasticache, redshift, etc.) rather than just the 'private' group.
+      const allPrivateSubnets = this.vpc.privateSubnets as ec2.Subnet[];
+
+      if (allPrivateSubnets.length === 0) {
+        throw new Error(
+          "natType 'nat_instance' requires at least one private subnet.",
+        );
+      }
+
+      // Collect all private subnet CIDR blocks for security group rules
+      const privateCidrBlocks = allPrivateSubnets.map((s) => s.ipv4CidrBlock);
+
+      // Get private subnet route tables for NAT routing
+      const routeTableIds = allPrivateSubnets.map(
+        (s) => s.routeTable.routeTableId,
+      );
+
+      // The NAT instance's primary interface will receive an auto-assigned
+      // public IP from the public subnet, enabling immediate Internet egress.
+      // For a stable outbound IP, allocate an EIP and associate it with the
+      // instance's primary interface using ASG lifecycle hooks or tags.
+      new NatInstance(this, 'Nat', {
+        vpc: this.vpc,
+        publicSubnet: this.vpc.selectSubnets({subnetGroupName: 'public'})
+          .subnets[0],
+        privateSubnetCidrBlocks: privateCidrBlocks,
+        privateRouteTableIds: routeTableIds,
+      });
+    }
 
     // Apply per-subnet-group tags
     if (props.publicSubnetTags && createPublic) {
