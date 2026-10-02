@@ -322,7 +322,7 @@ function writeFileEntry(
  * const network = new StandardNetwork(this, 'Network', {
  *   name: 'prod',
  *   vpcCidr: '10.0.0.0/20',
- *   natType: NatType.NONE,   // no managed NAT gateway
+ *   natType: 'none',   // no managed NAT gateway
  * });
  *
  * const nat = new NatInstance(this, 'Nat', {
@@ -335,9 +335,11 @@ function writeFileEntry(
  * });
  *
  * // The instance's primary interface gets an auto-assigned public IP.
- * // For a stable outbound IP, allocate an EIP and attach it to the
- * // instance (not the secondary ENI). Use Tags or an ASG hook to
- * // associate the EIP with new instances on replacement.
+ * // For a stable outbound IP, allocate and associate an EIP with the
+ * // instance's primary interface using ASG lifecycle hooks or tags.
+ * // Example:
+ * // const eip = new ec2.CfnEIP(this, 'NatEip', {domain: 'vpc'});
+ * // Associate the EIP with new instances via lifecycle hook or tag matching.
  * ```
  *
  * > **Note:** This construct is optimised for cost (ARM64 spot/on-demand
