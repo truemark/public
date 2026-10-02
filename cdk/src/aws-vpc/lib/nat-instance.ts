@@ -498,10 +498,16 @@ export class NatInstance extends ExtendedConstruct {
       },
     });
 
-    // Equivalent of Terraform's create_before_destroy = true lifecycle rule.
+    // Use rolling update to avoid race condition with ENI attachment.
+    // autoScalingReplacingUpdate can create overlapping instances that both
+    // try to attach the singleton ENI, causing the boot script to fail.
     const cfnAsg = asg.node.defaultChild as autoscaling.CfnAutoScalingGroup;
     cfnAsg.cfnOptions.updatePolicy = {
-      autoScalingReplacingUpdate: {willReplace: true},
+      autoScalingRollingUpdate: {
+        maxBatchSize: 1,
+        minInstancesInService: 0,
+        pauseTime: 'PT5M',
+      },
     };
 
     Tags.of(asg).add('Name', `nat-instance-${id}`);

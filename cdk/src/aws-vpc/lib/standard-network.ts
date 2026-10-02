@@ -56,7 +56,7 @@ export interface StandardNetworkProps extends ExtendedConstructProps {
 
   // TODO Suggest both this and the terraform module default to 3
   /**
-   * Number of availability zones to deploy subnets into. Default is 2.
+   * Number of availability zones to deploy subnets into. Default is 3.
    *
    * @default 3
    */
@@ -536,11 +536,11 @@ export class StandardNetwork extends ExtendedConstruct {
 
     if (useNatInstance) {
       if (!createPublic) {
-        throw new Error('NatType.NAT_INSTANCE requires public subnets.');
+        throw new Error("natType 'nat_instance' requires public subnets.");
       }
 
       if (!createPrivate) {
-        throw new Error('NatType.NAT_INSTANCE requires private subnets.');
+        throw new Error("natType 'nat_instance' requires private subnets.");
       }
 
       // Collect all private subnet CIDR blocks
@@ -548,10 +548,11 @@ export class StandardNetwork extends ExtendedConstruct {
         .selectSubnets({subnetGroupName: 'private'})
         .subnets.map((s) => s.ipv4CidrBlock);
 
-      // Get private subnet route tables
-      const routeTableIds = this.vpc
+      // Get private subnet route tables - cast to ec2.Subnet to access routeTable
+      const privateSubnets = this.vpc
         .selectSubnets({subnetGroupName: 'private'})
-        .subnets.map((s) => s.routeTable.routeTableId);
+        .subnets as ec2.Subnet[];
+      const routeTableIds = privateSubnets.map((s) => s.routeTable.routeTableId);
 
       new NatInstance(this, 'Nat', {
         vpc: this.vpc,
