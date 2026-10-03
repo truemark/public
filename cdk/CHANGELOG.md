@@ -1,5 +1,11 @@
 # TrueMark CDK Library Changelog
 
+## 1.28.1
+
+### Patch Changes
+
+- 4df3a8b: Remove `@aws-sdk/credential-provider-node` peer dependency. The bedrock knowledge base collection index handler now relies on the OpenSearch signer's default credential lookup, which uses the module provided by the Lambda runtime.
+
 ## 1.28.0
 
 ### Minor Changes
