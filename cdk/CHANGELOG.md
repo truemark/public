@@ -1,5 +1,11 @@
 # TrueMark CDK Library Changelog
 
+## 1.28.0
+
+### Minor Changes
+
+- 02f8085: Add an exported `getGlobalIndexes` helper to `aws-dynamodb` for generating global secondary index names (`Gs1`, `Gs2`, …).
+
 ## 1.27.0
 
 ### Minor Changes
