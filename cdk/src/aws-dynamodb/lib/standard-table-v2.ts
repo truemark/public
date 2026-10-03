@@ -137,6 +137,9 @@ export class StandardTableV2 extends ExtendedTableV2 {
  * @returns a list of index names
  */
 export function getGlobalIndexes(num: number): string[] {
+  if (!Number.isSafeInteger(num) || num < 0) {
+    throw new RangeError(`num must be a non-negative safe integer, got ${num}`);
+  }
   const indexes: string[] = [];
   for (let i = 0; i < num; i++) {
     indexes.push(`Gs${i + 1}`);
