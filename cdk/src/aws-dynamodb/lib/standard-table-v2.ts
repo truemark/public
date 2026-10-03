@@ -129,3 +129,17 @@ export class StandardTableV2 extends ExtendedTableV2 {
     }
   }
 }
+
+/**
+ * Helper function to return a list of index names.
+ *
+ * @param num the number of indexes
+ * @returns a list of index names
+ */
+function getGlobalIndexes(num: number): string[] {
+  const indexes: string[] = [];
+  for (let i = 0; i < num; i++) {
+    indexes.push(`Gs${i + 1}`);
+  }
+  return indexes;
+}
