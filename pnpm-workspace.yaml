@@ -10,7 +10,6 @@ catalog:
   "@aws-cdk/aws-redshift-alpha": "^2.256.0-alpha.0"
   "@aws-sdk/client-dynamodb": "^3.996.2"
   "@aws-sdk/client-elastic-load-balancing-v2": "^3.996.2"
-  "@aws-sdk/credential-provider-node": "^3.972.43"
   "@aws-sdk/util-dynamodb": "^3.996.2"
   "@biomejs/biome": "2.4.5"
   "@changesets/cli": "^2.31.0"

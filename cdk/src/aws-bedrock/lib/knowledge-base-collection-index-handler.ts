@@ -1,5 +1,4 @@
 import * as crypto from 'node:crypto';
-import {defaultProvider} from '@aws-sdk/credential-provider-node';
 import {Client} from '@opensearch-project/opensearch';
 import {AwsSigv4Signer} from '@opensearch-project/opensearch/aws';
 
@@ -115,11 +114,8 @@ export async function handler(
     ...AwsSigv4Signer({
       region,
       service: 'aoss',
-      getCredentials: () => {
-        // Any other method to acquire a new Credentials object can be used.
-        const credentialsProvider = defaultProvider();
-        return credentialsProvider();
-      },
+      // getCredentials is omitted so the signer falls back to the
+      // @aws-sdk/credential-provider-node module provided by the Lambda runtime
     }),
     node: endpoint,
   });
