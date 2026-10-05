@@ -513,6 +513,7 @@ export class NatInstance extends ExtendedConstruct {
       ? new RawAmiMachineImage(props.imageId)
       : ec2.MachineImage.latestAmazonLinux2023({
           cpuType: architecture,
+          edition: ec2.AmazonLinuxEdition.MINIMAL,
         });
 
     // ── User Data (cloud-init) ────────────────────────────────────────────────

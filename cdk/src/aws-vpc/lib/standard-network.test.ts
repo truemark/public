@@ -65,4 +65,46 @@ test('StandardNetwork with IPv6 enabled', () => {
 
   // Five default subnet groups across 2 AZs => 10 subnets
   template.resourceCountIs('AWS::EC2::Subnet', 10);
+
+  // Verify subnets have IPv6 CIDR blocks assigned
+  const subnets = template.findResources('AWS::EC2::Subnet');
+  const subnetKeys = Object.keys(subnets);
+  expect(subnetKeys.length).toBeGreaterThan(0);
+  // Check that at least one subnet has an Ipv6CidrBlock
+  const hasIpv6Cidr = subnetKeys.some(
+    (key) => subnets[key].Properties.Ipv6CidrBlock !== undefined,
+  );
+  expect(hasIpv6Cidr).toBe(true);
+
+  // Verify Egress-Only Internet Gateway is created for IPv6 egress
+  template.resourceCountIs('AWS::EC2::EgressOnlyInternetGateway', 1);
+
+  // Verify private subnets have IPv6 routes to EIGW
+  const routes = template.findResources('AWS::EC2::Route');
+  const ipv6Routes = Object.values(routes).filter(
+    (route: any) => route.Properties.DestinationIpv6CidrBlock === '::/0',
+  );
+  expect(ipv6Routes.length).toBeGreaterThan(0);
+});
+
+test('StandardNetwork defaults to 3 availability zones', () => {
+  const stack = HelperTest.stack();
+  new StandardNetwork(stack, 'TestNetworkDefaultAz', {
+    name: 'TestNetworkDefaultAz',
+    vpcCidr: '10.0.0.0/16',
+    // azCount intentionally omitted to test default
+  });
+  const template = Template.fromStack(stack);
+
+  // Five default subnet groups (public, private, intra, database,
+  // elasticache) across 3 AZs (default) => 15 subnets.
+  template.resourceCountIs('AWS::EC2::Subnet', 15);
+
+  // Verify we have 3 public subnets (one per AZ)
+  const subnets = template.findResources('AWS::EC2::Subnet', {
+    Properties: {
+      MapPublicIpOnLaunch: true,
+    },
+  });
+  expect(Object.keys(subnets).length).toBe(3);
 });
