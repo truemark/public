@@ -534,15 +534,20 @@ export class NatInstance extends ExtendedConstruct {
         },
       }),
     );
-    // AttachNetworkInterface and ModifyNetworkInterfaceAttribute on network-interfaces within VPC
+    // AttachNetworkInterface only on the specific NAT ENI
     role.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        actions: [
-          'ec2:AttachNetworkInterface',
-          'ec2:ModifyNetworkInterfaceAttribute',
-        ],
+        actions: ['ec2:AttachNetworkInterface'],
         resources: [
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/${eni.ref}`,
+        ],
+      }),
+    );
+    // ModifyNetworkInterfaceAttribute on network-interfaces within VPC (for primary ENI source/dest check)
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['ec2:ModifyNetworkInterfaceAttribute'],
+        resources: [
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/*`,
         ],
         conditions: {
