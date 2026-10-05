@@ -486,7 +486,7 @@ export class NatInstance extends ExtendedConstruct {
           'ec2:ModifyNetworkInterfaceAttribute',
         ],
         resources: [
-          eni.attrId, // The dedicated NAT ENI
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/${eni.attrId}`,
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/*`,
         ],
