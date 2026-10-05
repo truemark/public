@@ -15,7 +15,7 @@ import {LibStandardTags} from '../../truemark';
 // to prevent TypeScript template-literal interpolation.
 
 const SNAT_SH = `#!/bin/sh
-set -x
+set -ex
 dnf install -y iptables-services awscli || yum install -y iptables-services awscli
 if test -f "/etc/nat.conf"; then
     echo "Found nat configuration at /etc/nat.conf"
