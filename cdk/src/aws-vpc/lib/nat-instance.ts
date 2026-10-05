@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import {Tags} from 'aws-cdk-lib';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
@@ -58,19 +59,43 @@ if test -n "\${eni_id}"; then
     if test "\${attached_instance_id}" = "\${instance_id}"; then
         echo "NAT ENI \${eni_id} is already attached to this instance."
     elif test -n "\${attached_instance_id}" && test "\${attached_instance_id}" != "None"; then
-        echo "NAT ENI \${eni_id} is already attached to another instance: \${attached_instance_id}"
-        exit 1
-    else
+        echo "NAT ENI \${eni_id} is attached to another instance: \${attached_instance_id}"
+        echo "This may be the previous instance during replacement. Retrying for up to 60 seconds..."
+        for retry in $(seq 1 12); do
+            sleep 5
+            attached_instance_id="$(aws ec2 describe-network-interfaces \\
+                --region "\${aws_region}" \\
+                --network-interface-ids "\${eni_id}" \\
+                --query 'NetworkInterfaces[0].Attachment.InstanceId' \\
+                --output text 2>/dev/null || true)"
+            if test "\${attached_instance_id}" = "\${instance_id}"; then
+                echo "ENI is now attached to this instance."
+                break
+            elif test -z "\${attached_instance_id}" || test "\${attached_instance_id}" = "None"; then
+                echo "ENI is now available. Proceeding with attachment."
+                break
+            fi
+            echo "Retry \${retry}/12: ENI still attached to \${attached_instance_id}"
+        done
+        if test -n "\${attached_instance_id}" && test "\${attached_instance_id}" != "None" && test "\${attached_instance_id}" != "\${instance_id}"; then
+            echo "ERROR: ENI \${eni_id} is still attached to another instance after retries: \${attached_instance_id}"
+            exit 1
+        fi
+    fi
+    if test "\${attached_instance_id}" != "\${instance_id}"; then
         echo "Attaching NAT ENI \${eni_id} to instance \${instance_id}..."
-        attach_output="$(aws ec2 attach-network-interface \\
+        # Use if statement to capture exit status before errexit triggers
+        if attach_output="$(aws ec2 attach-network-interface \\
             --region "\${aws_region}" \\
             --instance-id "\${instance_id}" \\
             --device-index 1 \\
-            --network-interface-id "\${eni_id}" 2>&1)"
-        attach_status=$?
-        echo "\${attach_output}"
-        if test "\${attach_status}" -ne 0; then
-            echo "Failed to attach NAT ENI \${eni_id}"
+            --network-interface-id "\${eni_id}" 2>&1)"; then
+            echo "\${attach_output}"
+            echo "ENI attached successfully."
+        else
+            attach_status=$?
+            echo "\${attach_output}"
+            echo "Failed to attach NAT ENI \${eni_id} with status \${attach_status}"
             exit "\${attach_status}"
         fi
     fi
@@ -261,9 +286,10 @@ export interface NatInstanceProps extends ExtendedConstructProps {
 
   /**
    * ARN of the IAM managed policy attached to the instance role for Systems
-   * Manager access. Defaults to AmazonSSMManagedInstanceCore.
+   * Manager access. When omitted, uses AmazonSSMManagedInstanceCore resolved
+   * for the stack's partition (works in GovCloud and China).
    *
-   * @default 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+   * @default AmazonSSMManagedInstanceCore (partition-agnostic)
    */
   readonly ssmPolicyArn?: string;
 }
@@ -387,9 +413,6 @@ export class NatInstance extends ExtendedConstruct {
 
     const instanceTypes = props.instanceTypes ?? [defaultInstanceType];
     const useSpotInstance = props.useSpotInstance ?? false;
-    const ssmPolicyArn =
-      props.ssmPolicyArn ??
-      'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore';
 
     // ── Security Group ────────────────────────────────────────────────────────
     const sg = new ec2.SecurityGroup(this, 'SecurityGroup', {
@@ -430,20 +453,48 @@ export class NatInstance extends ExtendedConstruct {
     const role = new iam.Role(this, 'Role', {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
     });
-    role.addManagedPolicy(
-      iam.ManagedPolicy.fromManagedPolicyArn(this, 'SsmPolicy', ssmPolicyArn),
+
+    // Add SSM managed policy (partition-agnostic when no override provided)
+    if (props.ssmPolicyArn) {
+      role.addManagedPolicy(
+        iam.ManagedPolicy.fromManagedPolicyArn(
+          this,
+          'SsmPolicy',
+          props.ssmPolicyArn,
+        ),
+      );
+    } else {
+      role.addManagedPolicy(
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          'AmazonSSMManagedInstanceCore',
+        ),
+      );
+    }
+
+    // snat.sh calls aws ec2 describe/attach/modify operations at instance boot.
+    // Describe actions use wildcard; Attach/Modify are constrained to the dedicated ENI.
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['ec2:DescribeNetworkInterfaces', 'ec2:DescribeInstances'],
+        resources: ['*'],
+      }),
     );
-    // snat.sh calls aws ec2 attach-network-interface and
-    // aws ec2 modify-network-interface-attribute at instance boot.
     role.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: [
           'ec2:AttachNetworkInterface',
           'ec2:ModifyNetworkInterfaceAttribute',
-          'ec2:DescribeNetworkInterfaces',
-          'ec2:DescribeInstances',
         ],
-        resources: ['*'],
+        resources: [
+          eni.attrId, // The dedicated NAT ENI
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/*`,
+        ],
+        conditions: {
+          StringEquals: {
+            'ec2:Vpc': `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:vpc/${props.vpc.vpcId}`,
+          },
+        },
       }),
     );
     this.iamRoleName = role.roleName;
@@ -501,6 +552,13 @@ export class NatInstance extends ExtendedConstruct {
       minCapacity: enabled ? 1 : 0,
       maxCapacity: 1,
       desiredCapacity: enabled ? 1 : 0,
+      healthCheck: autoscaling.HealthCheck.ec2({
+        // Extended grace period to allow NAT setup to complete.
+        // Note: This only checks EC2 instance health, not NAT setup success.
+        // If NAT setup fails, the instance remains InService but routes are blackholed.
+        // Consider implementing a custom health check or lifecycle hook for production.
+        grace: cdk.Duration.minutes(5),
+      }),
       mixedInstancesPolicy: {
         launchTemplate: lt,
         instancesDistribution: {
