@@ -266,8 +266,9 @@ export interface NatInstanceProps extends ExtendedConstructProps {
   readonly privateRouteTableIds?: string[];
 
   /**
-   * Custom AMI ID. When omitted the latest Amazon Linux 2023 minimal AMI
-   * is used, filtered by the resolved architecture.
+   * Custom AMI ID. When omitted the latest Amazon Linux 2023 standard AMI
+   * is used, filtered by the resolved architecture. The standard edition
+   * includes the SSM agent for remote management.
    */
   readonly imageId?: string;
 
@@ -367,7 +368,7 @@ function writeFileEntry(
  *   primary interface (which has an auto-assigned public IP by default).
  * - An IAM role with AmazonSSMManagedInstanceCore and the EC2 permissions
  *   needed for snat.sh to attach the secondary ENI at boot.
- * - An EC2 Launch Template running Amazon Linux 2023 minimal (ARM64 by
+ * - An EC2 Launch Template running Amazon Linux 2023 standard (ARM64 by
  *   default) with a cloud-init user-data that installs iptables, attaches
  *   the ENI, enables IP forwarding, and sets up NAT masquerading.
  * - An Auto Scaling Group (desired=1) that auto-replaces the instance on
@@ -549,7 +550,7 @@ export class NatInstance extends ExtendedConstruct {
       ? new RawAmiMachineImage(props.imageId)
       : ec2.MachineImage.latestAmazonLinux2023({
           cpuType: architecture,
-          edition: ec2.AmazonLinuxEdition.MINIMAL,
+          edition: ec2.AmazonLinuxEdition.STANDARD,
         });
 
     // ── User Data (cloud-init) ────────────────────────────────────────────────
