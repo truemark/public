@@ -57,6 +57,18 @@ test('NatInstance creates required infrastructure', () => {
   const vpc = new ec2.Vpc(stack, 'TestVpc', {
     maxAzs: 2,
     natGateways: 0,
+    subnetConfiguration: [
+      {
+        name: 'Public',
+        subnetType: ec2.SubnetType.PUBLIC,
+        cidrMask: 24,
+      },
+      {
+        name: 'Private',
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        cidrMask: 24,
+      },
+    ],
   });
 
   const publicSubnet = vpc.publicSubnets[0];
@@ -112,11 +124,15 @@ test('NatInstance creates required infrastructure', () => {
   });
 
   // Verify default routes (0.0.0.0/0) targeting the ENI are created
-  const routes = template.findResources('AWS::EC2::Route', {
+  const allRoutes = template.findResources('AWS::EC2::Route', {
     Properties: {
       DestinationCidrBlock: '0.0.0.0/0',
     },
   });
+  // Filter to only NAT instance routes (those with NetworkInterfaceId, not GatewayId)
+  const natRoutes = Object.values(allRoutes).filter(
+    (route: any) => route.Properties.NetworkInterfaceId !== undefined,
+  );
   // Should have one route per private subnet (2 in this test)
-  expect(Object.keys(routes).length).toBe(2);
+  expect(natRoutes.length).toBe(2);
 });

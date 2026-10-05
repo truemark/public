@@ -35,13 +35,17 @@ test('Happy path test for StandardNetwork', () => {
   });
 
   // Verify default routes targeting the NAT instance ENI.
-  const routes = template.findResources('AWS::EC2::Route', {
+  const allRoutes = template.findResources('AWS::EC2::Route', {
     Properties: {
       DestinationCidrBlock: '0.0.0.0/0',
     },
   });
+  // Filter to only NAT instance routes (those with NetworkInterfaceId, not GatewayId)
+  const natRoutes = Object.values(allRoutes).filter(
+    (route: any) => route.Properties.NetworkInterfaceId !== undefined,
+  );
   // Should have routes for private subnets (3 AZs = 3 private subnets).
-  expect(Object.keys(routes).length).toBeGreaterThan(0);
+  expect(natRoutes.length).toBeGreaterThan(0);
 
   // S3 and DynamoDB gateway endpoints are created by default.
   template.resourceCountIs('AWS::EC2::VPCEndpoint', 2);
@@ -143,11 +147,17 @@ test('StandardNetwork with natType none does not create NAT resources', () => {
   template.resourceCountIs('AWS::EC2::LaunchTemplate', 0);
 
   // Verify no default routes to NAT are created
-  const routes = template.findResources('AWS::EC2::Route', {
+  const allRoutes = template.findResources('AWS::EC2::Route', {
     Properties: {
       DestinationCidrBlock: '0.0.0.0/0',
     },
   });
+  // Filter to only NAT instance routes (those with NetworkInterfaceId)
+  const natRoutes = Object.values(allRoutes).filter(
+    (route: any) => route.Properties.NetworkInterfaceId !== undefined,
+  );
   // Should have routes for public subnets to IGW, but not for private subnets
-  expect(Object.keys(routes).length).toBeGreaterThan(0);
+  expect(Object.keys(allRoutes).length).toBeGreaterThan(0);
+  // Verify no NAT instance routes exist
+  expect(natRoutes.length).toBe(0);
 });
