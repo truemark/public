@@ -412,6 +412,11 @@ export class NatInstance extends ExtendedConstruct {
         : new ec2.InstanceType('t4g.micro');
 
     const instanceTypes = props.instanceTypes ?? [defaultInstanceType];
+    if (instanceTypes.length === 0) {
+      throw new Error(
+        'instanceTypes must contain at least one instance type. Omit the property to use the architecture-appropriate default (t4g.micro for ARM64, t3a.micro for X86_64).',
+      );
+    }
     const useSpotInstance = props.useSpotInstance ?? false;
 
     // ── Security Group ────────────────────────────────────────────────────────
