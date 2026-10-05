@@ -492,6 +492,7 @@ export class StandardNetwork extends ExtendedConstruct {
         name: 'public',
         subnetType: ec2.SubnetType.PUBLIC,
         cidrMask: masks.public,
+        mapPublicIpOnLaunch: true,
       });
     }
     if (createIntra) {
