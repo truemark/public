@@ -436,6 +436,9 @@ export class NatInstance extends ExtendedConstruct {
     const enabled = props.enabled ?? true;
     const architecture = props.architecture ?? ec2.AmazonLinuxCpuType.ARM_64;
 
+    // Unique tag value for this NAT instance, used to scope IAM permissions
+    const natInstanceRoleTag = `nat-instance-${id}`;
+
     // Derive default instance type from architecture to avoid AMI/instance mismatch
     // Use micro (1GB RAM) instead of nano (512MB) to prevent OOM during package installation
     const defaultInstanceType =
@@ -516,13 +519,19 @@ export class NatInstance extends ExtendedConstruct {
         resources: ['*'],
       }),
     );
-    // AttachNetworkInterface on instances - no VPC condition since instances don't support it
+    // AttachNetworkInterface on instances - restricted to instances with matching tag
+    // to prevent attaching arbitrary ENIs to arbitrary instances.
     role.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ['ec2:AttachNetworkInterface'],
         resources: [
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
         ],
+        conditions: {
+          StringEquals: {
+            'ec2:ResourceTag/nat-instance-role': natInstanceRoleTag,
+          },
+        },
       }),
     );
     // AttachNetworkInterface and ModifyNetworkInterfaceAttribute on network-interfaces within VPC
@@ -533,7 +542,7 @@ export class NatInstance extends ExtendedConstruct {
           'ec2:ModifyNetworkInterfaceAttribute',
         ],
         resources: [
-          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/${eni.attrId}`,
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/${eni.ref}`,
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/*`,
         ],
         conditions: {
@@ -627,9 +636,8 @@ export class NatInstance extends ExtendedConstruct {
       },
     });
 
-    // Tag the ASG instances with a unique identifier for self-termination permission.
-    // This tag is propagated to instances and used in the IAM condition below.
-    const natInstanceRoleTag = `nat-instance-${id}`;
+    // Tag the ASG instances with the unique identifier used in IAM conditions.
+    // This tag is propagated to instances and restricts IAM permissions to self-only operations.
     Tags.of(asg).add('nat-instance-role', natInstanceRoleTag);
 
     // Allow instance to terminate itself on unrecoverable NAT setup failure.
