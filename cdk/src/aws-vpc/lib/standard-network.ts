@@ -54,9 +54,12 @@ export interface StandardNetworkProps extends ExtendedConstructProps {
    */
   readonly vpcCidr: string;
 
-  // TODO Suggest both this and the terraform module default to 3
   /**
-   * Number of availability zones to deploy subnets into. Default is 3.
+   * Number of availability zones to deploy subnets into.
+   *
+   * **Breaking Change**: The default was changed from 2 to 3 to align with AWS best
+   * practices for high availability. Existing consumers upgrading will see additional
+   * subnets and resources created unless they explicitly set `azCount: 2`.
    *
    * @default 3
    */
