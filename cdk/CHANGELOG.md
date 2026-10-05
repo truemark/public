@@ -1,5 +1,17 @@
 # TrueMark CDK Library Changelog
 
+## 1.28.1
+
+### Patch Changes
+
+- 4df3a8b: Remove `@aws-sdk/credential-provider-node` peer dependency. The bedrock knowledge base collection index handler now relies on the OpenSearch signer's default credential lookup, which uses the module provided by the Lambda runtime.
+
+## 1.28.0
+
+### Minor Changes
+
+- 02f8085: Add an exported `getGlobalIndexes` helper to `aws-dynamodb` for generating global secondary index names (`Gs1`, `Gs2`, …).
+
 ## 1.27.0
 
 ### Minor Changes

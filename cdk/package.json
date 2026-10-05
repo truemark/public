@@ -1,7 +1,7 @@
 {
   "name": "truemark-cdk-lib",
   "description": "AWS CDK constructs created by TrueMark",
-  "version": "1.27.0",
+  "version": "1.28.1",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "typesVersions": {
@@ -123,7 +123,6 @@
     "@aws-cdk/aws-lambda-go-alpha": "catalog:",
     "@aws-cdk/aws-lambda-python-alpha": "catalog:",
     "@aws-cdk/aws-redshift-alpha": "catalog:",
-    "@aws-sdk/credential-provider-node": "catalog:",
     "aws-cdk-lib": "catalog:",
     "cdk-monitoring-constructs": "catalog:",
     "constructs": "catalog:"
