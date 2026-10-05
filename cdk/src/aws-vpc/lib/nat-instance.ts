@@ -16,7 +16,7 @@ import {LibStandardTags} from '../../truemark';
 // to prevent TypeScript template-literal interpolation.
 
 const SNAT_SH = `#!/bin/sh
-set -ex
+set -e
 dnf install -y iptables-services awscli || yum install -y iptables-services awscli
 if test -f "/etc/nat.conf"; then
     echo "Found nat configuration at /etc/nat.conf"
@@ -482,9 +482,10 @@ export class NatInstance extends ExtendedConstruct {
     // ── Private Routes ────────────────────────────────────────────────────────
     // CfnRoute is used because the L2 Route construct does not support
     // targeting a raw ENI as the next hop.
-    for (let i = 0; i < (props.privateRouteTableIds ?? []).length; i++) {
+    const routeTableIds = props.privateRouteTableIds ?? [];
+    for (let i = 0; i < routeTableIds.length; i++) {
       new ec2.CfnRoute(this, `PrivateRoute${i}`, {
-        routeTableId: props.privateRouteTableIds![i],
+        routeTableId: routeTableIds[i],
         destinationCidrBlock: '0.0.0.0/0',
         networkInterfaceId: eni.ref,
       });
@@ -612,7 +613,6 @@ export class NatInstance extends ExtendedConstruct {
         : undefined,
       requireImdsv2: true,
       // instanceType is omitted — set via mixedInstancesPolicy overrides below
-      // securityGroup is omitted — the pinned ENI carries its own SG
     });
 
     // ── Auto Scaling Group ────────────────────────────────────────────────────

@@ -542,8 +542,8 @@ export class StandardNetwork extends ExtendedConstruct {
         throw new Error("natType 'nat_instance' requires public subnets.");
       }
 
-      // Use vpc.privateSubnets to get all private subnets (including database,
-      // elasticache, redshift, etc.) rather than just the 'private' group.
+      // Get private subnets (PRIVATE_WITH_EGRESS type) for NAT routing.
+      // Note: This does not include isolated subnets (database, elasticache, etc.).
       const allPrivateSubnets = this.vpc.privateSubnets as ec2.Subnet[];
 
       if (allPrivateSubnets.length === 0) {
