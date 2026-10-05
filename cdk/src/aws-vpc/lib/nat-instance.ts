@@ -182,8 +182,9 @@ Type = oneshot
 # If ENI is still attached to previous instance, systemd will retry after 30s.
 Restart = on-failure
 RestartSec = 30s
-# Limit restarts to prevent infinite retry loops: max 10 attempts in 5 minutes.
-StartLimitIntervalSec = 300
+# Limit total retries to 10 attempts. StartLimitIntervalSec=0 means infinite window,
+# ensuring the 10th failure triggers OnFailure rather than resetting every 5 minutes.
+StartLimitIntervalSec = 0
 StartLimitBurst = 10
 
 [Install]
@@ -541,22 +542,6 @@ export class NatInstance extends ExtendedConstruct {
         },
       }),
     );
-    // Allow instance to terminate itself on unrecoverable NAT setup failure
-    // so ASG can replace it instead of leaving routes blackholed.
-    // Scoped to instances within the same VPC for security.
-    role.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ['ec2:TerminateInstances'],
-        resources: [
-          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
-        ],
-        conditions: {
-          StringEquals: {
-            'ec2:Vpc': `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:vpc/${props.vpc.vpcId}`,
-          },
-        },
-      }),
-    );
     this.iamRoleName = role.roleName;
 
     // ── Machine Image ─────────────────────────────────────────────────────────
@@ -640,6 +625,28 @@ export class NatInstance extends ExtendedConstruct {
         })),
       },
     });
+
+    // Tag the ASG instances with a unique identifier for self-termination permission.
+    // This tag is propagated to instances and used in the IAM condition below.
+    const natInstanceRoleTag = `nat-instance-${id}`;
+    Tags.of(asg).add('nat-instance-role', natInstanceRoleTag);
+
+    // Allow instance to terminate itself on unrecoverable NAT setup failure.
+    // Restricted to instances with the matching nat-instance-role tag,
+    // ensuring the instance can only terminate itself, not other instances in the VPC.
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['ec2:TerminateInstances'],
+        resources: [
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
+        ],
+        conditions: {
+          StringEquals: {
+            'ec2:ResourceTag/nat-instance-role': natInstanceRoleTag,
+          },
+        },
+      }),
+    );
 
     // Use rolling update to avoid race condition with ENI attachment.
     // autoScalingReplacingUpdate can create overlapping instances that both
