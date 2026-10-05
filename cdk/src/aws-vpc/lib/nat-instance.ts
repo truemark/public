@@ -216,8 +216,8 @@ export interface NatInstanceProps extends ExtendedConstructProps {
   readonly imageId?: string;
 
   /**
-   * CPU architecture used for the AMI lookup. Default is ARM_64 which
-   * corresponds to the default t4g.nano instance type.
+   * CPU architecture used for the AMI lookup. Default is ARM_64, which
+   * corresponds to the default t4g.micro instance type.
    *
    * @default ec2.AmazonLinuxCpuType.ARM_64
    */
