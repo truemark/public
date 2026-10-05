@@ -44,12 +44,12 @@ if test -n "\${eni_id}"; then
     aws ec2 modify-network-interface-attribute \\
         --region "\${aws_region}" \\
         --network-interface-id "\${primary_eni_id}" \\
-        --no-source-dest-check
+        --source-dest-check '{"Value":false}'
     echo "Disabling source/dest check on NAT ENI \${eni_id}..."
     aws ec2 modify-network-interface-attribute \\
         --region "\${aws_region}" \\
         --network-interface-id "\${eni_id}" \\
-        --no-source-dest-check
+        --source-dest-check '{"Value":false}'
     echo "Checking current attachment state for NAT ENI \${eni_id}..."
     attached_instance_id="$(aws ec2 describe-network-interfaces \\
         --region "\${aws_region}" \\
@@ -437,8 +437,9 @@ export class NatInstance extends ExtendedConstruct {
     const enabled = props.enabled ?? true;
     const architecture = props.architecture ?? ec2.AmazonLinuxCpuType.ARM_64;
 
-    // Unique tag value for this NAT instance, used to scope IAM permissions
-    const natInstanceRoleTag = `nat-instance-${id}`;
+    // Unique tag value for this NAT instance, used to scope IAM permissions.
+    // Includes stack name to ensure uniqueness across multiple stack deployments.
+    const natInstanceRoleTag = `nat-instance-${cdk.Stack.of(this).stackName}-${id}`;
 
     // Derive default instance type from architecture to avoid AMI/instance mismatch
     // Use micro (1GB RAM) instead of nano (512MB) to prevent OOM during package installation
