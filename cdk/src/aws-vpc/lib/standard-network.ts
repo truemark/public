@@ -543,7 +543,8 @@ export class StandardNetwork extends ExtendedConstruct {
       }
 
       // Get private subnets (PRIVATE_WITH_EGRESS type) for NAT routing.
-      // Note: This does not include isolated subnets (database, elasticache, etc.).
+      // This includes: private, database, elasticache, and redshift subnet groups.
+      // This does NOT include: intra subnets (which are PRIVATE_ISOLATED and have no internet access).
       const allPrivateSubnets = this.vpc.privateSubnets as ec2.Subnet[];
 
       if (allPrivateSubnets.length === 0) {
