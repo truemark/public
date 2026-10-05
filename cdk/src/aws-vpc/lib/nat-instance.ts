@@ -479,6 +479,16 @@ export class NatInstance extends ExtendedConstruct {
         resources: ['*'],
       }),
     );
+    // AttachNetworkInterface on instances - no VPC condition since instances don't support it
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['ec2:AttachNetworkInterface'],
+        resources: [
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
+        ],
+      }),
+    );
+    // AttachNetworkInterface and ModifyNetworkInterfaceAttribute on network-interfaces within VPC
     role.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: [
@@ -487,7 +497,6 @@ export class NatInstance extends ExtendedConstruct {
         ],
         resources: [
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/${eni.attrId}`,
-          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
           `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:network-interface/*`,
         ],
         conditions: {
