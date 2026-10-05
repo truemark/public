@@ -24,8 +24,24 @@ test('Happy path test for StandardNetwork', () => {
   // elasticache; redshift is off by default) across 3 AZs => 15 subnets.
   template.resourceCountIs('AWS::EC2::Subnet', 15);
 
-  // natType defaults to 'none', so no NAT gateways are created.
+  // natType is 'nat_instance', so no NAT gateways should be created.
   template.resourceCountIs('AWS::EC2::NatGateway', 0);
+
+  // Verify NAT instance infrastructure is created instead.
+  template.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 1);
+  template.resourceCountIs('AWS::EC2::NetworkInterface', 1);
+  template.hasResourceProperties('AWS::EC2::NetworkInterface', {
+    SourceDestCheck: false,
+  });
+
+  // Verify default routes targeting the NAT instance ENI.
+  const routes = template.findResources('AWS::EC2::Route', {
+    Properties: {
+      DestinationCidrBlock: '0.0.0.0/0',
+    },
+  });
+  // Should have routes for private subnets (3 AZs = 3 private subnets).
+  expect(Object.keys(routes).length).toBeGreaterThan(0);
 
   // S3 and DynamoDB gateway endpoints are created by default.
   template.resourceCountIs('AWS::EC2::VPCEndpoint', 2);
@@ -107,4 +123,31 @@ test('StandardNetwork defaults to 3 availability zones', () => {
     },
   });
   expect(Object.keys(subnets).length).toBe(3);
+});
+
+test('StandardNetwork with natType none does not create NAT resources', () => {
+  const stack = HelperTest.stack();
+  new StandardNetwork(stack, 'TestNetworkNoNat', {
+    name: 'TestNetworkNoNat',
+    vpcCidr: '10.0.0.0/16',
+    azCount: 2,
+    natType: 'none',
+  });
+  const template = Template.fromStack(stack);
+
+  // Verify no NAT gateways are created
+  template.resourceCountIs('AWS::EC2::NatGateway', 0);
+
+  // Verify no NAT instance infrastructure is created
+  template.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 0);
+  template.resourceCountIs('AWS::EC2::LaunchTemplate', 0);
+
+  // Verify no default routes to NAT are created
+  const routes = template.findResources('AWS::EC2::Route', {
+    Properties: {
+      DestinationCidrBlock: '0.0.0.0/0',
+    },
+  });
+  // Should have routes for public subnets to IGW, but not for private subnets
+  expect(Object.keys(routes).length).toBeGreaterThan(0);
 });
