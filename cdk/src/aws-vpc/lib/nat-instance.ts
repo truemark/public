@@ -79,6 +79,7 @@ if test -n "\${eni_id}"; then
         done
         if test -n "\${attached_instance_id}" && test "\${attached_instance_id}" != "None" && test "\${attached_instance_id}" != "\${instance_id}"; then
             echo "ERROR: ENI \${eni_id} is still attached to another instance after retries: \${attached_instance_id}"
+            # Systemd will retry this service. If all systemd retries are exhausted, terminate.
             exit 1
         fi
     fi
@@ -171,13 +172,42 @@ const SNAT_SERVICE = `[Unit]
 Description = Configure this machine to act as a NAT instance.
 Wants = network-online.target
 After = network-online.target
+# If NAT setup fails after all retries, terminate the instance so ASG replaces it
+OnFailure = snat-failure.service
 
 [Service]
 ExecStart = /opt/nat/snat.sh
 Type = oneshot
+# Retry on failure to handle transient ENI attachment issues during ASG replacement.
+# If ENI is still attached to previous instance, systemd will retry after 30s.
+Restart = on-failure
+RestartSec = 30s
+# Limit restarts to prevent infinite retry loops: max 10 attempts in 5 minutes.
+StartLimitIntervalSec = 300
+StartLimitBurst = 10
 
 [Install]
 WantedBy = multi-user.target
+`;
+
+const SNAT_FAILURE_SERVICE = `[Unit]
+Description = Terminate NAT instance after unrecoverable setup failure
+DefaultDependencies = no
+
+[Service]
+Type = oneshot
+ExecStart = /opt/nat/terminate-on-failure.sh
+`;
+
+const TERMINATE_ON_FAILURE_SH = `#!/bin/sh
+# This script is invoked by snat-failure.service when NAT setup fails after all retries.
+# Terminating the instance triggers ASG to replace it, preventing blackholed routes.
+set -ex
+token="$(curl -sS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)"
+aws_region="$(curl -sS -H "X-aws-ec2-metadata-token: \${token}" http://169.254.169.254/latest/meta-data/placement/region)"
+instance_id="$(curl -sS -H "X-aws-ec2-metadata-token: \${token}" http://169.254.169.254/latest/meta-data/instance-id)"
+echo "FATAL: NAT setup failed after all retries. Terminating instance \${instance_id} to trigger ASG replacement..."
+aws ec2 terminate-instances --instance-ids "\${instance_id}" --region "\${aws_region}"
 `;
 
 const RUNONCE_SH = `#!/bin/bash -x
@@ -511,6 +541,22 @@ export class NatInstance extends ExtendedConstruct {
         },
       }),
     );
+    // Allow instance to terminate itself on unrecoverable NAT setup failure
+    // so ASG can replace it instead of leaving routes blackholed.
+    // Scoped to instances within the same VPC for security.
+    role.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['ec2:TerminateInstances'],
+        resources: [
+          `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`,
+        ],
+        conditions: {
+          StringEquals: {
+            'ec2:Vpc': `arn:${cdk.Stack.of(this).partition}:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:vpc/${props.vpc.vpcId}`,
+          },
+        },
+      }),
+    );
     this.iamRoleName = role.roleName;
 
     // ── Machine Image ─────────────────────────────────────────────────────────
@@ -531,7 +577,16 @@ export class NatInstance extends ExtendedConstruct {
       'write_files:\n' +
       writeFileEntry('/opt/nat/runonce.sh', RUNONCE_SH, '0755') +
       writeFileEntry('/opt/nat/snat.sh', SNAT_SH, '0755') +
+      writeFileEntry(
+        '/opt/nat/terminate-on-failure.sh',
+        TERMINATE_ON_FAILURE_SH,
+        '0755',
+      ) +
       writeFileEntry('/etc/systemd/system/snat.service', SNAT_SERVICE) +
+      writeFileEntry(
+        '/etc/systemd/system/snat-failure.service',
+        SNAT_FAILURE_SERVICE,
+      ) +
       // nat.conf: plain literal block — ENI ID is alphanumeric+hyphen, safe in YAML
       `- path: /etc/nat.conf\n  permissions: '0644'\n  content: |\n    ${natConfContent}` +
       (props.additionalWriteFiles ?? [])
@@ -569,9 +624,9 @@ export class NatInstance extends ExtendedConstruct {
       desiredCapacity: enabled ? 1 : 0,
       healthCheck: autoscaling.HealthCheck.ec2({
         // Extended grace period to allow NAT setup to complete.
-        // Note: This only checks EC2 instance health, not NAT setup success.
-        // If NAT setup fails, the instance remains InService but routes are blackholed.
-        // Consider implementing a custom health check or lifecycle hook for production.
+        // Note: This only checks EC2 instance health, not NAT setup success directly.
+        // However, snat.service is configured to retry on failure and will terminate
+        // the instance if all retries are exhausted, triggering ASG replacement.
         grace: cdk.Duration.minutes(5),
       }),
       mixedInstancesPolicy: {
