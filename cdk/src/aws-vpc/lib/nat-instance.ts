@@ -174,6 +174,11 @@ Wants = network-online.target
 After = network-online.target
 # If NAT setup fails after all retries, terminate the instance so ASG replaces it
 OnFailure = snat-failure.service
+# Limit total retries to 10 attempts within a 10-minute window.
+# With RestartSec=30s, 10 attempts take ~5 minutes; this window ensures
+# the 10th failure triggers OnFailure rather than resetting the burst counter.
+StartLimitIntervalSec = 600
+StartLimitBurst = 10
 
 [Service]
 ExecStart = /opt/nat/snat.sh
@@ -182,10 +187,6 @@ Type = oneshot
 # If ENI is still attached to previous instance, systemd will retry after 30s.
 Restart = on-failure
 RestartSec = 30s
-# Limit total retries to 10 attempts. StartLimitIntervalSec=0 means infinite window,
-# ensuring the 10th failure triggers OnFailure rather than resetting every 5 minutes.
-StartLimitIntervalSec = 0
-StartLimitBurst = 10
 
 [Install]
 WantedBy = multi-user.target
