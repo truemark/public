@@ -10,7 +10,7 @@ import {LibStandardTags} from '../../truemark';
 import {NatInstance} from './nat-instance';
 import {NetworkParameters} from './network-parameters';
 
-export type NatType = 'none' | 'single' | 'multi' | 'nat_instance'; // TODO Add  | 'regional' | 'poor';
+export type NatType = 'none' | 'single' | 'multi' | 'natInstance'; // TODO Add  | 'regional' | 'poor';
 
 // TODO Need to add support for ipv6 only mode (currently supports dual-stack)
 
@@ -454,7 +454,7 @@ export class StandardNetwork extends ExtendedConstruct {
 
     // TODO Need to add support for regional NAT
     // TODO Need to add support for poor NAT
-    const useNatInstance = natType === 'nat_instance';
+    const useNatInstance = natType === 'natInstance';
 
     // TODO Need to add support for network firewall
 
@@ -542,7 +542,7 @@ export class StandardNetwork extends ExtendedConstruct {
 
     if (useNatInstance) {
       if (!createPublic) {
-        throw new Error("natType 'nat_instance' requires public subnets.");
+        throw new Error("natType 'natInstance' requires public subnets.");
       }
 
       // Get private subnets (PRIVATE_WITH_EGRESS type) for NAT routing.
@@ -552,7 +552,7 @@ export class StandardNetwork extends ExtendedConstruct {
 
       if (allPrivateSubnets.length === 0) {
         throw new Error(
-          "natType 'nat_instance' requires at least one private subnet.",
+          "natType 'natInstance' requires at least one private subnet.",
         );
       }
 

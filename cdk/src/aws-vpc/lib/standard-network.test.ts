@@ -9,7 +9,7 @@ test('Happy path test for StandardNetwork', () => {
     name: 'TestNetwork',
     vpcCidr: '10.0.0.0/16',
     azCount: 3,
-    natType: 'nat_instance',
+    natType: 'natInstance',
   });
   const template = Template.fromStack(stack);
 
@@ -24,7 +24,7 @@ test('Happy path test for StandardNetwork', () => {
   // elasticache; redshift is off by default) across 3 AZs => 15 subnets.
   template.resourceCountIs('AWS::EC2::Subnet', 15);
 
-  // natType is 'nat_instance', so no NAT gateways should be created.
+  // natType is 'natInstance', so no NAT gateways should be created.
   template.resourceCountIs('AWS::EC2::NatGateway', 0);
 
   // Verify NAT instance infrastructure is created instead.

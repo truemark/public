@@ -26,7 +26,7 @@ new StandardNetwork(stack, 'Network', {
 
 ### NAT Instance Support
 
-Added `nat_instance` as a new `natType` option for cost-effective NAT in non-production environments:
+Added `natInstance` as a new `natType` option for cost-effective NAT in non-production environments:
 - Auto Scaling Group with single NAT instance (t4g.micro by default)
 - Automatic ENI attachment for persistent private IP
 - Route table management for private subnet egress
@@ -38,7 +38,7 @@ Added `nat_instance` as a new `natType` option for cost-effective NAT in non-pro
 new StandardNetwork(stack, 'Network', {
   name: 'DevNetwork',
   vpcCidr: '10.0.0.0/16',
-  natType: 'nat_instance', // New option
+  natType: 'natInstance', // New option
 });
 ```
 
