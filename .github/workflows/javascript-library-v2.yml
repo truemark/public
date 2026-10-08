@@ -116,10 +116,10 @@ jobs:
         run: pnpm ${{ env.PNPM_RECURSIVE }} i --frozen-lockfile --prefer-offline
       - name: "Snapshot version packages"
         if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
-        run: pnpx @changesets/cli version --snapshot snapshot
+        run: pnpm exec changeset version --snapshot snapshot
       - name: "Release version packages"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: pnpx @changesets/cli version
+        run: pnpm exec changeset version
       #------------------------------------------------------------------------
       # On pull requests, scope build and test to the packages affected by the
       # diff against the base branch, so the "cdk" and "autobackup" projects
@@ -153,7 +153,7 @@ jobs:
         run: pnpm ${{ env.PNPM_RECURSIVE }} test
       - name: "Publish snapshot packages"
         if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
-        run: pnpx @changesets/cli publish --tag snapshot --no-git-tag
+        run: pnpm exec changeset publish --tag snapshot --no-git-tag
       - name: "Commit and push release version bump"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
@@ -167,7 +167,7 @@ jobs:
           fi
       - name: "Publish release packages"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: pnpx @changesets/cli publish
+        run: pnpm exec changeset publish
       - name: "Push release tags"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: git push --follow-tags
