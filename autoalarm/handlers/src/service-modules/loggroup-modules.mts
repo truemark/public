@@ -115,7 +115,7 @@ function extractLogGroupIdentifiers(
     return void 0;
   }
 
-  const resourceName = arnParts[1].replace('"', '').trim();
+  const resourceName = arnParts[1].replace(/"/g, '').trim();
 
   log
     .info()
