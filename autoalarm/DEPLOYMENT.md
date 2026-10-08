@@ -8,17 +8,17 @@
 - **AWS CDK**
 - **Node.js**: Version 22.x+.
 - **Git**
-- **pnpm**: Version 9.1.4 or later.
+- **pnpm**: Version 10 or later (see `packageManager` in the repository root `package.json`).
 
 #### **To set up and deploy the AutoAlarm project, follow these steps:**
 
 - **Clone the Repository**
 
-Start by cloning the project repository to your local machine:
+AutoAlarm lives in the `autoalarm/` directory of the truemark/public monorepo. Start by cloning that repository to your local machine:
 
 ```bash
-git clone https://github.com/truemark/autoalarm.git
-cd autoalarm
+git clone https://github.com/truemark/public.git
+cd public
 ```
 
 - **Install Dependencies**
@@ -49,14 +49,16 @@ cd autoalarm
 
 - **Build the Project**
 
+  This builds the shared `truemark-cdk-lib` library and both AutoAlarm packages:
+
     ```bash
-    pnpm build
+    pnpm -r build
     ```
 
 - **Deploy the Stack**
 
     ```bash
-    cd cdk ; cdk deploy AutoAlarm
+    cd autoalarm/cdk ; cdk deploy AutoAlarm
     ```
 
 ### Optional: Cost Center and Team Tags

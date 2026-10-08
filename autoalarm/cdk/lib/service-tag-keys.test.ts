@@ -13,6 +13,7 @@
  * Adding, removing, renaming, or reordering a tagKey in the handlers
  * configs without updating service-tag-keys.ts fails this test (and CI).
  */
+import {describe, expect, test} from 'vitest';
 import * as path from 'path';
 import {createRequire} from 'module';
 import {buildSync} from 'esbuild';

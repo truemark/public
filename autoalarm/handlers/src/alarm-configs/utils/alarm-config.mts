@@ -96,11 +96,11 @@ export function parseStatisticOption(
 ): ValidStatistic {
   // Base formatting normalization for validating statistics
   let trim = exp.trim().toLowerCase();
-  trim === 'iqm'
-    ? (trim = 'IQM') // Account for IQM as all caps and single word expression
-    : trim === 'samplecount'
-      ? (trim = 'SampleCount') // Account for SampleCount with CamelCase
-      : exp.trim().toLowerCase();
+  if (trim === 'iqm') {
+    trim = 'IQM'; // Account for IQM as all caps and single word expression
+  } else if (trim === 'samplecount') {
+    trim = 'SampleCount'; // Account for SampleCount with CamelCase
+  }
 
   // Early return if we match IQM or SampleCount
   if (trim === 'IQM' || trim === 'SampleCount') return trim as ValidStatistic;

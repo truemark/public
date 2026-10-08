@@ -1,3 +1,4 @@
+import {beforeAll, describe, expect, test} from 'vitest';
 import {App} from 'aws-cdk-lib';
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {AutoAlarmStack} from './auto-alarm-stack';

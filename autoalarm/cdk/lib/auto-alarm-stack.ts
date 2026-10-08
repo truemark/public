@@ -2,7 +2,7 @@ import {Construct} from 'constructs';
 import {AutoAlarmConstruct} from './auto-alarm-construct';
 import {ExtendedStack, ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {CronOptions} from 'aws-cdk-lib/aws-events';
-import {version} from '../../package.json';
+import {version} from '../package.json';
 
 export interface ExtendedAutoAlarmProps extends ExtendedStackProps {
   readonly prometheusWorkspaceId?: string;

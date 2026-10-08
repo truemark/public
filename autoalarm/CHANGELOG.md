@@ -1,5 +1,9 @@
 # AutoAlarm Changelog
 
+## Unreleased
+### Changed
+- Moved into the [truemark/public](https://github.com/truemark/public) monorepo as `autoalarm/`. `cdk` and `handlers` are now pnpm workspace packages: versions come from the workspace catalog and `truemark-cdk-lib` is linked from the workspace. The cdk tests run under vitest instead of jest. The package is private and is no longer published to GitHub Packages.
+
 ## v1.14.4
 ### Fixed
 - Fixed main handler not routing EC2 VPN create/delete events to the VPN module when events arrived in CloudTrail format. EventBridge sends VPN events with `detail-type` "AWS API Call via CloudTrail" and no `detail.resourceType`; the handler only routed when `resourceType === 'vpn-connection'`, so those events were treated as "Unhandled EC2 event format" and sent to the DLQ. Added an explicit branch for CloudTrail-form VPN create/delete events so they are routed to `parseVpnEventAndCreateAlarms` like the existing VPN path.

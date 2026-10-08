@@ -43,7 +43,7 @@ const app = new ExtendedApp({
   standardTags: {
     automationTags: {
       id: 'autoalarm',
-      url: 'https://github.com/truemark/autoalarm',
+      url: 'https://github.com/truemark/public/tree/main/autoalarm',
     },
     ...optionalStandardTags(),
   },
