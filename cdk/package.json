@@ -1,0 +1,256 @@
+{
+  "name": "truemark-cdk-lib",
+  "description": "AWS CDK constructs created by TrueMark",
+  "version": "1.28.1",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "aws-apigatewayv2": [
+        "./dist/aws-apigatewayv2/index.d.ts"
+      ],
+      "aws-bedrock": [
+        "./dist/aws-bedrock/index.d.ts"
+      ],
+      "aws-cdk": [
+        "./dist/aws-cdk/index.d.ts"
+      ],
+      "aws-centergauge": [
+        "./dist/aws-centergauge/index.d.ts"
+      ],
+      "aws-cloudfront": [
+        "./dist/aws-cloudfront/index.d.ts"
+      ],
+      "aws-cloudwatch": [
+        "./dist/aws-cloudwatch/index.d.ts"
+      ],
+      "aws-codepipeline": [
+        "./dist/aws-codepipeline/index.d.ts"
+      ],
+      "aws-dynamodb": [
+        "./dist/aws-dynamodb/index.d.ts"
+      ],
+      "aws-ecs": [
+        "./dist/aws-ecs/index.d.ts"
+      ],
+      "aws-lambda": [
+        "./dist/aws-lambda/index.d.ts"
+      ],
+      "aws-monitoring": [
+        "./dist/aws-monitoring/index.d.ts"
+      ],
+      "aws-patterns-domain-redirect": [
+        "./dist/aws-patterns-domain-redirect/index.d.ts"
+      ],
+      "aws-patterns-website": [
+        "./dist/aws-patterns-website/index.d.ts"
+      ],
+      "aws-patterns-wordpress": [
+        "./dist/aws-patterns-wordpress/index.d.ts"
+      ],
+      "aws-rds": [
+        "./dist/aws-rds/index.d.ts"
+      ],
+      "aws-route53": [
+        "./dist/aws-route53/index.d.ts"
+      ],
+      "aws-s3": [
+        "./dist/aws-s3/index.d.ts"
+      ],
+      "aws-ses": [
+        "./dist/aws-ses/index.d.ts"
+      ],
+      "aws-sqs": [
+        "./dist/aws-sqs/index.d.ts"
+      ],
+      "aws-ssm": [
+        "./dist/aws-ssm/index.d.ts"
+      ],
+      "aws-ssm-activation": [
+        "./dist/aws-ssm-activation/index.d.ts"
+      ],
+      "aws-tags": [
+        "./dist/aws-tags/index.d.ts"
+      ],
+      "aws-vpc": [
+        "./dist/aws-vpc/index.d.ts"
+      ],
+      "aws-workspaces": [
+        "./dist/aws-workspaces/index.d.ts"
+      ],
+      "aws-wafv2": [
+        "./dist/aws-wafv2/index.d.ts"
+      ],
+      "helpers": [
+        "./dist/helpers/index.d.ts"
+      ],
+      "aws-opensearchserverless": [
+        "./dist/aws-opensearchserverless/index.d.ts"
+      ]
+    }
+  },
+  "author": "TrueMark Technologies, Inc.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/truemark/public.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "fix": "biome check --write .",
+    "fmt": "biome format --write .",
+    "prebuild": "biome check",
+    "test": "vitest run src/*",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/client-elastic-load-balancing-v2": "catalog:",
+    "@aws-sdk/util-dynamodb": "catalog:",
+    "@biomejs/biome": "catalog:",
+    "@opensearch-project/opensearch": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "ts-node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@aws-cdk/aws-lambda-go-alpha": "catalog:",
+    "@aws-cdk/aws-lambda-python-alpha": "catalog:",
+    "@aws-cdk/aws-redshift-alpha": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "cdk-monitoring-constructs": "catalog:",
+    "constructs": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./aws-apigatewayv2": {
+      "types": "./dist/aws-apigatewayv2/index.d.ts",
+      "default": "./dist/aws-apigatewayv2/index.js"
+    },
+    "./aws-bedrock": {
+      "types": "./dist/aws-bedrock/index.d.ts",
+      "default": "./dist/aws-bedrock/index.js"
+    },
+    "./aws-cdk": {
+      "types": "./dist/aws-cdk/index.d.ts",
+      "default": "./dist/aws-cdk/index.js"
+    },
+    "./aws-centergauge": {
+      "types": "./dist/aws-centergauge/index.d.ts",
+      "default": "./dist/aws-centergauge/index.js"
+    },
+    "./aws-cloudfront": {
+      "types": "./dist/aws-cloudfront/index.d.ts",
+      "default": "./dist/aws-cloudfront/index.js"
+    },
+    "./aws-cloudwatch": {
+      "types": "./dist/aws-cloudwatch/index.d.ts",
+      "default": "./dist/aws-cloudwatch/index.js"
+    },
+    "./aws-codepipeline": {
+      "types": "./dist/aws-codepipeline/index.d.ts",
+      "default": "./dist/aws-codepipeline/index.js"
+    },
+    "./aws-dynamodb": {
+      "types": "./dist/aws-dynamodb/index.d.ts",
+      "default": "./dist/aws-dynamodb/index.js"
+    },
+    "./aws-ecs": {
+      "types": "./dist/aws-ecs/index.d.ts",
+      "default": "./dist/aws-ecs/index.js"
+    },
+    "./aws-lambda": {
+      "types": "./dist/aws-lambda/index.d.ts",
+      "default": "./dist/aws-lambda/index.js"
+    },
+    "./aws-monitoring": {
+      "types": "./dist/aws-monitoring/index.d.ts",
+      "default": "./dist/aws-monitoring/index.js"
+    },
+    "./aws-patterns-autobackup": {
+      "types": "./dist/aws-patterns-autobackup/index.d.ts",
+      "default": "./dist/aws-patterns-autobackup/index.js"
+    },
+    "./aws-patterns-workspaces": {
+      "types": "./dist/aws-patterns-workspaces/index.d.ts",
+      "default": "./dist/aws-patterns-workspaces/index.js"
+    },
+    "./aws-patterns-domain-redirect": {
+      "types": "./dist/aws-patterns-domain-redirect/index.d.ts",
+      "default": "./dist/aws-patterns-domain-redirect/index.js"
+    },
+    "./aws-patterns-website": {
+      "types": "./dist/aws-patterns-website/index.d.ts",
+      "default": "./dist/aws-patterns-website/index.js"
+    },
+    "./aws-patterns-wordpress": {
+      "types": "./dist/aws-patterns-wordpress/index.d.ts",
+      "default": "./dist/aws-patterns-wordpress/index.js"
+    },
+    "./aws-rds": {
+      "types": "./dist/aws-rds/index.d.ts",
+      "default": "./dist/aws-rds/index.js"
+    },
+    "./aws-route53": {
+      "types": "./dist/aws-route53/index.d.ts",
+      "default": "./dist/aws-route53/index.js"
+    },
+    "./aws-s3": {
+      "types": "./dist/aws-s3/index.d.ts",
+      "default": "./dist/aws-s3/index.js"
+    },
+    "./aws-ses": {
+      "types": "./dist/aws-ses/index.d.ts",
+      "default": "./dist/aws-ses/index.js"
+    },
+    "./aws-sqs": {
+      "types": "./dist/aws-sqs/index.d.ts",
+      "default": "./dist/aws-sqs/index.js"
+    },
+    "./aws-ssm": {
+      "types": "./dist/aws-ssm/index.d.ts",
+      "default": "./dist/aws-ssm/index.js"
+    },
+    "./aws-ssm-activation": {
+      "types": "./dist/aws-ssm-activation/index.d.ts",
+      "default": "./dist/aws-ssm-activation/index.js"
+    },
+    "./aws-tags": {
+      "types": "./dist/aws-tags/index.d.ts",
+      "default": "./dist/aws-tags/index.js"
+    },
+    "./aws-vpc": {
+      "types": "./dist/aws-vpc/index.d.ts",
+      "default": "./dist/aws-vpc/index.js"
+    },
+    "./aws-workspaces": {
+      "types": "./dist/aws-workspaces/index.d.ts",
+      "default": "./dist/aws-workspaces/index.js"
+    },
+    "./aws-wafv2": {
+      "types": "./dist/aws-wafv2/index.d.ts",
+      "default": "./dist/aws-wafv2/index.js"
+    },
+    "./helpers": {
+      "types": "./dist/helpers/index.d.ts",
+      "default": "./dist/helpers/index.js"
+    },
+    "./aws-opensearchserverless": {
+      "types": "./dist/aws-opensearchserverless/index.d.ts",
+      "default": "./dist/aws-opensearchserverless/index.js"
+    }
+  }
+}

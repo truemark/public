@@ -1,0 +1,18 @@
+dist
+notes.txt
+.hugo_build.lock
+.npmcache
+*.js
+*.js.map
+!.prettierrc.js
+!jest.config.js
+*.d.ts
+*.d.ts.map
+node_modules
+*.bak?
+*.sw?
+!.prettierrc.js
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out

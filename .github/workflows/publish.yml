@@ -1,22 +1,27 @@
 on:
   push:
     branches:
-      - '**'
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 name: publish
 permissions:
   contents: write
   pages: write
   id-token: write
+  pull-requests: write
 jobs:
   publish:
-    uses: truemark/github-workflows/.github/workflows/javascript-library.yml@main
-    with:
-      node-versions: "[18,20,22]"
-      publish-node-version: "22"
-      develop-preid: "beta"
-      branch-preid: "alpha"
+    uses: ./.github/workflows/javascript-library-v2.yml
     secrets:
-      npm-auth-token: ${{ secrets.NPM_AUTH_TOKEN }}
+      app-id: ${{ secrets.RELEASE_BOT_ID }}
+      private-key: ${{ secrets.RELEASE_BOT_KEY }}
+  dependabot-auto-merge:
+    uses: ./.github/workflows/dependabot-auto-merge.yml
+    needs: publish
+    if: github.actor == 'dependabot[bot]'
+    secrets:
       app-id: ${{ secrets.RELEASE_BOT_ID }}
       private-key: ${{ secrets.RELEASE_BOT_KEY }}

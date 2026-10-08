@@ -1,0 +1,173 @@
+###############################################################################
+# JavaScript Library Monorepo Workflow
+# Build, test and publish JavaScript libraries from a monorepo using
+# pnpm workspaces and changesets.
+###############################################################################
+# Changes in V2:
+# - NPM authentication is done with OIDC and now longer with auth tokens
+# - @changesets/cli is used for versioning and publishing
+# - Handles monorepos with pnpm workspaces
+# Notes:
+# - Merging to the "main" branch will publish a production release
+# - Merging to any other branch will publish a snapshot release
+
+on:
+  workflow_call:
+    inputs:
+      node-versions:
+        description: 'Node versions to use'
+        required: false
+        default: '[20,22,24]'
+        type: string
+      publish-node-version:
+        description: 'Node version to use for publish'
+        required: false
+        default: '24'
+        type: string
+      pnpm-version:
+        description: 'PNPM version to use'
+        required: false
+        type: string
+      github-email:
+        description: 'GitHub email for pushing'
+        required: false
+        default: '41898282+github-actions[bot]@users.noreply.github.co'
+        type: string
+      github-name:
+        description: 'GitHub name for pushing'
+        required: false
+        default: 'github-actions[bot]'
+        type: string
+    secrets:
+      private-key:
+        description: "GitHub App Key"
+        required: true
+      app-id:
+        description: "GitHub App ID"
+        required: true
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  pull-requests: write
+jobs:
+  javascript-library:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ${{ fromJson(inputs.node-versions) }}
+    steps:
+      #------------------------------------------------------------------------
+      # Setup
+      #------------------------------------------------------------------------
+      - name: "Generate token"
+        id: app-token
+        if: github.actor != 'dependabot[bot]'
+        uses: getsentry/action-github-app-token@v3
+        with:
+          app_id: ${{ secrets.app-id }}
+          private_key: ${{ secrets.private-key }}
+      - name: "Checkout"
+        uses: actions/checkout@v7
+        with:
+          # On pull requests, fetch full history so pnpm's change-detection
+          # filter has a merge-base against the base branch to diff against.
+          # Pushes and manual runs build the whole workspace and only need a
+          # shallow clone. (0 is falsy in Actions expressions, so the non-PR
+          # branch carries the truthy 1 and the PR branch falls through to
+          # 0 = full history.)
+          fetch-depth: ${{ github.event_name != 'pull_request' && 1 || 0 }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
+      - name: "Fetch base branch for change detection"
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+      - name: "Setup pnpm"
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+          run_install: false
+      - name: "Use Node.js ${{ matrix.node-version }}"
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+      - name: "Get pnpm store directory"
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      - name: "Setup pnpm cache"
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: "${{ runner.os }}-${{ matrix.node-version }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}"
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.node-version }}-pnpm-store-
+      - name: "Check if monorepo"
+        run: |
+          if [ -f "pnpm-workspace.yaml" ]; then
+            echo "PNPM_RECURSIVE=-r" >> $GITHUB_ENV
+          else
+            echo "PNPM_RECURSIVE=" >> $GITHUB_ENV
+          fi
+      #------------------------------------------------------------------------
+      # Build
+      #------------------------------------------------------------------------
+      - name: "Install dependencies"
+        run: pnpm ${{ env.PNPM_RECURSIVE }} i --frozen-lockfile --prefer-offline
+      - name: "Snapshot version packages"
+        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
+        run: pnpx @changesets/cli version --snapshot snapshot
+      - name: "Release version packages"
+        if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: pnpx @changesets/cli version
+      #------------------------------------------------------------------------
+      # On pull requests, scope build and test to the packages affected by the
+      # diff against the base branch, so the "cdk" and "autobackup" projects
+      # only build when files changed in them (or in something they depend on).
+      # The build set ("...[ref]...") is the changed packages plus their
+      # dependents (leading "...") and their dependencies (trailing "..."); the
+      # test set ("...[ref]") is the changed packages plus their dependents
+      # only. Pushes to main and manual runs build/test the whole workspace so
+      # releases always cover every package.
+      #
+      # --if-present keeps the step green when the affected set is empty (e.g. a
+      # PR that only touches workflow or root config files) instead of failing
+      # with ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT.
+      #
+      # The affected path only applies to pnpm workspaces (PNPM_RECURSIVE=-r
+      # from the "Check if monorepo" step). Non-workspace repos have no packages
+      # to filter, so they fall through to the full build/test regardless of
+      # event type.
+      #------------------------------------------------------------------------
+      - name: "Build (affected)"
+        if: github.event_name == 'pull_request' && env.PNPM_RECURSIVE == '-r'
+        run: pnpm --if-present --filter "...[origin/${{ github.base_ref }}]..." build
+      - name: "Build (full)"
+        if: github.event_name != 'pull_request' || env.PNPM_RECURSIVE != '-r'
+        run: pnpm ${{ env.PNPM_RECURSIVE }} build
+      - name: "Test (affected)"
+        if: github.event_name == 'pull_request' && env.PNPM_RECURSIVE == '-r'
+        run: pnpm --if-present --filter "...[origin/${{ github.base_ref }}]" test
+      - name: "Test (full)"
+        if: github.event_name != 'pull_request' || env.PNPM_RECURSIVE != '-r'
+        run: pnpm ${{ env.PNPM_RECURSIVE }} test
+      - name: "Publish snapshot packages"
+        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
+        run: pnpx @changesets/cli publish --tag snapshot --no-git-tag
+      - name: "Commit and push release version bump"
+        if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config user.email "${{ inputs.github-email }}"
+          git config user.name "${{ inputs.github-name }}"
+          if ! git diff --quiet; then
+            git commit -a -m "Publish packages" -m "[skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+      - name: "Publish release packages"
+        if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: pnpx @changesets/cli publish
+      - name: "Push release tags"
+        if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: git push --follow-tags

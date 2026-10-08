@@ -1,0 +1,105 @@
+{
+  "key-provider:account=949815493512:aliasName=alias/cdk:region=us-east-2": {
+    "keyId": "ccda89ce-174e-4ebf-a2ee-bacbbec04bd2"
+  },
+  "availability-zones:account=220856333957:region=us-east-2": [
+    "us-east-2a",
+    "us-east-2b",
+    "us-east-2c"
+  ],
+  "availability-zones:account=220856333957:region=us-west-2": [
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c",
+    "us-west-2d"
+  ],
+  "availability-zones:account=863251859980:region=us-east-2": [
+    "us-east-2a",
+    "us-east-2b",
+    "us-east-2c"
+  ],
+  "availability-zones:account=863251859980:region=us-west-2": [
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c",
+    "us-west-2d"
+  ],
+  "hosted-zone:account=220856333957:domainName=stage.clientloop.com:privateZone=false:region=us-east-2": {
+    "Id": "/hostedzone/Z07138783T27ZXEXOGVJK",
+    "Name": "stage.clientloop.com."
+  },
+  "hosted-zone:account=220856333957:domainName=stage.clientloop.com:privateZone=false:region=us-west-2": {
+    "Id": "/hostedzone/Z07138783T27ZXEXOGVJK",
+    "Name": "stage.clientloop.com."
+  },
+  "hosted-zone:account=863251859980:domainName=clientloop.com:privateZone=false:region=us-east-2": {
+    "Id": "/hostedzone/Z00755803EGIUJK6USX0U",
+    "Name": "clientloop.com."
+  },
+  "hosted-zone:account=863251859980:domainName=clientloop.com:privateZone=false:region=us-west-2": {
+    "Id": "/hostedzone/Z00755803EGIUJK6USX0U",
+    "Name": "clientloop.com."
+  },
+  "hosted-zone:account=863251859980:domainName=clientloop.com:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z00755803EGIUJK6USX0U",
+    "Name": "clientloop.com."
+  },
+  "hosted-zone:account=863251859980:domainName=nukleuspay.co:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z03319503IEEV4RCI7T8H",
+    "Name": "nukleuspay.co."
+  },
+  "hosted-zone:account=220856333957:domainName=stage.nukleuspay.co:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z03485351OCF1H6E8IKM8",
+    "Name": "stage.nukleuspay.co."
+  },
+  "hosted-zone:account=558793517735:domainName=dev.nukleuspay.co:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z0604593P0Q4P17RLNIZ",
+    "Name": "dev.nukleuspay.co."
+  },
+  "key-provider:account=558793517735:aliasName=alias/cdk:region=us-east-2": {
+    "keyId": "96d9a28a-9b43-41d5-9826-2eb4d5f8ec91"
+  },
+  "hosted-zone:account=558793517735:domainName=dev.clientloop.com:privateZone=false:region=us-east-2": {
+    "Id": "/hostedzone/Z08341192BRWK8M1BE5FI",
+    "Name": "dev.clientloop.com."
+  },
+  "hosted-zone:account=558793517735:domainName=dev.clientloop.com:privateZone=false:region=us-west-2": {
+    "Id": "/hostedzone/Z08341192BRWK8M1BE5FI",
+    "Name": "dev.clientloop.com."
+  },
+  "hosted-zone:account=220856333957:domainName=stage.clientloop.com:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z07138783T27ZXEXOGVJK",
+    "Name": "stage.clientloop.com."
+  },
+  "hosted-zone:account=558793517735:domainName=dev.clientloop.com:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z08341192BRWK8M1BE5FI",
+    "Name": "dev.clientloop.com."
+  },
+  "hosted-zone:account=220856333957:domainName=stage.adminipay.ai:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z06677433NSK9Y9EH63ZJ",
+    "Name": "stage.adminipay.ai."
+  },
+  "hosted-zone:account=863251859980:domainName=adminipay.ai:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z06676981QFTAPL7JSJD8",
+    "Name": "adminipay.ai."
+  },
+  "hosted-zone:account=558793517735:domainName=dev.adminipay.ai:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z066927419VM0ZX2QX5O8",
+    "Name": "dev.adminipay.ai."
+  },
+  "acknowledged-issue-numbers": [
+    34892
+  ],
+  "hosted-zone:account=558793517735:domainName=dev.clientloopdemo.com:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z09499052MZ38TI5AO5K5",
+    "Name": "dev.clientloopdemo.com."
+  },
+  "hosted-zone:account=220856333957:domainName=stage.clientloopdemo.com:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z011966126YVYQAAE4ABR",
+    "Name": "stage.clientloopdemo.com."
+  },
+  "hosted-zone:account=863251859980:domainName=clientloopdemo.com:privateZone=false:region=us-east-1": {
+    "Id": "/hostedzone/Z09217921IDJFKZ3LDEC1",
+    "Name": "clientloopdemo.com."
+  }
+}
