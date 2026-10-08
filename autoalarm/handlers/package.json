@@ -1,0 +1,52 @@
+{
+  "name": "autoalarm-handlers",
+  "type": "module",
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "vitest run --coverage",
+    "clean": "find ./src -type f \\( -name \"*.mjs\" -o -name \"*.d.mts\" -o -name \"*.map\" \\) -exec rm -f {} \\;",
+    "fmt": "prettier --write ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-amp": "3.623.0",
+    "@aws-sdk/client-cloudfront": "^3.799.0",
+    "@aws-sdk/client-cloudwatch": "^3.799.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.934.0",
+    "@aws-sdk/client-ec2": "^3.800.0",
+    "@aws-sdk/client-ecs": "^3.934.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.799.0",
+    "@aws-sdk/client-eventbridge": "^3.800.0",
+    "@aws-sdk/client-lambda": "^3.934.0",
+    "@aws-sdk/client-opensearch": "^3.799.0",
+    "@aws-sdk/client-rds": "^3.799.0",
+    "@aws-sdk/client-resource-groups-tagging-api": "^3.799.0",
+    "@aws-sdk/client-route53resolver": "^3.799.0",
+    "@aws-sdk/client-sfn": "^3.799.0",
+    "@aws-sdk/client-sqs": "^3.799.0",
+    "@aws-sdk/credential-provider-node": "^3.799.0",
+    "@aws-sdk/util-arn-parser": "^3.723.0",
+    "@eslint/js": "^9.39.1",
+    "@nr1e/logging": "1.4.1",
+    "@smithy/util-retry": "^3.0.11",
+    "@types/js-yaml": "^4.0.9",
+    "aws-cdk-lib": "^2.194.0",
+    "aws4": "^1.13.2",
+    "js-yaml": "^4.1.0",
+    "valibot": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.149",
+    "@types/aws4": "^1.11.6",
+    "@types/node": "20.8.2",
+    "@vitest/coverage-v8": "^1.6.1",
+    "aws-sdk-client-mock": "^1.0.0",
+    "eslint": "^9.25.1",
+    "prettier": "^3.5.3",
+    "source-map-support": "^0.5.21",
+    "typescript": "~5.5.4",
+    "typescript-eslint": "^7.18.0",
+    "vitest": "^1.6.1"
+  }
+}
