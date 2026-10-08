@@ -6,7 +6,7 @@
     "@changesets/cli": "^2.30.0"
   },
   "scripts": {
-    "changeset": "pnpx @changesets/cli"
+    "changeset": "changeset"
   },
   "pnpm": {
     "overrides": {

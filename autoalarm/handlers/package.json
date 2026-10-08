@@ -1,0 +1,62 @@
+{
+  "name": "autoalarm-handlers",
+  "version": "1.14.6",
+  "private": true,
+  "description": "Lambda handlers for AutoAlarm.",
+  "homepage": "https://github.com/truemark/public/tree/main/autoalarm",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "type": "module",
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "vitest run --coverage",
+    "clean": "find ./src -type f \\( -name '*.mjs' -o -name '*.d.mts' -o -name '*.map' \\) -delete",
+    "fmt": "prettier --write ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-amp": "catalog:",
+    "@aws-sdk/client-cloudfront": "catalog:",
+    "@aws-sdk/client-cloudwatch": "catalog:",
+    "@aws-sdk/client-cloudwatch-logs": "catalog:",
+    "@aws-sdk/client-ec2": "catalog:",
+    "@aws-sdk/client-ecs": "catalog:",
+    "@aws-sdk/client-elastic-load-balancing-v2": "catalog:",
+    "@aws-sdk/client-eventbridge": "catalog:",
+    "@aws-sdk/client-lambda": "catalog:",
+    "@aws-sdk/client-opensearch": "catalog:",
+    "@aws-sdk/client-rds": "catalog:",
+    "@aws-sdk/client-resource-groups-tagging-api": "catalog:",
+    "@aws-sdk/client-route53resolver": "catalog:",
+    "@aws-sdk/client-sfn": "catalog:",
+    "@aws-sdk/client-sqs": "catalog:",
+    "@aws-sdk/credential-provider-node": "catalog:",
+    "@aws-sdk/util-arn-parser": "catalog:",
+    "@nr1e/logging": "catalog:",
+    "@smithy/util-retry": "4.4.3",
+    "aws-cdk-lib": "catalog:",
+    "aws4": "catalog:",
+    "js-yaml": "catalog:",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/aws-lambda": "catalog:",
+    "@types/aws4": "catalog:",
+    "@types/js-yaml": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
