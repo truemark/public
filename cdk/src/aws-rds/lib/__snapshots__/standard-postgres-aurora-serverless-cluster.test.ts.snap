@@ -627,7 +627,7 @@ exports[`Add proxy and grants through the IDatabaseCluster facade 1`] = `
             "Arn",
           ],
         },
-        "Runtime": "nodejs22.x",
+        "Runtime": "nodejs24.x",
         "Tags": [
           {
             "Key": "automation:id",
@@ -1362,7 +1362,7 @@ exports[`Create cluster with defaults 1`] = `
             "Arn",
           ],
         },
-        "Runtime": "nodejs22.x",
+        "Runtime": "nodejs24.x",
         "Tags": [
           {
             "Key": "automation:id",
@@ -2134,7 +2134,7 @@ exports[`Create cluster with explicit settings 1`] = `
             "Arn",
           ],
         },
-        "Runtime": "nodejs22.x",
+        "Runtime": "nodejs24.x",
         "Tags": [
           {
             "Key": "automation:id",
