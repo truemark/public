@@ -57,6 +57,9 @@
       "aws-s3": [
         "./dist/aws-s3/index.d.ts"
       ],
+      "aws-securitylake": [
+        "./dist/aws-securitylake/index.d.ts"
+      ],
       "aws-ses": [
         "./dist/aws-ses/index.d.ts"
       ],
@@ -208,6 +211,10 @@
     "./aws-s3": {
       "types": "./dist/aws-s3/index.d.ts",
       "default": "./dist/aws-s3/index.js"
+    },
+    "./aws-securitylake": {
+      "types": "./dist/aws-securitylake/index.d.ts",
+      "default": "./dist/aws-securitylake/index.js"
     },
     "./aws-ses": {
       "types": "./dist/aws-ses/index.d.ts",
