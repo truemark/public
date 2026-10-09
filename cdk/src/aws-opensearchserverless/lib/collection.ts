@@ -1,4 +1,4 @@
-import {Lazy, Names, RemovalPolicy, Stack, Token} from 'aws-cdk-lib';
+import {Lazy, Names, RemovalPolicy, Resource, Stack, Token} from 'aws-cdk-lib';
 import type {IInterfaceVpcEndpoint} from 'aws-cdk-lib/aws-ec2';
 import {AccountPrincipal, Grant, type IGrantable} from 'aws-cdk-lib/aws-iam';
 import type {IKey} from 'aws-cdk-lib/aws-kms';
@@ -8,7 +8,7 @@ import {
   CfnSecurityPolicy,
   type CfnVpcEndpoint,
 } from 'aws-cdk-lib/aws-opensearchserverless';
-import type {Construct} from 'constructs';
+import {Construct} from 'constructs';
 import {ExtendedConstruct, type ExtendedConstructProps} from '../../aws-cdk';
 import {
   CollectionGeneration,
@@ -298,9 +298,13 @@ export class Collection extends ExtendedConstruct {
     id: string,
     props: Omit<CollectionIndexProps, 'collection'>,
   ): CollectionIndex {
-    const index = new CollectionIndex(this, id, {collection: this, ...props});
+    return new CollectionIndex(this, id, {collection: this, ...props});
+  }
+
+  /** @internal Registers indexes for existing and deferred data policy dependencies. */
+  registerIndex(index: CollectionIndex): void {
     this.indexes.push(index);
-    return index;
+    if (this.accessPolicy) index.index.addDependency(this.accessPolicy);
   }
 
   /** Describe indexes and read documents, optionally restricted to an index prefix. */
@@ -333,9 +337,18 @@ export class Collection extends ExtendedConstruct {
     });
   }
 
-  /** Adds data policy permissions and collection-scoped IAM APIAccessAll to a role or user. */
+  /** Adds data policy permissions and collection-scoped IAM APIAccessAll. Owned principals must be in this stack to avoid circular dependencies. */
   grantDataAccess(grantee: IGrantable, access: CollectionDataAccess): Grant {
     const principal = grantee.grantPrincipal;
+    if (
+      Construct.isConstruct(principal) &&
+      Resource.isOwnedResource(principal) &&
+      Stack.of(principal) !== Stack.of(this)
+    ) {
+      throw new Error(
+        'Data access grants to roles or users owned by another stack would create circular stack dependencies. Create the principal in the collection stack or manage cross-stack policies separately.',
+      );
+    }
     const fragment = principal.policyFragment;
     const principals = fragment.principalJson.AWS;
     if (

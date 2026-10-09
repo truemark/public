@@ -702,3 +702,64 @@ test('unknown group metadata allows caller replica settings', () => {
     {StandbyReplicas: 'DISABLED'},
   );
 });
+
+test.each([
+  'role',
+  'user',
+])('rejects owned cross-stack %s grants before creating policies', (kind) => {
+  const app = new App();
+  const env = {account: '123456789012', region: 'us-west-2'};
+  const collections = new Stack(app, 'Collections', {env});
+  const principals = new Stack(app, 'Principals', {env});
+  const collection = new Collection(collections, 'Collection', {
+    name: 'documents',
+  });
+  const principal =
+    kind === 'role'
+      ? new Role(principals, 'Role', {
+          assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+        })
+      : new User(principals, 'User');
+  expect(() =>
+    collection.grantRead({grantPrincipal: principal.grantPrincipal}),
+  ).toThrow(/owned by another stack.*circular/);
+  expect(collection.dataAccessPolicy).toBeUndefined();
+  const assembly = app.synth();
+  Template.fromJSON(
+    assembly.getStackArtifact(collections.artifactId).template,
+  ).resourceCountIs('AWS::OpenSearchServerless::AccessPolicy', 0);
+  Template.fromJSON(
+    assembly.getStackArtifact(principals.artifactId).template,
+  ).resourceCountIs('AWS::IAM::Policy', 0);
+  expect(collections.dependencies).not.toContain(principals);
+  expect(principals.dependencies).not.toContain(collections);
+});
+
+test('allows cross-stack references to existing roles with literal ARNs', () => {
+  const app = new App();
+  const env = {account: '123456789012', region: 'us-west-2'};
+  const collections = new Stack(app, 'Collections', {env});
+  const principals = new Stack(app, 'Principals', {env});
+  const collection = new Collection(collections, 'Collection', {
+    name: 'documents',
+  });
+  const role = Role.fromRoleArn(
+    principals,
+    'ExistingRole',
+    'arn:aws:iam::123456789012:role/existing-reader',
+  );
+  collection.grantRead(role);
+  const assembly = app.synth();
+  Template.fromJSON(
+    assembly.getStackArtifact(collections.artifactId).template,
+  ).hasResourceProperties('AWS::OpenSearchServerless::AccessPolicy', {
+    Policy: Match.serializedJson([
+      {
+        Principal: ['arn:aws:iam::123456789012:role/existing-reader'],
+        Rules: Match.anyValue(),
+      },
+    ]),
+  });
+  expect(collections.dependencies).not.toContain(principals);
+  expect(principals.dependencies).toContain(collections);
+});

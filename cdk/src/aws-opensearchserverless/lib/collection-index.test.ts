@@ -93,3 +93,29 @@ test('addIndex serializes schema objects and orders grants added afterwards', ()
     expect.arrayContaining([stack.getLogicalId(collection.dataAccessPolicy!)]),
   );
 });
+
+test('direct indexes created before grants depend on the deferred data access policy', () => {
+  const stack = new Stack();
+  const collection = new Collection(stack, 'Collection', {name: 'documents'});
+  const first = new CollectionIndex(stack, 'Products', {
+    collection,
+    indexName: 'products',
+  });
+  const second = new CollectionIndex(stack, 'Orders', {
+    collection,
+    indexName: 'orders',
+  });
+  expect(collection.dataAccessPolicy).toBeUndefined();
+  collection.grantFullAccess(new User(stack, 'User'));
+  const template = Template.fromStack(stack);
+  for (const index of [first, second]) {
+    expect(
+      template.toJSON().Resources[stack.getLogicalId(index.index)].DependsOn,
+    ).toEqual(
+      expect.arrayContaining([
+        stack.getLogicalId(collection.collection),
+        stack.getLogicalId(collection.dataAccessPolicy!),
+      ]),
+    );
+  }
+});

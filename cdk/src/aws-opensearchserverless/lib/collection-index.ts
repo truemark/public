@@ -59,9 +59,7 @@ export class CollectionIndex extends ExtendedConstruct {
           : Stack.of(this).toJsonString(props.indexSchema),
     });
     this.index.addDependency(props.collection.collection);
-    if (props.collection.dataAccessPolicy) {
-      this.index.addDependency(props.collection.dataAccessPolicy);
-    }
     this.index.applyRemovalPolicy(props.removalPolicy ?? RemovalPolicy.RETAIN);
+    props.collection.registerIndex(this);
   }
 }
