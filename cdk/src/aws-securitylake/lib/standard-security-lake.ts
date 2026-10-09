@@ -1,4 +1,4 @@
-import {Stack} from 'aws-cdk-lib';
+import {RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {
   CfnServiceLinkedRole,
   ManagedPolicy,
@@ -265,6 +265,13 @@ export class StandardSecurityLake extends ExtendedConstruct {
           description:
             'Service-linked role used by AWS Lake Formation to access registered S3 locations. Required by Amazon Security Lake.',
         },
+      );
+      // The Lake Formation SLR is an account singleton that is frequently
+      // shared with other stacks and consoles. Retain it on
+      // stack-delete/opt-out so toggling this flag off (or removing this
+      // construct) does not strip Lake Formation access account-wide.
+      this.lakeFormationServiceLinkedRole.applyRemovalPolicy(
+        RemovalPolicy.RETAIN,
       );
     }
 

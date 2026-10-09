@@ -52,6 +52,11 @@ cdk deploy -c createLakeFormationSlr=true
 > the account; otherwise the stack will fail with
 > `AWSServiceRoleForLakeFormationDataAccess has been taken in this account`.
 
+> The SLR is created with a `Retain` deletion/update-replace policy, so
+> dropping the `-c createLakeFormationSlr=true` flag on a subsequent deploy
+> safely orphans the CloudFormation resource rather than deleting the
+> account-singleton role.
+
 Some log sources (for example `CLOUD_TRAIL_MGMT`, `ROUTE53`, `S3_DATA`,
 `LAMBDA_EXECUTION`) also require that the corresponding AWS service is already
 emitting events (for example, a CloudTrail trail is enabled) in the accounts

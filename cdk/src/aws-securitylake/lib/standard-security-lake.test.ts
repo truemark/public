@@ -99,6 +99,12 @@ test('Test StandardSecurityLake creates Lake Formation SLR when opted in', () =>
   template.hasResourceProperties('AWS::IAM::ServiceLinkedRole', {
     AWSServiceName: 'lakeformation.amazonaws.com',
   });
+  // The SLR is an account singleton; retain on stack-delete / opt-out so
+  // toggling the flag off does not strip Lake Formation access.
+  template.hasResource('AWS::IAM::ServiceLinkedRole', {
+    DeletionPolicy: 'Retain',
+    UpdateReplacePolicy: 'Retain',
+  });
   template.hasResource('AWS::SecurityLake::DataLake', {
     DependsOn: Match.arrayWith([
       Match.stringLikeRegexp('.*LakeFormationServiceLinkedRole.*'),
