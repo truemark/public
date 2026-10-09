@@ -229,6 +229,17 @@ export class StandardSecurityLake extends ExtendedConstruct {
     let metaStoreManagerRoleArn = props?.metaStoreManagerRoleArn;
     if (!metaStoreManagerRoleArn) {
       this.metaStoreManagerRole = new Role(this, 'MetaStoreManagerRole', {
+        // The partition-updater Lambda functions created by Security Lake are
+        // hard-coded to assume a role named
+        // `AmazonSecurityLakeMetaStoreManagerV2` under the `/service-role/`
+        // path and do not honor an arbitrary role ARN. Without a matching
+        // role name, CFN deployment and `CreateDataLake` succeed but the
+        // partition updater silently fails and subscribers cannot query
+        // replicated objects. The role name is account-global; for
+        // multi-Region deploys in the same account pass
+        // `metaStoreManagerRoleArn` for all but one Region.
+        path: '/service-role/',
+        roleName: 'AmazonSecurityLakeMetaStoreManagerV2',
         assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
         description:
           'Role used by Amazon Security Lake metastore manager Lambda to manage the AWS Glue metastore.',
@@ -306,8 +317,8 @@ export class StandardSecurityLake extends ExtendedConstruct {
                     's3:GetObjectLegalHold',
                   ],
                   resources: [
-                    `arn:aws:s3:::aws-security-data-lake-${sourceRegion}*`,
-                    `arn:aws:s3:::aws-security-data-lake-${sourceRegion}*/*`,
+                    `arn:${Stack.of(this).partition}:s3:::aws-security-data-lake-${sourceRegion}*`,
+                    `arn:${Stack.of(this).partition}:s3:::aws-security-data-lake-${sourceRegion}*/*`,
                   ],
                   conditions: {
                     StringEquals: {'s3:ResourceAccount': [account]},
@@ -322,7 +333,7 @@ export class StandardSecurityLake extends ExtendedConstruct {
                     's3:GetObjectVersionTagging',
                   ],
                   resources: destinationRegions.flatMap((r) => [
-                    `arn:aws:s3:::aws-security-data-lake-${r}*/*`,
+                    `arn:${Stack.of(this).partition}:s3:::aws-security-data-lake-${r}*/*`,
                   ]),
                   conditions: {
                     StringEquals: {'s3:ResourceAccount': [account]},
@@ -362,7 +373,7 @@ export class StandardSecurityLake extends ExtendedConstruct {
           dataLakeArn: this.dataLake.attrArn,
           sourceName: source.sourceName,
           sourceVersion: source.sourceVersion ?? '2.0',
-          accounts: source.accounts,
+          accounts: source.accounts ?? [Stack.of(this).account],
         },
       );
       logSource.addDependency(this.dataLake);

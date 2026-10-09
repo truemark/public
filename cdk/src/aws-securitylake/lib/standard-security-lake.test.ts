@@ -10,6 +10,12 @@ test('Test StandardSecurityLake default', () => {
   template.resourceCountIs('AWS::SecurityLake::DataLake', 1);
   template.resourceCountIs('AWS::IAM::Role', 1);
   template.resourceCountIs('AWS::SecurityLake::AwsLogSource', 0);
+  // Security Lake's partition-updater Lambda is hard-coded to assume a role
+  // named `AmazonSecurityLakeMetaStoreManagerV2` under `/service-role/`.
+  template.hasResourceProperties('AWS::IAM::Role', {
+    RoleName: 'AmazonSecurityLakeMetaStoreManagerV2',
+    Path: '/service-role/',
+  });
 });
 
 test('Test StandardSecurityLake with log sources, lifecycle, and replication', () => {
@@ -48,6 +54,38 @@ test('Test StandardSecurityLake with log sources, lifecycle, and replication', (
   template.hasResourceProperties('AWS::IAM::Role', {
     RoleName: 'SecurityLakeS3ReplicationRole-us-east-2',
     Path: '/service-role/',
+  });
+  // Log sources default `accounts` to the data-lake owner account because
+  // the CFN `AWS::SecurityLake::AwsLogSource` resource requires `Accounts`.
+  template.hasResourceProperties('AWS::SecurityLake::AwsLogSource', {
+    SourceName: 'CLOUD_TRAIL_MGMT',
+    Accounts: [Match.anyValue()],
+  });
+  // Replication policy must use the stack partition so `aws-cn`/`aws-us-gov`
+  // deployments reference the correct ARN namespace.
+  template.hasResourceProperties('AWS::IAM::Role', {
+    RoleName: 'SecurityLakeS3ReplicationRole-us-east-2',
+    Policies: Match.arrayWith([
+      Match.objectLike({
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Sid: 'AllowS3Replication',
+              Resource: {
+                'Fn::Join': [
+                  '',
+                  [
+                    'arn:',
+                    {Ref: 'AWS::Partition'},
+                    ':s3:::aws-security-data-lake-us-west-2*/*',
+                  ],
+                ],
+              },
+            }),
+          ]),
+        }),
+      }),
+    ]),
   });
 });
 
