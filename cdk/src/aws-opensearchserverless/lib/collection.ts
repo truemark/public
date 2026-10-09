@@ -138,6 +138,12 @@ export class Collection extends ExtendedConstruct {
       );
     }
     this.type = props.type ?? CollectionType.SEARCH;
+    if (
+      group?.generation === CollectionGeneration.NEXTGEN &&
+      this.type === CollectionType.TIMESERIES
+    ) {
+      throw new Error('NextGen collection groups do not support TIMESERIES collections.');
+    }
     if (props.vectorOptions && this.type !== CollectionType.VECTORSEARCH) {
       throw new Error('Vector options require a VECTORSEARCH collection.');
     }
