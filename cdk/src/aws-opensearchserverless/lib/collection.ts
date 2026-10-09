@@ -127,7 +127,7 @@ export class Collection extends ExtendedConstruct {
     super(scope, id, props);
     const group = props.collectionGroup;
     const maxNameLength =
-      !group || group.generation === CollectionGeneration.CLASSIC ? 32 : 64;
+      group?.generation === CollectionGeneration.NEXTGEN ? 64 : 32;
     if (
       !Token.isUnresolved(props.name) &&
       (!/^[a-z][a-z0-9-]{2,}$/.test(props.name) ||

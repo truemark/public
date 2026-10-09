@@ -685,6 +685,33 @@ test('name-only references do not invent metadata or replica settings', () => {
   });
 });
 
+test.each([
+  [undefined, 32],
+  [CollectionGeneration.CLASSIC, 32],
+  [CollectionGeneration.NEXTGEN, 64],
+] as const)('imported group with generation %s limits collection names to %i characters', (generation, maxLength) => {
+  const stack = new Stack();
+  const group = CollectionGroup.fromGroupName(
+    stack,
+    'Reference',
+    'existing-group',
+    {generation},
+  );
+  const name = 'a'.repeat(maxLength);
+  new Collection(stack, 'Valid', {name, collectionGroup: group});
+  inspectTemplate(stack).hasResourceProperties(
+    'AWS::OpenSearchServerless::Collection',
+    {Name: name},
+  );
+  expect(
+    () =>
+      new Collection(stack, 'TooLong', {
+        name: 'a'.repeat(maxLength + 1),
+        collectionGroup: group,
+      }),
+  ).toThrow(/Collection name/);
+});
+
 test('unknown group metadata allows caller replica settings', () => {
   const stack = new Stack();
   const group = CollectionGroup.fromGroupName(
