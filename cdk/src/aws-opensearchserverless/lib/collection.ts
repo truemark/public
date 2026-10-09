@@ -125,15 +125,18 @@ export class Collection extends ExtendedConstruct {
 
   constructor(scope: Construct, id: string, props: CollectionProps) {
     super(scope, id, props);
+    const group = props.collectionGroup;
+    const maxNameLength =
+      !group || group.generation === CollectionGeneration.CLASSIC ? 32 : 64;
     if (
       !Token.isUnresolved(props.name) &&
-      !/^[a-z][a-z0-9-]{2,63}$/.test(props.name)
+      (!/^[a-z][a-z0-9-]{2,}$/.test(props.name) ||
+        props.name.length > maxNameLength)
     ) {
       throw new Error(
-        'Collection name must start with a lowercase letter and contain 3–64 lowercase letters, digits or hyphens.',
+        `Collection name must start with a lowercase letter and contain 3–${maxNameLength} lowercase letters, digits or hyphens.`,
       );
     }
-    const group = props.collectionGroup;
     this.type = props.type ?? CollectionType.SEARCH;
     if (props.vectorOptions && this.type !== CollectionType.VECTORSEARCH) {
       throw new Error('Vector options require a VECTORSEARCH collection.');
