@@ -209,13 +209,25 @@ export class Collection extends ExtendedConstruct {
     if (props.networkAccess) {
       const network = props.networkAccess;
       const publicAccess = network.allowFromPublic ?? false;
-      const endpoints = (network.sourceVpcEndpoints ?? []).map((endpoint) =>
-        typeof endpoint === 'string'
-          ? endpoint
-          : 'vpcEndpointId' in endpoint
-            ? endpoint.vpcEndpointId
-            : endpoint.ref,
-      );
+      const generation = group?.generation ??
+        (group ? undefined : CollectionGeneration.CLASSIC);
+      const endpoints = (network.sourceVpcEndpoints ?? []).map((endpoint) => {
+        if (typeof endpoint === 'string') return endpoint;
+        const isInterfaceEndpoint = 'vpcEndpointId' in endpoint;
+        if (
+          generation === CollectionGeneration.NEXTGEN &&
+          !isInterfaceEndpoint
+        ) {
+          throw new Error('NextGen collections require standard interface VPC endpoints.');
+        }
+        if (
+          generation === CollectionGeneration.CLASSIC &&
+          isInterfaceEndpoint
+        ) {
+          throw new Error('Classic collections require managed AOSS VPC endpoints.');
+        }
+        return isInterfaceEndpoint ? endpoint.vpcEndpointId : endpoint.ref;
+      });
       const services = network.sourceServices ?? [];
       if (publicAccess && (endpoints.length || services.length)) {
         throw new Error(
