@@ -142,7 +142,9 @@ export class Collection extends ExtendedConstruct {
       group?.generation === CollectionGeneration.NEXTGEN &&
       this.type === CollectionType.TIMESERIES
     ) {
-      throw new Error('NextGen collection groups do not support TIMESERIES collections.');
+      throw new Error(
+        'NextGen collection groups do not support TIMESERIES collections.',
+      );
     }
     if (props.vectorOptions && this.type !== CollectionType.VECTORSEARCH) {
       throw new Error('Vector options require a VECTORSEARCH collection.');
@@ -209,8 +211,8 @@ export class Collection extends ExtendedConstruct {
     if (props.networkAccess) {
       const network = props.networkAccess;
       const publicAccess = network.allowFromPublic ?? false;
-      const generation = group?.generation ??
-        (group ? undefined : CollectionGeneration.CLASSIC);
+      const generation =
+        group?.generation ?? (group ? undefined : CollectionGeneration.CLASSIC);
       const endpoints = (network.sourceVpcEndpoints ?? []).map((endpoint) => {
         if (typeof endpoint === 'string') return endpoint;
         const isInterfaceEndpoint = 'vpcEndpointId' in endpoint;
@@ -218,13 +220,17 @@ export class Collection extends ExtendedConstruct {
           generation === CollectionGeneration.NEXTGEN &&
           !isInterfaceEndpoint
         ) {
-          throw new Error('NextGen collections require standard interface VPC endpoints.');
+          throw new Error(
+            'NextGen collections require standard interface VPC endpoints.',
+          );
         }
         if (
           generation === CollectionGeneration.CLASSIC &&
           isInterfaceEndpoint
         ) {
-          throw new Error('Classic collections require managed AOSS VPC endpoints.');
+          throw new Error(
+            'Classic collections require managed AOSS VPC endpoints.',
+          );
         }
         return isInterfaceEndpoint ? endpoint.vpcEndpointId : endpoint.ref;
       });
