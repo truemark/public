@@ -57,10 +57,35 @@ cdk deploy -c createLakeFormationSlr=true
 > safely orphans the CloudFormation resource rather than deleting the
 > account-singleton role.
 
-Some log sources (for example `CLOUD_TRAIL_MGMT`, `ROUTE53`, `S3_DATA`,
-`LAMBDA_EXECUTION`) also require that the corresponding AWS service is already
-emitting events (for example, a CloudTrail trail is enabled) in the accounts
-listed on each source.
+### Log source prerequisites
+
+Per the [AWS Security Lake user guide][internal-sources], Security Lake pulls
+from the AWS services directly through an **independent, duplicated event
+stream** — you do **not** need to separately enable VPC Flow Logs, Route 53
+Resolver query logging, EKS control-plane logs, WAFv2 logging, or Security
+Hub finding delivery for Security Lake to receive them. The one exception is
+CloudTrail management events, which Security Lake does not emit on your
+behalf.
+
+| Source | Needs separate configuration? |
+| --- | --- |
+| `CLOUD_TRAIL_MGMT` | **Yes.** Requires at least one CloudTrail multi-Region trail capturing read + write management events; without it the source stays empty. |
+| `LAMBDA_EXECUTION` / `S3_DATA` | No. Security Lake streams Lambda and S3 **data events** independently of any CloudTrail trail. |
+| `ROUTE53` | No. Pulled directly from Route 53 Resolver. |
+| `VPC_FLOW` | No. Pulled directly from the VPC service. |
+| `SH_FINDINGS` | No for ingestion — but you must still have Security Hub enabled in the Region and have at least one provider (standards, GuardDuty, Inspector, Macie, etc.) producing findings, otherwise there is nothing to collect. |
+| `EKS_AUDIT` | No. Pulled directly from the EKS control plane. |
+| `WAF` | No. Pulled directly from WAFv2. |
+
+If you don't need CloudTrail management events, remove
+`AwsLogSourceName.CLOUD_TRAIL_MGMT` from the `logSources` array in
+`src/autosoc-stack.ts` to avoid an unused source entry.
+
+The IAM principal running `cdk deploy` additionally needs the Glue, IAM, and
+S3 permissions documented in [Verify permissions][internal-sources] to add
+sources to the data lake.
+
+[internal-sources]: https://docs.aws.amazon.com/security-lake/latest/userguide/internal-sources.html
 
 ## How to Deploy
 
