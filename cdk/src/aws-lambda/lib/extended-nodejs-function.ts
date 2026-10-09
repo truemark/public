@@ -108,6 +108,9 @@ export class ExtendedNodejsFunction extends NodejsFunction {
       architecture,
       memorySize: 768, // change default from 128
       timeout: Duration.seconds(30), // change default from 3
+      // Stays on Node 22 until the ADOT Node.js layer pinned below supports
+      // nodejs24.x, which also removed callback-based handlers. Consumers that
+      // are ready can opt in with `runtime: Runtime.NODEJS_24_X`.
       runtime: Runtime.NODEJS_22_X,
       depsLockFilePath: ExtendedNodejsFunction.findDepsLockFile(props.entry),
       ...props,
