@@ -1,4 +1,9 @@
-import {ManagedPolicy, Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
+import {
+  CfnServiceLinkedRole,
+  ManagedPolicy,
+  Role,
+  ServicePrincipal,
+} from 'aws-cdk-lib/aws-iam';
 import {CfnAwsLogSource, CfnDataLake} from 'aws-cdk-lib/aws-securitylake';
 import type {Construct} from 'constructs';
 import {
@@ -144,6 +149,22 @@ export interface StandardSecurityLakeProps extends ExtendedConstructProps {
    * @default - no log sources are enabled
    */
   readonly logSources?: AwsLogSourceProps[];
+
+  /**
+   * Whether to create the `AWSServiceRoleForLakeFormationDataAccess`
+   * service-linked role. Security Lake requires this role to exist in the
+   * account before a data lake can be created; however the role is a
+   * singleton per account and is frequently auto-created on first use of
+   * Lake Formation. Enable this only when you know the role does not yet
+   * exist in the account, otherwise stack creation will fail with
+   * `has been taken in this account`.
+   *
+   * The data lake will `DependsOn` this role when it is created so ordering
+   * is handled automatically.
+   *
+   * @default false
+   */
+  readonly createLakeFormationServiceLinkedRole?: boolean;
 }
 
 /**
@@ -173,6 +194,12 @@ export class StandardSecurityLake extends ExtendedConstruct {
   readonly replicationRole?: Role;
 
   /**
+   * The Lake Formation `AWSServiceRoleForLakeFormationDataAccess`
+   * service-linked role, when it was provisioned by this construct.
+   */
+  readonly lakeFormationServiceLinkedRole?: CfnServiceLinkedRole;
+
+  /**
    * The `CfnAwsLogSource` resources created by this construct, in the order
    * they were declared.
    */
@@ -180,6 +207,20 @@ export class StandardSecurityLake extends ExtendedConstruct {
 
   constructor(scope: Construct, id: string, props?: StandardSecurityLakeProps) {
     super(scope, id, props);
+
+    // Optional Lake Formation service-linked role. Security Lake requires
+    // this SLR to exist in the account before a data lake can be created.
+    if (props?.createLakeFormationServiceLinkedRole) {
+      this.lakeFormationServiceLinkedRole = new CfnServiceLinkedRole(
+        this,
+        'LakeFormationServiceLinkedRole',
+        {
+          awsServiceName: 'lakeformation.amazonaws.com',
+          description:
+            'Service-linked role used by AWS Lake Formation to access registered S3 locations. Required by Amazon Security Lake.',
+        },
+      );
+    }
 
     // Metastore manager role.
     let metaStoreManagerRoleArn = props?.metaStoreManagerRoleArn;
@@ -251,6 +292,9 @@ export class StandardSecurityLake extends ExtendedConstruct {
       lifecycleConfiguration,
       replicationConfiguration,
     });
+    if (this.lakeFormationServiceLinkedRole) {
+      this.dataLake.addDependency(this.lakeFormationServiceLinkedRole);
+    }
 
     // Create AWS log sources sequentially using DependsOn, as required by
     // Security Lake when more than one source is created in the same

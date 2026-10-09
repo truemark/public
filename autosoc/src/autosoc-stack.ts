@@ -14,7 +14,11 @@ export class AutoSocStack extends ExtendedStack {
       'URL',
       'https://github.com/truemark/public/tree/main/autosoc',
     );
+    const createLakeFormationSlr =
+      this.node.tryGetContext('createLakeFormationSlr') === true ||
+      this.node.tryGetContext('createLakeFormationSlr') === 'true';
     new StandardSecurityLake(this, 'SecurityLake', {
+      createLakeFormationServiceLinkedRole: createLakeFormationSlr,
       logSources: [
         {sourceName: AwsLogSourceName.CLOUD_TRAIL_MGMT},
         {sourceName: AwsLogSourceName.LAMBDA_EXECUTION},

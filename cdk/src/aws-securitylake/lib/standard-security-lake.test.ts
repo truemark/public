@@ -43,3 +43,20 @@ test('Test StandardSecurityLake with log sources, lifecycle, and replication', (
     ReplicationConfiguration: Match.objectLike({Regions: ['us-west-2']}),
   });
 });
+
+test('Test StandardSecurityLake creates Lake Formation SLR when opted in', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    createLakeFormationServiceLinkedRole: true,
+  });
+  const template = Template.fromStack(stack);
+  template.resourceCountIs('AWS::IAM::ServiceLinkedRole', 1);
+  template.hasResourceProperties('AWS::IAM::ServiceLinkedRole', {
+    AWSServiceName: 'lakeformation.amazonaws.com',
+  });
+  template.hasResource('AWS::SecurityLake::DataLake', {
+    DependsOn: Match.arrayWith([
+      Match.stringLikeRegexp('.*LakeFormationServiceLinkedRole.*'),
+    ]),
+  });
+});
