@@ -1,5 +1,5 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
-import {test} from 'vitest';
+import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {AwsLogSourceName, StandardSecurityLake} from './standard-security-lake';
 
@@ -104,4 +104,77 @@ test('Test StandardSecurityLake creates Lake Formation SLR when opted in', () =>
       Match.stringLikeRegexp('.*LakeFormationServiceLinkedRole.*'),
     ]),
   });
+});
+
+test('Test StandardSecurityLake throws when CMK + replication without KMS ARNs', () => {
+  const stack = HelperTest.stack();
+  expect(
+    () =>
+      new StandardSecurityLake(stack, 'TestSecurityLake', {
+        kmsKeyId:
+          'arn:aws:kms:us-east-2:111111111111:key/00000000-0000-0000-0000-000000000000',
+        replication: {regions: ['us-west-2']},
+      }),
+  ).toThrow(/replication with a customer-managed `kmsKeyId`/);
+});
+
+test('Test StandardSecurityLake adds KMS statements when CMK + replication', () => {
+  const stack = HelperTest.stack();
+  const sourceKmsKeyArn =
+    'arn:aws:kms:us-east-2:111111111111:key/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const destKmsKeyArn =
+    'arn:aws:kms:us-west-2:111111111111:key/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    kmsKeyId:
+      'arn:aws:kms:us-east-2:111111111111:key/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    replication: {
+      regions: ['us-west-2'],
+      sourceKmsKeyArn,
+      destinationKmsKeyArns: [destKmsKeyArn],
+    },
+  });
+  const template = Template.fromStack(stack);
+  template.hasResourceProperties('AWS::IAM::Role', {
+    RoleName: 'SecurityLakeS3ReplicationRole-us-east-2',
+    Policies: Match.arrayWith([
+      Match.objectLike({
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Sid: 'AllowDecryptSourceKmsKey',
+              Action: 'kms:Decrypt',
+              Resource: sourceKmsKeyArn,
+            }),
+            Match.objectLike({
+              Sid: 'AllowEncryptDestinationKmsKeys',
+              Action: ['kms:Encrypt', 'kms:GenerateDataKey'],
+              Resource: destKmsKeyArn,
+            }),
+          ]),
+        }),
+      }),
+    ]),
+  });
+});
+
+test('Test StandardSecurityLake omits KMS statements when SSE-S3 + replication', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    kmsKeyId: 'S3_MANAGED_KEY',
+    replication: {regions: ['us-west-2']},
+  });
+  const template = Template.fromStack(stack);
+  const roles = template.findResources('AWS::IAM::Role', {
+    Properties: {RoleName: 'SecurityLakeS3ReplicationRole-us-east-2'},
+  });
+  const [role] = Object.values(roles);
+  const statements = (
+    role.Properties.Policies as {PolicyDocument: {Statement: {Sid: string}[]}}[]
+  )[0].PolicyDocument.Statement;
+  expect(statements.map((s) => s.Sid)).not.toContain(
+    'AllowDecryptSourceKmsKey',
+  );
+  expect(statements.map((s) => s.Sid)).not.toContain(
+    'AllowEncryptDestinationKmsKeys',
+  );
 });

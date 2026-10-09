@@ -107,6 +107,33 @@ export interface SecurityLakeReplicationProps {
    * @default - a new role is created
    */
   readonly roleArn?: string;
+
+  /**
+   * The ARN of the customer-managed KMS key encrypting the source
+   * (originating-Region) Security Lake bucket. Required when the enclosing
+   * `StandardSecurityLake` is configured with a customer-managed KMS key via
+   * `kmsKeyId` and this construct creates the replication role (i.e. when
+   * `roleArn` is not provided); S3 needs `kms:Decrypt` on this key to read
+   * objects before replicating them. Not required when `kmsKeyId` is unset
+   * or set to `S3_MANAGED_KEY`.
+   *
+   * @default - no KMS decrypt statement is added (sufficient when the data
+   *   lake uses S3-managed or AWS-managed encryption)
+   */
+  readonly sourceKmsKeyArn?: string;
+
+  /**
+   * The ARNs of the customer-managed KMS keys encrypting the destination
+   * (rollup-Region) Security Lake buckets. Required when the enclosing
+   * `StandardSecurityLake` is configured with a customer-managed KMS key via
+   * `kmsKeyId` and this construct creates the replication role; S3 needs
+   * `kms:Encrypt` / `kms:GenerateDataKey` on these keys to write replicated
+   * objects. Not required when `kmsKeyId` is unset or set to
+   * `S3_MANAGED_KEY`.
+   *
+   * @default - no KMS encrypt statement is added
+   */
+  readonly destinationKmsKeyArns?: string[];
 }
 
 /**
@@ -285,6 +312,52 @@ export class StandardSecurityLake extends ExtendedConstruct {
         const account = Stack.of(this).account;
         const sourceRegion = Stack.of(this).region;
         const destinationRegions = props.replication.regions;
+
+        // When the data lake is encrypted with a customer-managed KMS key
+        // (anything other than Security Lake defaults or SSE-S3), the
+        // replication role must also be allowed to Decrypt the source key
+        // and Encrypt/GenerateDataKey against each destination key. The key
+        // ARNs are not derivable at synth time, so require the caller to
+        // supply them explicitly or pre-provision their own replication
+        // role via `replication.roleArn`.
+        const usesCustomerManagedKey =
+          props.kmsKeyId !== undefined && props.kmsKeyId !== 'S3_MANAGED_KEY';
+        if (
+          usesCustomerManagedKey &&
+          (!props.replication.sourceKmsKeyArn ||
+            !props.replication.destinationKmsKeyArns ||
+            props.replication.destinationKmsKeyArns.length === 0)
+        ) {
+          throw new Error(
+            'StandardSecurityLake: replication with a customer-managed `kmsKeyId` ' +
+              'requires both `replication.sourceKmsKeyArn` and ' +
+              '`replication.destinationKmsKeyArns` so the generated replication ' +
+              'role can be granted the necessary KMS permissions. Alternatively, ' +
+              'pre-provision the replication role yourself and pass its ARN via ' +
+              '`replication.roleArn`.',
+          );
+        }
+
+        const kmsStatements: PolicyStatement[] = [];
+        if (
+          usesCustomerManagedKey &&
+          props.replication.sourceKmsKeyArn &&
+          props.replication.destinationKmsKeyArns
+        ) {
+          kmsStatements.push(
+            new PolicyStatement({
+              sid: 'AllowDecryptSourceKmsKey',
+              actions: ['kms:Decrypt'],
+              resources: [props.replication.sourceKmsKeyArn],
+            }),
+            new PolicyStatement({
+              sid: 'AllowEncryptDestinationKmsKeys',
+              actions: ['kms:Encrypt', 'kms:GenerateDataKey'],
+              resources: props.replication.destinationKmsKeyArns,
+            }),
+          );
+        }
+
         this.replicationRole = new Role(this, 'ReplicationRole', {
           // Security Lake requires the replication role to live under the
           // service-role/ path and start with `SecurityLake`. IAM role names
@@ -339,6 +412,7 @@ export class StandardSecurityLake extends ExtendedConstruct {
                     StringEquals: {'s3:ResourceAccount': [account]},
                   },
                 }),
+                ...kmsStatements,
               ],
             }),
           },
