@@ -16,7 +16,7 @@ Add NAT instance and IPv6 support to `aws-vpc` (#483).
   configures the VPC for dual-stack (`ec2.IpProtocol.DUAL_STACK`). IPv6-only mode is not yet
   supported.
 - **BREAKING (default change): `StandardNetwork`'s `azCount` default moves from 2 to 3**, to
-  align with AWS high-availability guidance. `StandardNetwork` shipped in 1.28.0, so existing
+  align with AWS high-availability guidance. `StandardNetwork` shipped in 1.24.0, so existing
   consumers who do not set `azCount` explicitly will see a third set of subnets and per-AZ
   resources (NAT gateways, route tables) created on the next deploy. Pin `azCount: 2` to keep
   the previous topology.

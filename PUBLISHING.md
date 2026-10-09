@@ -6,6 +6,7 @@ edited by hand — you describe your change in a changeset file, and CI does the
 merges to `main`.
 
 If you only read one thing: **every PR that touches a package needs a changeset, or CI fails.**
+(Dependabot PRs are the exception — the changeset steps skip them entirely.)
 
 - [What gets published](#what-gets-published)
 - [The short version](#the-short-version)
@@ -141,8 +142,10 @@ job failing while 20 and 22 pass.
 
 1. Install, then `changesets version --snapshot snapshot`. This rewrites versions to
    `0.0.0-snapshot-<timestamp>`.
-2. Build and test, scoped to the packages affected by the diff against the base branch plus their
-   dependents.
+2. Build, then test — both scoped to the packages affected by the diff against the base branch,
+   but with different filters. The build uses `...[origin/<base>]...`, which covers the changed
+   packages, their dependents, **and** their dependencies. The test filter drops the trailing
+   `...`, so it runs the changed packages and their dependents only.
 3. `changesets publish --tag snapshot --no-git-tag` — publishes a throwaway prerelease under the
    `snapshot` dist-tag so the PR's build can be installed and tried out.
 
@@ -201,9 +204,10 @@ Check for `"private": true` in its `package.json`. `autobackup` and `aws-workspa
 by design and will version but never publish.
 
 **The release came out at the wrong level.**
-`changesets version` takes the highest bump across all queued changesets. If an unrelated
-changeset sitting in `.changeset/` asked for `minor`, your `patch` rides along with it.
-`pnpm exec changeset status` before merging shows exactly what is queued.
+`changesets version` takes the highest bump requested **per package**. Another queued changeset
+can promote your `patch` to a `minor` only if it names the same package — a `minor` against a
+different workspace package has no effect on yours. `pnpm exec changeset status` before merging
+shows exactly what is queued, and for which package.
 
 **I need to change a changeset after pushing.**
 Edit the file and push again. Nothing is consumed until the merge to `main`, so changesets are
