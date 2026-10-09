@@ -1,7 +1,7 @@
 {
   "app": "npx tsx src/cdk.ts",
   "watch": {
-    "include": ["../handlers/src/**"],
+    "include": ["src/**"],
     "exclude": [
       "notes.txt",
       "node_modules",

@@ -8,8 +8,10 @@ from `truemark-cdk-lib`.
 
 - An Amazon Security Lake `CfnDataLake` in the target Region.
 - A `MetaStoreManagerRole` IAM role (service principal
-  `securitylake.amazonaws.com`) with the AWS managed policy
-  `AmazonSecurityLakeMetastoreManager` attached.
+  `lambda.amazonaws.com`) with the AWS managed policy
+  `service-role/AmazonSecurityLakeMetastoreManager` attached. This role is
+  assumed by the Security Lake metastore manager Lambda to manage the AWS Glue
+  metastore.
 - `CfnAwsLogSource` entries for each of the following AWS log sources,
   created sequentially via `DependsOn` as required by Security Lake:
   - `CLOUD_TRAIL_MGMT`

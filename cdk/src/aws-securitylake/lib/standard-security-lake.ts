@@ -1,6 +1,9 @@
+import {Stack} from 'aws-cdk-lib';
 import {
   CfnServiceLinkedRole,
   ManagedPolicy,
+  PolicyDocument,
+  PolicyStatement,
   Role,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
@@ -268,15 +271,63 @@ export class StandardSecurityLake extends ExtendedConstruct {
     if (props?.replication) {
       let replicationRoleArn = props.replication.roleArn;
       if (!replicationRoleArn) {
+        const account = Stack.of(this).account;
+        const sourceRegion = Stack.of(this).region;
+        const destinationRegions = props.replication.regions;
         this.replicationRole = new Role(this, 'ReplicationRole', {
-          assumedBy: new ServicePrincipal('securitylake.amazonaws.com'),
+          // Security Lake requires the replication role to live under the
+          // service-role/ path and start with `SecurityLake`.
+          path: '/service-role/',
+          roleName: 'SecurityLakeS3ReplicationRole',
+          // Amazon S3 performs the cross-Region replication, so it (not the
+          // Security Lake service) must be allowed to assume this role.
+          assumedBy: new ServicePrincipal('s3.amazonaws.com'),
           description:
-            'Role used by Amazon Security Lake to replicate objects across Regions.',
-          managedPolicies: [
-            ManagedPolicy.fromAwsManagedPolicyName(
-              'AmazonSecurityLakeS3ReplicationRolePolicy',
-            ),
-          ],
+            'Role used by Amazon S3 to replicate Amazon Security Lake objects across Regions.',
+          // No AWS managed policy exists for this role; attach the inline
+          // policy documented by Security Lake.
+          // https://docs.aws.amazon.com/security-lake/latest/userguide/add-rollup-region.html
+          inlinePolicies: {
+            AmazonSecurityLakeS3ReplicationRolePolicy: new PolicyDocument({
+              statements: [
+                new PolicyStatement({
+                  sid: 'AllowReadS3ReplicationSetting',
+                  actions: [
+                    's3:ListBucket',
+                    's3:GetReplicationConfiguration',
+                    's3:GetObjectVersionForReplication',
+                    's3:GetObjectVersion',
+                    's3:GetObjectVersionAcl',
+                    's3:GetObjectVersionTagging',
+                    's3:GetObjectRetention',
+                    's3:GetObjectLegalHold',
+                  ],
+                  resources: [
+                    `arn:aws:s3:::aws-security-data-lake-${sourceRegion}*`,
+                    `arn:aws:s3:::aws-security-data-lake-${sourceRegion}*/*`,
+                  ],
+                  conditions: {
+                    StringEquals: {'s3:ResourceAccount': [account]},
+                  },
+                }),
+                new PolicyStatement({
+                  sid: 'AllowS3Replication',
+                  actions: [
+                    's3:ReplicateObject',
+                    's3:ReplicateDelete',
+                    's3:ReplicateTags',
+                    's3:GetObjectVersionTagging',
+                  ],
+                  resources: destinationRegions.flatMap((r) => [
+                    `arn:aws:s3:::aws-security-data-lake-${r}*/*`,
+                  ]),
+                  conditions: {
+                    StringEquals: {'s3:ResourceAccount': [account]},
+                  },
+                }),
+              ],
+            }),
+          },
         });
         replicationRoleArn = this.replicationRole.roleArn;
       }
