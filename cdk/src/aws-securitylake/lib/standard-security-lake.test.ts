@@ -156,7 +156,7 @@ test('Test StandardSecurityLake grants metastore role KMS access on CMK', () => 
   });
 });
 
-test('Test StandardSecurityLake throws when CMK + replication without KMS ARNs', () => {
+test('Test StandardSecurityLake throws when CMK + replication without sourceKmsKeyArn', () => {
   const stack = HelperTest.stack();
   expect(
     () =>
@@ -167,7 +167,70 @@ test('Test StandardSecurityLake throws when CMK + replication without KMS ARNs',
           'arn:aws:kms:us-east-2:111111111111:key/00000000-0000-0000-0000-000000000000',
         replication: {regions: ['us-west-2']},
       }),
-  ).toThrow(/replication with a customer-managed `kmsKeyId`/);
+  ).toThrow(/requires `replication\.sourceKmsKeyArn`/);
+});
+
+test('Test StandardSecurityLake allows CMK source + SSE-S3 rollup (no dest KMS)', () => {
+  const stack = HelperTest.stack();
+  const sourceKmsKeyArn =
+    'arn:aws:kms:us-east-2:111111111111:key/dddddddd-dddd-dddd-dddd-dddddddddddd';
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    kmsKeyId: sourceKmsKeyArn,
+    metaStoreManagerKmsKeyArn: sourceKmsKeyArn,
+    replication: {
+      regions: ['us-west-2'],
+      sourceKmsKeyArn,
+    },
+  });
+  const template = Template.fromStack(stack);
+  const roles = template.findResources('AWS::IAM::Role', {
+    Properties: {RoleName: 'SecurityLakeS3ReplicationRole-us-east-2'},
+  });
+  const [role] = Object.values(roles);
+  const statements = (
+    role.Properties.Policies as {PolicyDocument: {Statement: {Sid: string}[]}}[]
+  )[0].PolicyDocument.Statement;
+  const sids = statements.map((s) => s.Sid);
+  expect(sids).toContain('AllowDecryptSourceKmsKey');
+  expect(sids).not.toContain('AllowEncryptDestinationKmsKeys');
+});
+
+test('Test StandardSecurityLake allows SSE-S3 source + CMK rollup (dest KMS only)', () => {
+  const stack = HelperTest.stack();
+  const destKmsKeyArn =
+    'arn:aws:kms:us-west-2:111111111111:key/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    kmsKeyId: 'S3_MANAGED_KEY',
+    replication: {
+      regions: ['us-west-2'],
+      destinationKmsKeyArns: [destKmsKeyArn],
+    },
+  });
+  const template = Template.fromStack(stack);
+  template.hasResourceProperties('AWS::IAM::Role', {
+    RoleName: 'SecurityLakeS3ReplicationRole-us-east-2',
+    Policies: Match.arrayWith([
+      Match.objectLike({
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Sid: 'AllowEncryptDestinationKmsKeys',
+              Action: ['kms:Encrypt', 'kms:GenerateDataKey'],
+              Resource: destKmsKeyArn,
+            }),
+          ]),
+        }),
+      }),
+    ]),
+  });
+  const roles = template.findResources('AWS::IAM::Role', {
+    Properties: {RoleName: 'SecurityLakeS3ReplicationRole-us-east-2'},
+  });
+  const [role] = Object.values(roles);
+  const sids = (
+    role.Properties.Policies as {PolicyDocument: {Statement: {Sid: string}[]}}[]
+  )[0].PolicyDocument.Statement.map((s) => s.Sid);
+  expect(sids).not.toContain('AllowDecryptSourceKmsKey');
 });
 
 test('Test StandardSecurityLake adds KMS statements when CMK + replication', () => {

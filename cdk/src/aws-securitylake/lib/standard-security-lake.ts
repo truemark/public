@@ -111,25 +111,29 @@ export interface SecurityLakeReplicationProps {
   /**
    * The ARN of the customer-managed KMS key encrypting the source
    * (originating-Region) Security Lake bucket. Required when the enclosing
-   * `StandardSecurityLake` is configured with a customer-managed KMS key via
-   * `kmsKeyId` and this construct creates the replication role (i.e. when
-   * `roleArn` is not provided); S3 needs `kms:Decrypt` on this key to read
-   * objects before replicating them. Not required when `kmsKeyId` is unset
-   * or set to `S3_MANAGED_KEY`.
+   * `StandardSecurityLake` is configured with a customer-managed `kmsKeyId`
+   * and this construct creates the replication role (i.e. when `roleArn`
+   * is not provided); S3 needs `kms:Decrypt` on this key to read objects
+   * before replicating them. Not required when the source bucket uses
+   * S3-managed or AWS-managed encryption.
    *
-   * @default - no KMS decrypt statement is added (sufficient when the data
-   *   lake uses S3-managed or AWS-managed encryption)
+   * This is independent of `destinationKmsKeyArns`: Security Lake rollup
+   * Regions may use their own encryption settings, so a CMK source can
+   * replicate to an SSE-S3 rollup and vice versa.
+   *
+   * @default - no KMS decrypt statement is added
    */
   readonly sourceKmsKeyArn?: string;
 
   /**
    * The ARNs of the customer-managed KMS keys encrypting the destination
-   * (rollup-Region) Security Lake buckets. Required when the enclosing
-   * `StandardSecurityLake` is configured with a customer-managed KMS key via
-   * `kmsKeyId` and this construct creates the replication role; S3 needs
-   * `kms:Encrypt` / `kms:GenerateDataKey` on these keys to write replicated
-   * objects. Not required when `kmsKeyId` is unset or set to
-   * `S3_MANAGED_KEY`.
+   * (rollup-Region) Security Lake buckets. Supply when any rollup Region's
+   * bucket uses a customer-managed KMS key so the replication role can
+   * `kms:Encrypt` / `kms:GenerateDataKey` against them. Not required when
+   * every rollup bucket uses S3-managed or AWS-managed encryption.
+   *
+   * This is independent of `sourceKmsKeyArn` and the source lake's
+   * `kmsKeyId`.
    *
    * @default - no KMS encrypt statement is added
    */
@@ -375,41 +379,43 @@ export class StandardSecurityLake extends ExtendedConstruct {
         const sourceRegion = Stack.of(this).region;
         const destinationRegions = props.replication.regions;
 
-        // When the data lake is encrypted with a customer-managed KMS key
-        // (anything other than Security Lake defaults or SSE-S3), the
-        // replication role must also be allowed to Decrypt the source key
-        // and Encrypt/GenerateDataKey against each destination key. The key
-        // ARNs are not derivable at synth time, so require the caller to
-        // supply them explicitly or pre-provision their own replication
-        // role via `replication.roleArn`.
-        if (
-          usesCustomerManagedKey &&
-          (!props.replication.sourceKmsKeyArn ||
-            !props.replication.destinationKmsKeyArns ||
-            props.replication.destinationKmsKeyArns.length === 0)
-        ) {
+        // Source and destination encryption are independent in Security
+        // Lake: a CMK source can replicate to an SSE-S3 rollup and vice
+        // versa. Grant `kms:Decrypt` on the source key only when the
+        // source lake uses a CMK, and grant `kms:Encrypt` /
+        // `kms:GenerateDataKey` on the destination keys only when any
+        // rollup bucket uses a CMK. The key ARNs are not derivable at
+        // synth time, so require the caller to supply them explicitly on
+        // the encrypted side (or pre-provision their own replication role
+        // via `replication.roleArn`).
+        if (usesCustomerManagedKey && !props.replication.sourceKmsKeyArn) {
           throw new Error(
-            'StandardSecurityLake: replication with a customer-managed `kmsKeyId` ' +
-              'requires both `replication.sourceKmsKeyArn` and ' +
-              '`replication.destinationKmsKeyArns` so the generated replication ' +
-              'role can be granted the necessary KMS permissions. Alternatively, ' +
-              'pre-provision the replication role yourself and pass its ARN via ' +
-              '`replication.roleArn`.',
+            'StandardSecurityLake: a customer-managed `kmsKeyId` with ' +
+              'replication requires `replication.sourceKmsKeyArn` so the ' +
+              'generated replication role can `kms:Decrypt` source objects. ' +
+              'If any rollup Region bucket is also encrypted with a ' +
+              'customer-managed key, pass its ARN via ' +
+              '`replication.destinationKmsKeyArns`. Alternatively, ' +
+              'pre-provision the replication role yourself and pass its ARN ' +
+              'via `replication.roleArn`.',
           );
         }
 
         const kmsStatements: PolicyStatement[] = [];
-        if (
-          usesCustomerManagedKey &&
-          props.replication.sourceKmsKeyArn &&
-          props.replication.destinationKmsKeyArns
-        ) {
+        if (usesCustomerManagedKey && props.replication.sourceKmsKeyArn) {
           kmsStatements.push(
             new PolicyStatement({
               sid: 'AllowDecryptSourceKmsKey',
               actions: ['kms:Decrypt'],
               resources: [props.replication.sourceKmsKeyArn],
             }),
+          );
+        }
+        if (
+          props.replication.destinationKmsKeyArns &&
+          props.replication.destinationKmsKeyArns.length > 0
+        ) {
+          kmsStatements.push(
             new PolicyStatement({
               sid: 'AllowEncryptDestinationKmsKeys',
               actions: ['kms:Encrypt', 'kms:GenerateDataKey'],
