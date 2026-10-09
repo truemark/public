@@ -276,9 +276,12 @@ export class StandardSecurityLake extends ExtendedConstruct {
         const destinationRegions = props.replication.regions;
         this.replicationRole = new Role(this, 'ReplicationRole', {
           // Security Lake requires the replication role to live under the
-          // service-role/ path and start with `SecurityLake`.
+          // service-role/ path and start with `SecurityLake`. IAM role names
+          // are account-global, so include the source Region in the suffix to
+          // avoid collisions when the construct is deployed to multiple
+          // Regions in the same account.
           path: '/service-role/',
-          roleName: 'SecurityLakeS3ReplicationRole',
+          roleName: `SecurityLakeS3ReplicationRole-${sourceRegion}`,
           // Amazon S3 performs the cross-Region replication, so it (not the
           // Security Lake service) must be allowed to assume this role.
           assumedBy: new ServicePrincipal('s3.amazonaws.com'),
