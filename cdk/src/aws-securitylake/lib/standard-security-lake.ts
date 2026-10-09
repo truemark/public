@@ -226,12 +226,12 @@ export class StandardSecurityLake extends ExtendedConstruct {
     let metaStoreManagerRoleArn = props?.metaStoreManagerRoleArn;
     if (!metaStoreManagerRoleArn) {
       this.metaStoreManagerRole = new Role(this, 'MetaStoreManagerRole', {
-        assumedBy: new ServicePrincipal('securitylake.amazonaws.com'),
+        assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
         description:
-          'Role used by Amazon Security Lake to manage the AWS Glue metastore.',
+          'Role used by Amazon Security Lake metastore manager Lambda to manage the AWS Glue metastore.',
         managedPolicies: [
           ManagedPolicy.fromAwsManagedPolicyName(
-            'AmazonSecurityLakeMetastoreManager',
+            'service-role/AmazonSecurityLakeMetastoreManager',
           ),
         ],
       });
