@@ -106,12 +106,58 @@ test('Test StandardSecurityLake creates Lake Formation SLR when opted in', () =>
   });
 });
 
+test('Test StandardSecurityLake throws when CMK without metaStoreManagerKmsKeyArn', () => {
+  const stack = HelperTest.stack();
+  expect(
+    () =>
+      new StandardSecurityLake(stack, 'TestSecurityLake', {
+        kmsKeyId:
+          'arn:aws:kms:us-east-2:111111111111:key/00000000-0000-0000-0000-000000000000',
+      }),
+  ).toThrow(/customer-managed `kmsKeyId` requires `metaStoreManagerKmsKeyArn`/);
+});
+
+test('Test StandardSecurityLake grants metastore role KMS access on CMK', () => {
+  const stack = HelperTest.stack();
+  const kmsKeyArn =
+    'arn:aws:kms:us-east-2:111111111111:key/cccccccc-cccc-cccc-cccc-cccccccccccc';
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    kmsKeyId: kmsKeyArn,
+    metaStoreManagerKmsKeyArn: kmsKeyArn,
+  });
+  const template = Template.fromStack(stack);
+  template.hasResourceProperties('AWS::IAM::Role', {
+    RoleName: 'AmazonSecurityLakeMetaStoreManagerV2',
+    Policies: Match.arrayWith([
+      Match.objectLike({
+        PolicyName: 'AmazonSecurityLakeMetastoreManagerKmsPolicy',
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Sid: 'AllowMetaStoreManagerKmsAccess',
+              Action: [
+                'kms:Decrypt',
+                'kms:Encrypt',
+                'kms:GenerateDataKey',
+                'kms:DescribeKey',
+              ],
+              Resource: kmsKeyArn,
+            }),
+          ]),
+        }),
+      }),
+    ]),
+  });
+});
+
 test('Test StandardSecurityLake throws when CMK + replication without KMS ARNs', () => {
   const stack = HelperTest.stack();
   expect(
     () =>
       new StandardSecurityLake(stack, 'TestSecurityLake', {
         kmsKeyId:
+          'arn:aws:kms:us-east-2:111111111111:key/00000000-0000-0000-0000-000000000000',
+        metaStoreManagerKmsKeyArn:
           'arn:aws:kms:us-east-2:111111111111:key/00000000-0000-0000-0000-000000000000',
         replication: {regions: ['us-west-2']},
       }),
@@ -127,6 +173,7 @@ test('Test StandardSecurityLake adds KMS statements when CMK + replication', () 
   new StandardSecurityLake(stack, 'TestSecurityLake', {
     kmsKeyId:
       'arn:aws:kms:us-east-2:111111111111:key/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    metaStoreManagerKmsKeyArn: sourceKmsKeyArn,
     replication: {
       regions: ['us-west-2'],
       sourceKmsKeyArn,

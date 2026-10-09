@@ -159,6 +159,22 @@ export interface StandardSecurityLakeProps extends ExtendedConstructProps {
   readonly metaStoreManagerRoleArn?: string;
 
   /**
+   * The ARN of the customer-managed KMS key used to encrypt Security Lake
+   * data. Required when `kmsKeyId` is set to a customer-managed key and this
+   * construct creates the metastore manager role (i.e. when
+   * `metaStoreManagerRoleArn` is not provided). The metastore manager
+   * Lambda must decrypt and (re)encrypt Security Lake metadata; the AWS
+   * managed policy `AmazonSecurityLakeMetastoreManager` does not include
+   * KMS permissions, so without this grant the stack deploys but partition
+   * updates and subscriber queries silently fail. Not required when
+   * `kmsKeyId` is unset or set to `S3_MANAGED_KEY`.
+   *
+   * @default - no KMS statement is added (sufficient when the data lake
+   * uses Security Lake defaults or SSE-S3)
+   */
+  readonly metaStoreManagerKmsKeyArn?: string;
+
+  /**
    * Lifecycle configuration for the Security Lake managed S3 storage.
    *
    * @default - Security Lake defaults
@@ -254,7 +270,45 @@ export class StandardSecurityLake extends ExtendedConstruct {
 
     // Metastore manager role.
     let metaStoreManagerRoleArn = props?.metaStoreManagerRoleArn;
+    const usesCustomerManagedKey =
+      props?.kmsKeyId !== undefined && props.kmsKeyId !== 'S3_MANAGED_KEY';
     if (!metaStoreManagerRoleArn) {
+      // When the data lake is encrypted with a customer-managed KMS key,
+      // the metastore manager Lambda must be able to Decrypt / Encrypt /
+      // GenerateDataKey against that key. The AWS managed policy
+      // `AmazonSecurityLakeMetastoreManager` does NOT include KMS actions,
+      // so without this grant CFN deployment succeeds but partition
+      // updates and subscriber queries fail at runtime. The key ARN is
+      // not derivable at synth time, so require the caller to supply it
+      // explicitly via `metaStoreManagerKmsKeyArn` or pre-provision their
+      // own metastore manager role via `metaStoreManagerRoleArn`.
+      if (usesCustomerManagedKey && !props?.metaStoreManagerKmsKeyArn) {
+        throw new Error(
+          'StandardSecurityLake: a customer-managed `kmsKeyId` requires ' +
+            '`metaStoreManagerKmsKeyArn` so the generated metastore manager ' +
+            'role can be granted the necessary KMS permissions. ' +
+            'Alternatively, pre-provision the metastore manager role ' +
+            'yourself and pass its ARN via `metaStoreManagerRoleArn`.',
+        );
+      }
+      const metaStoreInlinePolicies: {[name: string]: PolicyDocument} = {};
+      if (usesCustomerManagedKey && props?.metaStoreManagerKmsKeyArn) {
+        metaStoreInlinePolicies.AmazonSecurityLakeMetastoreManagerKmsPolicy =
+          new PolicyDocument({
+            statements: [
+              new PolicyStatement({
+                sid: 'AllowMetaStoreManagerKmsAccess',
+                actions: [
+                  'kms:Decrypt',
+                  'kms:Encrypt',
+                  'kms:GenerateDataKey',
+                  'kms:DescribeKey',
+                ],
+                resources: [props.metaStoreManagerKmsKeyArn],
+              }),
+            ],
+          });
+      }
       this.metaStoreManagerRole = new Role(this, 'MetaStoreManagerRole', {
         // The partition-updater Lambda functions created by Security Lake are
         // hard-coded to assume a role named
@@ -275,6 +329,7 @@ export class StandardSecurityLake extends ExtendedConstruct {
             'service-role/AmazonSecurityLakeMetastoreManager',
           ),
         ],
+        inlinePolicies: metaStoreInlinePolicies,
       });
       metaStoreManagerRoleArn = this.metaStoreManagerRole.roleArn;
     }
@@ -320,8 +375,6 @@ export class StandardSecurityLake extends ExtendedConstruct {
         // ARNs are not derivable at synth time, so require the caller to
         // supply them explicitly or pre-provision their own replication
         // role via `replication.roleArn`.
-        const usesCustomerManagedKey =
-          props.kmsKeyId !== undefined && props.kmsKeyId !== 'S3_MANAGED_KEY';
         if (
           usesCustomerManagedKey &&
           (!props.replication.sourceKmsKeyArn ||
