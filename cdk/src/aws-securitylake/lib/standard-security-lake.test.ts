@@ -42,6 +42,13 @@ test('Test StandardSecurityLake with log sources, lifecycle, and replication', (
     },
     ReplicationConfiguration: Match.objectLike({Regions: ['us-west-2']}),
   });
+  // Replication role name must be suffixed with the source Region so
+  // deploying the construct to multiple Regions in the same account does
+  // not collide on the account-global IAM role name.
+  template.hasResourceProperties('AWS::IAM::Role', {
+    RoleName: 'SecurityLakeS3ReplicationRole-us-east-2',
+    Path: '/service-role/',
+  });
 });
 
 test('Test StandardSecurityLake creates Lake Formation SLR when opted in', () => {
