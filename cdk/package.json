@@ -83,6 +83,9 @@
       ],
       "helpers": [
         "./dist/helpers/index.d.ts"
+      ],
+      "aws-opensearchserverless": [
+        "./dist/aws-opensearchserverless/index.d.ts"
       ]
     }
   },
@@ -244,6 +247,10 @@
     "./helpers": {
       "types": "./dist/helpers/index.d.ts",
       "default": "./dist/helpers/index.js"
+    },
+    "./aws-opensearchserverless": {
+      "types": "./dist/aws-opensearchserverless/index.d.ts",
+      "default": "./dist/aws-opensearchserverless/index.js"
     }
   }
 }
