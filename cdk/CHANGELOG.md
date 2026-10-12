@@ -1,5 +1,17 @@
 # TrueMark CDK Library Changelog
 
+## 1.29.0
+
+### Minor Changes
+
+- d1d05fd: aws-securitylake: add StandardSecurityLake construct that wraps the Security Lake L1 constructs to stand up a data lake. Supports an optional `createLakeFormationServiceLinkedRole` flag to provision the `AWSServiceRoleForLakeFormationDataAccess` SLR required by Security Lake.
+
+## 1.28.2
+
+### Patch Changes
+
+- 0e52ce7: AutoBackup selection roles now carry `AWSBackupServiceRolePolicyForS3Backup`, so S3 buckets tagged with `backup:policy` are backed up instead of failing with a permission error. Buckets must still have versioning enabled for AWS Backup to protect them.
+
 ## 1.28.1
 
 ### Patch Changes

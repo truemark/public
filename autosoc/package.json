@@ -1,0 +1,45 @@
+{
+  "name": "autosoc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provisions an Amazon Security Lake data lake with standard AWS log sources.",
+  "homepage": "https://github.com/truemark/public/tree/main/autosoc",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "cdk": "dist/cdk.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk",
+    "clean": "rm -rf cdk.out dist coverage",
+    "fix": "biome check --write .",
+    "fmt": "biome format --write .",
+    "prebuild": "biome check",
+    "reset": "rm -rf cdk.out dist coverage node_modules",
+    "test": "vitest run",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk": "catalog:",
+    "esbuild": "catalog:",
+    "ts-node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "truemark-cdk-lib": "workspace:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
