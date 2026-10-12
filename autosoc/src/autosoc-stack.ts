@@ -55,7 +55,7 @@ export class AutoSocStack extends ExtendedStack {
         principal: siemSubscriberAccountId,
         externalId: siemSubscriberExternalId,
         description:
-          'AutoSoc SIEM (OpenSearch) subscriber - consumes Security Lake OCSF Parquet via SQS notifications.',
+          'AutoSoc SIEM OpenSearch subscriber - consumes Security Lake OCSF Parquet via SQS notifications',
         sources: DEFAULT_LOG_SOURCES.map((sourceName) => ({sourceName})),
       });
     }
