@@ -37,7 +37,7 @@ catalogs:
       specifier: 3.1050.0
       version: 3.1050.0
     '@aws-sdk/client-elastic-load-balancing-v2':
-      specifier: ^3.996.2
+      specifier: 3.1050.0
       version: 3.1050.0
     '@aws-sdk/client-eventbridge':
       specifier: 3.1050.0
@@ -3139,13 +3139,13 @@ snapshots:
     dependencies:
       '@aws-crypto/sha256-browser': 5.2.0
       '@aws-crypto/sha256-js': 5.2.0
-      '@aws-sdk/core': 3.974.12
+      '@aws-sdk/core': 3.978.2
       '@aws-sdk/credential-provider-node': 3.972.43
-      '@aws-sdk/types': 3.973.8
-      '@smithy/core': 3.24.3
+      '@aws-sdk/types': 3.974.6
+      '@smithy/core': 3.35.2
       '@smithy/fetch-http-handler': 5.4.3
       '@smithy/node-http-handler': 4.7.3
-      '@smithy/types': 4.14.2
+      '@smithy/types': 4.19.0
       tslib: 2.8.1
 
   '@aws-sdk/client-eventbridge@3.1050.0':

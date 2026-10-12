@@ -18,7 +18,7 @@ catalog:
   "@aws-sdk/client-dynamodb": "^3.996.2"
   "@aws-sdk/client-ec2": "3.1050.0"
   "@aws-sdk/client-ecs": "3.1050.0"
-  "@aws-sdk/client-elastic-load-balancing-v2": "^3.996.2"
+  "@aws-sdk/client-elastic-load-balancing-v2": "3.1050.0"
   "@aws-sdk/client-eventbridge": "3.1050.0"
   "@aws-sdk/client-lambda": "3.1050.0"
   "@aws-sdk/client-opensearch": "3.1050.0"
