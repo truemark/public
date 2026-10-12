@@ -3,6 +3,7 @@ import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {describe, expect, test} from 'vitest';
 import {
   AES_SIEM_TEMPLATE_VERSION,
+  AesSiemTemplateSource,
   AutoSocSiemStack,
   type AutoSocSiemStackProps,
 } from './autosoc-siem-stack.js';
@@ -88,7 +89,84 @@ describe('AutoSocSiemStack', () => {
     const template = synthSiem();
     expect(template.toJSON().Metadata).toMatchObject({
       AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
+      AesSiemTemplateSource: AesSiemTemplateSource.UPSTREAM,
       URL: 'https://github.com/truemark/public/tree/main/autosoc',
     });
+  });
+
+  test('propagates enrichment, Control Tower, and VPC-endpoint overrides', () => {
+    const template = synthSiem({
+      otxApiKey: 'f'.repeat(64),
+      enableTor: true,
+      enableAbuseCh: true,
+      iocDownloadIntervalMinutes: 60,
+      trustedProxyIpList: '10.42.0.0/16',
+      logBucketPolicyUpdate: 'keep',
+      vpcEndpointId: 'vpce-0123456789abcdef0',
+      createSqsVpcEndpoint: false,
+      createSsmVpcEndpoint: false,
+      createStsVpcEndpoint: false,
+      createS3VpcEndpoint: false,
+      controlTowerLogBucketNames: [
+        'aws-controltower-logs-123456789012-us-east-1',
+        'aws-controltower-s3-access-logs-123456789012-us-east-1',
+      ],
+      controlTowerRoleArnForEsLoader:
+        'arn:aws:iam::123456789012:role/ct-role-for-siem',
+      controlTowerSqsForLogBuckets:
+        'arn:aws:sqs:us-east-2:123456789012:aes-siem-ct',
+    });
+    template.hasResourceProperties('AWS::CloudFormation::Stack', {
+      Parameters: Match.objectLike({
+        OtxApiKey: 'f'.repeat(64),
+        EnableTor: 'true',
+        EnableAbuseCh: 'true',
+        IocDownloadInterval: '60',
+        TrustedProxyIpList: '10.42.0.0/16',
+        LogBucketPolicyUpdate: 'keep',
+        VpcEndpointId: 'vpce-0123456789abcdef0',
+        CreateSqsVpcEndpoint: 'false',
+        CreateSsmVpcEndpoint: 'false',
+        CreateStsVpcEndpoint: 'false',
+        CreateS3VpcEndpoint: 'false',
+        ControlTowerLogBucketNameList:
+          'aws-controltower-logs-123456789012-us-east-1,aws-controltower-s3-access-logs-123456789012-us-east-1',
+        ControlTowerRoleArnForEsLoader:
+          'arn:aws:iam::123456789012:role/ct-role-for-siem',
+        ControlTowerSqsForLogBuckets:
+          'arn:aws:sqs:us-east-2:123456789012:aes-siem-ct',
+      }),
+    });
+  });
+
+  test('VENDORED template source packages an asset when the file exists, throws when missing', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {fileURLToPath} = await import('node:url');
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const vendored = path.resolve(here, '../vendor/aes-siem/siem.yaml');
+
+    if (fs.existsSync(vendored)) {
+      // Developer has already run `pnpm run vendor:aes-siem`; the stack
+      // must now package it as a CDK S3 asset (templateUrl becomes an
+      // Fn::Sub into the assets bucket, no longer the hard-coded upstream
+      // URL).
+      const template = synthSiem({
+        templateSource: AesSiemTemplateSource.VENDORED,
+      });
+      template.resourceCountIs('AWS::CloudFormation::Stack', 1);
+      const [stack] = Object.values(
+        template.findResources('AWS::CloudFormation::Stack'),
+      );
+      expect(JSON.stringify(stack.Properties.TemplateURL)).toContain(
+        'cdk-hnb659fds-assets',
+      );
+    } else {
+      // Fresh checkout — vendor dir does not exist; must throw with a
+      // helpful pointer at the vendor script.
+      expect(() =>
+        synthSiem({templateSource: AesSiemTemplateSource.VENDORED}),
+      ).toThrow(/templateSource is VENDORED but/);
+    }
   });
 });

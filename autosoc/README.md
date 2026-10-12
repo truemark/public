@@ -42,14 +42,62 @@ subscriber queue on first deploy.
 
 ### Optional SIEM context flags
 
+Every realistic knob the upstream aes-siem template exposes is surfaced as
+a `-c` context flag. Unset flags fall through to the upstream default.
+
 | Flag | Default | Description |
 | --- | --- | --- |
 | `siemEmail` | **required when `deploySiem=true`** | Address for OpenSearch SNS alerts. |
-| `siemGeoLite2LicenseKey` | *(empty, no enrichment)* | MaxMind GeoLite2 license key for IP geo enrichment inside es-loader. |
-| `siemAllowedSourceIpAddresses` | `10.0.0.0/8 172.16.0.0/12 192.168.0.0/16` | Space-delimited CIDR list allowed to reach OpenSearch Dashboards (initial deployment only). |
+| `siemTemplateSource` | `upstream` | `upstream` loads the public aes-siem template; `vendored` loads `autosoc/vendor/aes-siem/siem.yaml` as a CDK S3 asset (see Customizing the SIEM below). |
 | `siemDeploymentTarget` | `opensearch_managed_cluster` | Set to `opensearch_serverless` for the (experimental) Serverless path. |
 | `siemDomainOrCollectionName` | `aes-siem` | OpenSearch domain or Serverless collection name. |
+| `siemVpcEndpointId` | *(none, public endpoint)* | Interface VPC endpoint id (`vpce-…` / `aos-…`) that fronts OpenSearch. Setting it places es-loader into the VPC. |
+| `siemAllowedSourceIpAddresses` | `10.0.0.0/8 172.16.0.0/12 192.168.0.0/16` | Space-delimited CIDR list allowed to reach OpenSearch Dashboards (initial deployment only). |
 | `siemEsLoaderReservedConcurrency` | `10` | Reserved concurrency for the es-loader Lambda. |
+| `siemTrustedProxyIpList` | `127.0.0.1/8 10.0.0.0/8 …` | Space-delimited list of trusted ELB/CDN/proxy IPs; enables X-Forwarded-For client-IP selection in es-loader. |
+| `siemLogBucketPolicyUpdate` | `update_and_override` | Set to `keep` after the first deploy if you manage the log-bucket policy yourself. |
+| `siemGeoLite2LicenseKey` | *(empty, no enrichment)* | MaxMind GeoLite2 license key for IP geo enrichment inside es-loader. |
+| `siemOtxApiKey` | *(empty)* | AlienVault OTX API key enabling IOC downloads. |
+| `siemEnableTor` | `false` | Download the Tor exit-node IOC feed. |
+| `siemEnableAbuseCh` | `false` | Download the abuse.ch Feodo blocklist IOC feed. |
+| `siemIocDownloadIntervalMinutes` | `720` | IOC refresh interval (30 – 10080 min). |
+| `siemControlTowerLogBucketNames` | *(empty)* | Comma-separated S3 bucket names in the Control Tower Log Archive account. |
+| `siemControlTowerRoleArnForEsLoader` | *(empty)* | IAM role ARN that es-loader assumes in the Log Archive account. |
+| `siemControlTowerSqsForLogBuckets` | *(empty)* | SQS ARN in the Log Archive account that fans out S3 notifications to es-loader. |
+| `siemCreateSqsVpcEndpoint` / `siemCreateSsmVpcEndpoint` / `siemCreateStsVpcEndpoint` / `siemCreateS3VpcEndpoint` | `true` | When `siemVpcEndpointId` is set, create new VPC endpoints for the named service. Set `false` if the VPC already has one. |
+
+## Customizing the SIEM template itself
+
+By default `AutoSocSiem` references the upstream aes-siem template straight
+from the AWS-owned public S3 bucket (`AesSiemTemplateSource.UPSTREAM`). You
+can only pass parameters into it; you cannot change what resources it
+creates or edit any of its IAM / Lambda / dashboards wiring.
+
+If you need to patch the template (add resources, tweak IAM, swap Lambda
+code, add a new log source, change a dashboard, etc.), vendor the template
+into this repo and switch the stack to the `VENDORED` source:
+
+```
+# One-time: download the pinned upstream template into autosoc/vendor/aes-siem/
+pnpm run vendor:aes-siem
+
+# Make your edits in autosoc/vendor/aes-siem/siem.yaml
+
+# Deploy using the vendored copy as a CDK S3 asset
+cdk deploy AutoSocSiem -c deploySiem=true \
+  -c siemEmail=soc@example.com \
+  -c siemTemplateSource=vendored
+```
+
+The vendor script also writes `UPSTREAM.md` recording the source URL,
+fetch timestamp, and template header; and keeps the previous copy as
+`siem.yaml.previous` for diffing. Re-run it any time upstream ships a new
+version to pull the latest and inspect the delta against your patches.
+
+Anything you *add alongside* the nested stack (new SNS targets, extra
+CloudWatch dashboards, Lambdas that watch an OpenSearch index, etc.) can
+go straight into `AutoSocSiemStack` as additional CDK constructs — no
+vendoring required.
 
 ## What gets deployed
 

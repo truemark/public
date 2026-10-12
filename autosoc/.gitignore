@@ -5,3 +5,8 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Vendored aes-siem template: tracked YAML lives in version control once
+# intentionally committed, but ignore the backup copy left by
+# scripts/vendor-aes-siem.sh.
+vendor/aes-siem/*.previous

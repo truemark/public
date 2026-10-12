@@ -22,6 +22,7 @@
     "prebuild": "biome check",
     "reset": "rm -rf cdk.out dist coverage node_modules",
     "test": "vitest run",
+    "vendor:aes-siem": "bash scripts/vendor-aes-siem.sh",
     "watch": "tsc -w"
   },
   "devDependencies": {
