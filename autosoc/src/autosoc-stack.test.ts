@@ -115,4 +115,42 @@ describe('AutoSocStack', () => {
       URL: 'https://github.com/truemark/public/tree/main/autosoc',
     });
   });
+
+  test('does not create a Security Lake subscriber by default', () => {
+    template.resourceCountIs('AWS::SecurityLake::Subscriber', 0);
+    template.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 0);
+  });
+
+  test('creates a Security Lake subscriber when SIEM context is supplied', () => {
+    const withSub = synth({
+      siemSubscriberAccountId: '222222222222',
+      siemSubscriberExternalId: 'super-secret-external-id',
+    });
+    withSub.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
+    withSub.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 1);
+    withSub.hasResourceProperties('AWS::SecurityLake::Subscriber', {
+      SubscriberName: 'autosoc-siem',
+      AccessTypes: ['S3'],
+      SubscriberIdentity: {
+        ExternalId: 'super-secret-external-id',
+        Principal: '222222222222',
+      },
+    });
+    withSub.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
+      NotificationConfiguration: {SqsNotificationConfiguration: {}},
+    });
+    // Subscriber role / external-id / queue ARN should be exported so the
+    // sibling AutoSocSiemStack (or operators) can wire them into aes-siem.
+    const outputs = withSub.toJSON().Outputs ?? {};
+    const exportNames = Object.values(outputs).map(
+      (o) => (o as {Export?: {Name: string}}).Export?.Name,
+    );
+    expect(exportNames).toEqual(
+      expect.arrayContaining([
+        'AutoSoc-SecurityLakeSubscriberRoleArn',
+        'AutoSoc-SecurityLakeSubscriberExternalId',
+        'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
+      ]),
+    );
+  });
 });

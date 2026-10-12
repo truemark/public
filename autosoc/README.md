@@ -1,8 +1,55 @@
 # AutoSoc
 
-This AWS CDK project deploys an Amazon Security Lake data lake and enables the
-standard AWS-native log sources using the `StandardSecurityLake` L2 construct
-from `truemark-cdk-lib`.
+This AWS CDK project deploys an Amazon Security Lake data lake (and optionally a
+full OpenSearch-backed SIEM) using constructs from `truemark-cdk-lib` plus the
+upstream [aes-siem CloudFormation template][aes-siem].
+
+[aes-siem]: https://github.com/aws-samples/siem-on-amazon-opensearch-service
+
+## Deployment modes
+
+AutoSoc has two independently-deployable stacks:
+
+1. **`AutoSoc`** (always on) — Amazon Security Lake data lake plus the full set
+   of AWS native log sources. This is the default and runs on `cdk deploy` with
+   no extra flags.
+2. **`AutoSocSiem`** (opt-in via `-c deploySiem=true`) — the upstream aes-siem
+   solution nested as a `AWS::CloudFormation::Stack`. Deploys an OpenSearch
+   managed cluster (or Serverless), es-loader Lambda, dashboards, SNS alerting,
+   GeoIP enrichment, IOC updater, and the supporting KMS/SQS/EventBridge
+   plumbing documented in the upstream project. **Does not** replace the
+   Security Lake data lake — the two run side-by-side.
+
+When both stacks are deployed, the Security Lake data lake can additionally
+feed OCSF Parquet into aes-siem via a Security Lake **Subscriber** (SQS
+notification). To wire this up, deploy with:
+
+```
+cdk deploy --all \
+  -c deploySiem=true \
+  -c siemEmail=soc@example.com \
+  -c siemSubscriberAccountId=$(aws sts get-caller-identity --query Account --output text) \
+  -c siemSubscriberExternalId=<random-shared-secret>
+```
+
+Supplying the subscriber context flags causes `AutoSoc` to create a
+`AWS::SecurityLake::Subscriber` + `SubscriberNotification` for the SIEM
+principal and export the subscriber IAM role ARN, external id, and
+notification queue ARN. `AutoSocSiem` then threads those exports into the
+upstream aes-siem template's `SecurityLakeRoleArn` / `SecurityLakeExternalId`
+/ `SecurityLakeSubscriberSqs` parameters so es-loader starts polling the
+subscriber queue on first deploy.
+
+### Optional SIEM context flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `siemEmail` | **required when `deploySiem=true`** | Address for OpenSearch SNS alerts. |
+| `siemGeoLite2LicenseKey` | *(empty, no enrichment)* | MaxMind GeoLite2 license key for IP geo enrichment inside es-loader. |
+| `siemAllowedSourceIpAddresses` | `10.0.0.0/8 172.16.0.0/12 192.168.0.0/16` | Space-delimited CIDR list allowed to reach OpenSearch Dashboards (initial deployment only). |
+| `siemDeploymentTarget` | `opensearch_managed_cluster` | Set to `opensearch_serverless` for the (experimental) Serverless path. |
+| `siemDomainOrCollectionName` | `aes-siem` | OpenSearch domain or Serverless collection name. |
+| `siemEsLoaderReservedConcurrency` | `10` | Reserved concurrency for the es-loader Lambda. |
 
 ## What gets deployed
 

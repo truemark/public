@@ -7,7 +7,12 @@ import {
   Role,
   ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
-import {CfnAwsLogSource, CfnDataLake} from 'aws-cdk-lib/aws-securitylake';
+import {
+  CfnAwsLogSource,
+  CfnDataLake,
+  CfnSubscriber,
+  CfnSubscriberNotification,
+} from 'aws-cdk-lib/aws-securitylake';
 import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
@@ -141,6 +146,74 @@ export interface SecurityLakeReplicationProps {
 }
 
 /**
+ * The AWS log sources a subscriber should receive. Each entry maps to the
+ * same `sourceName`/`sourceVersion` pair used when enabling the source.
+ */
+export interface SecurityLakeSubscriberSourceProps {
+  /**
+   * The source name, e.g. `CLOUD_TRAIL_MGMT`.
+   */
+  readonly sourceName: AwsLogSourceName | string;
+
+  /**
+   * The source version.
+   *
+   * @default - '2.0'
+   */
+  readonly sourceVersion?: string;
+}
+
+/**
+ * Properties for a Security Lake subscriber with S3-notification access.
+ * Only the `S3` access type (asynchronous SQS notification of new objects)
+ * is modelled; Lake Formation subscribers can be created directly against
+ * the underlying `CfnSubscriber` L1.
+ *
+ * @see https://docs.aws.amazon.com/security-lake/latest/userguide/subscriber-management.html
+ */
+export interface SecurityLakeSubscriberProps {
+  /**
+   * The friendly name of the subscriber.
+   */
+  readonly subscriberName: string;
+
+  /**
+   * The AWS account id of the principal that will consume data (typically
+   * the SIEM / downstream account id).
+   */
+  readonly principal: string;
+
+  /**
+   * External id the subscriber must present when assuming the
+   * Security-Lake-managed role. Treat as a shared secret.
+   */
+  readonly externalId: string;
+
+  /**
+   * Log sources this subscriber receives. Each entry must correspond to a
+   * source that is enabled on the data lake.
+   */
+  readonly sources: SecurityLakeSubscriberSourceProps[];
+
+  /**
+   * Optional human-readable description.
+   *
+   * @default - no description
+   */
+  readonly description?: string;
+
+  /**
+   * Optional HTTPS endpoint for subscriber notifications. If omitted,
+   * Security Lake creates an SQS queue in the data-lake account and
+   * notifies the subscriber via SQS messages (recommended default — the
+   * SIEM polls the queue).
+   *
+   * @default - SQS notification
+   */
+  readonly httpsNotificationEndpoint?: string;
+}
+
+/**
  * Properties for StandardSecurityLake.
  */
 export interface StandardSecurityLakeProps extends ExtendedConstructProps {
@@ -215,6 +288,15 @@ export interface StandardSecurityLakeProps extends ExtendedConstructProps {
    * @default false
    */
   readonly createLakeFormationServiceLinkedRole?: boolean;
+
+  /**
+   * Subscribers that should receive S3 notifications of new Security Lake
+   * objects. Each entry creates an `AWS::SecurityLake::Subscriber` (access
+   * type `S3`) plus an `AWS::SecurityLake::SubscriberNotification`.
+   *
+   * @default - no subscribers are created
+   */
+  readonly subscribers?: SecurityLakeSubscriberProps[];
 }
 
 /**
@@ -254,6 +336,18 @@ export class StandardSecurityLake extends ExtendedConstruct {
    * they were declared.
    */
   readonly logSources: CfnAwsLogSource[] = [];
+
+  /**
+   * The `CfnSubscriber` resources created by this construct, in the order
+   * they were declared.
+   */
+  readonly subscribers: CfnSubscriber[] = [];
+
+  /**
+   * The `CfnSubscriberNotification` resources created by this construct,
+   * one per subscriber, in the order they were declared.
+   */
+  readonly subscriberNotifications: CfnSubscriberNotification[] = [];
 
   constructor(scope: Construct, id: string, props?: StandardSecurityLakeProps) {
     super(scope, id, props);
@@ -522,6 +616,61 @@ export class StandardSecurityLake extends ExtendedConstruct {
       }
       previous = logSource;
       this.logSources.push(logSource);
+    }
+
+    // Subscribers. Each entry becomes a `CfnSubscriber` with `accessTypes:
+    // ['S3']` plus a sibling `CfnSubscriberNotification`. The notification
+    // defaults to SQS (Security Lake creates the queue in this account);
+    // callers can switch to HTTPS by passing `httpsNotificationEndpoint`.
+    for (const sub of props?.subscribers ?? []) {
+      const subscriber = new CfnSubscriber(
+        this,
+        `Subscriber${sub.subscriberName}`,
+        {
+          accessTypes: ['S3'],
+          dataLakeArn: this.dataLake.attrArn,
+          subscriberName: sub.subscriberName,
+          subscriberDescription: sub.description,
+          subscriberIdentity: {
+            externalId: sub.externalId,
+            principal: sub.principal,
+          },
+          sources: sub.sources.map((s) => ({
+            awsLogSource: {
+              sourceName: s.sourceName,
+              sourceVersion: s.sourceVersion ?? '2.0',
+            },
+          })),
+        },
+      );
+      subscriber.addDependency(this.dataLake);
+      // Subscriber creation requires the AwsLogSource to exist for every
+      // source it references; chain through the last log source we created
+      // so CFN waits for ingestion to be enabled.
+      for (const ls of this.logSources) {
+        subscriber.addDependency(ls);
+      }
+      this.subscribers.push(subscriber);
+
+      const notification = new CfnSubscriberNotification(
+        this,
+        `SubscriberNotification${sub.subscriberName}`,
+        {
+          subscriberArn: subscriber.attrSubscriberArn,
+          notificationConfiguration: sub.httpsNotificationEndpoint
+            ? {
+                httpsNotificationConfiguration: {
+                  endpoint: sub.httpsNotificationEndpoint,
+                  targetRoleArn: `arn:${Stack.of(this).partition}:iam::${Stack.of(this).account}:role/service-role/AmazonSecurityLakeSubscriberNotificationRole`,
+                },
+              }
+            : {
+                sqsNotificationConfiguration: {},
+              },
+        },
+      );
+      notification.addDependency(subscriber);
+      this.subscriberNotifications.push(notification);
     }
   }
 }

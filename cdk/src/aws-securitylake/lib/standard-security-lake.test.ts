@@ -3,6 +3,64 @@ import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {AwsLogSourceName, StandardSecurityLake} from './standard-security-lake';
 
+test('Test StandardSecurityLake creates SQS-notified subscriber', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    logSources: [{sourceName: AwsLogSourceName.CLOUD_TRAIL_MGMT}],
+    subscribers: [
+      {
+        subscriberName: 'siem',
+        principal: '222222222222',
+        externalId: 'super-secret-external-id',
+        description: 'SIEM subscriber',
+        sources: [{sourceName: AwsLogSourceName.CLOUD_TRAIL_MGMT}],
+      },
+    ],
+  });
+  const template = Template.fromStack(stack);
+  template.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
+  template.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 1);
+  template.hasResourceProperties('AWS::SecurityLake::Subscriber', {
+    SubscriberName: 'siem',
+    AccessTypes: ['S3'],
+    SubscriberIdentity: {
+      ExternalId: 'super-secret-external-id',
+      Principal: '222222222222',
+    },
+    Sources: [
+      {
+        AwsLogSource: {SourceName: 'CLOUD_TRAIL_MGMT', SourceVersion: '2.0'},
+      },
+    ],
+  });
+  template.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
+    NotificationConfiguration: {SqsNotificationConfiguration: {}},
+  });
+});
+
+test('Test StandardSecurityLake creates HTTPS-notified subscriber', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    subscribers: [
+      {
+        subscriberName: 'webhook',
+        principal: '333333333333',
+        externalId: 'another-external-id',
+        sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
+        httpsNotificationEndpoint: 'https://example.com/securitylake',
+      },
+    ],
+  });
+  const template = Template.fromStack(stack);
+  template.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
+    NotificationConfiguration: {
+      HttpsNotificationConfiguration: Match.objectLike({
+        Endpoint: 'https://example.com/securitylake',
+      }),
+    },
+  });
+});
+
 test('Test StandardSecurityLake default', () => {
   const stack = HelperTest.stack();
   new StandardSecurityLake(stack, 'TestSecurityLake');
