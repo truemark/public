@@ -1,5 +1,11 @@
 # TrueMark CDK Library Changelog
 
+## 1.28.2
+
+### Patch Changes
+
+- 0e52ce7: AutoBackup selection roles now carry `AWSBackupServiceRolePolicyForS3Backup`, so S3 buckets tagged with `backup:policy` are backed up instead of failing with a permission error. Buckets must still have versioning enabled for AWS Backup to protect them.
+
 ## 1.28.1
 
 ### Patch Changes
