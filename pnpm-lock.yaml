@@ -119,10 +119,10 @@ importers:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.256.0(constructs@10.6.0)
+        version: 2.272.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       truemark-cdk-lib:
         specifier: 'workspace:'
         version: link:../cdk
@@ -132,16 +132,16 @@ importers:
         version: 2.4.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.1
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1145.0
       esbuild:
         specifier: 'catalog:'
         version: 0.28.0
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.1)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.22.3
@@ -150,7 +150,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.7(@types/node@24.12.4)(vite@7.3.1(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.7(@types/node@24.19.1)(vite@7.3.1(@types/node@24.19.1)(tsx@4.22.3))
 
   blueprints/aws-workspaces:
     dependencies:
