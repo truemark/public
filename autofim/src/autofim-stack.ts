@@ -20,13 +20,41 @@ const __dirname = path.dirname(__filename);
  * and the sample CloudFormation template at
  * https://github.com/aws-samples/sample-inventory-monitor-fim.
  */
+/**
+ * Allowed values for the Security Hub ASFF `Severity.Label` field.
+ *
+ * @see https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_Severity.html
+ */
+export type SecurityHubSeverityLabel =
+  | 'INFORMATIONAL'
+  | 'LOW'
+  | 'MEDIUM'
+  | 'HIGH'
+  | 'CRITICAL';
+
+const VALID_SEVERITY_LABELS: readonly SecurityHubSeverityLabel[] = [
+  'INFORMATIONAL',
+  'LOW',
+  'MEDIUM',
+  'HIGH',
+  'CRITICAL',
+];
+
 export interface AutoFimStackProps extends ExtendedStackProps {
   /** File system path on the EC2 instance to collect inventory for. */
   readonly monitoredPath: string;
   /** Comma-separated regex patterns identifying critical files. */
   readonly criticalFilePatterns: string;
-  /** @default 'MEDIUM' */
-  readonly findingSeverity?: string;
+  /**
+   * Security Hub ASFF `Severity.Label` to stamp on every finding this
+   * stack's Lambda creates. Must be one of Security Hub's five allowed
+   * literals; any other string deploys successfully but makes every
+   * `BatchImportFindings` call fail at runtime with a schema-validation
+   * error, silently dropping every FIM finding into the DLQ.
+   *
+   * @default 'MEDIUM'
+   */
+  readonly findingSeverity?: SecurityHubSeverityLabel;
   /** @default 'rate(30 minutes)' */
   readonly inventorySchedule?: string;
   /** @default 'FIM-Enabled' */
@@ -71,6 +99,20 @@ export class AutoFimStack extends ExtendedStack {
     );
 
     const findingSeverity = props.findingSeverity ?? 'MEDIUM';
+    // `findingSeverity` is typed as `SecurityHubSeverityLabel` in TS, but
+    // callers commonly source it from raw CDK context strings (e.g.
+    // `-c fimFindingSeverity=...`), which bypasses the type system.
+    // Validate explicitly so an invalid value fails fast at synth time
+    // with a clear message, instead of deploying successfully and then
+    // making every `BatchImportFindings` call fail at runtime (silently
+    // dropping every FIM finding into the DLQ).
+    if (!VALID_SEVERITY_LABELS.includes(findingSeverity)) {
+      throw new Error(
+        `AutoFimStack: findingSeverity must be one of ` +
+          `${VALID_SEVERITY_LABELS.join(', ')} (Security Hub ASFF ` +
+          `Severity.Label values). Got: "${findingSeverity}".`,
+      );
+    }
     const inventorySchedule = props.inventorySchedule ?? 'rate(30 minutes)';
     const inventoryTagKey = props.inventoryTagKey ?? 'FIM-Enabled';
     const inventoryTagValue = props.inventoryTagValue ?? 'true';

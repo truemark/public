@@ -302,6 +302,28 @@ export class AutoSocSiemStack extends ExtendedStack {
           `templateSource=VENDORED (pnpm run vendor:aes-siem) for ` +
           `reproducible, version-locked deployments.`,
       );
+      // The raw upstream template does not mark `GeoLite2LicenseKey` /
+      // `OtxApiKey` as `NoEcho`, so even though this stack's own
+      // `GeoLite2LicenseKey` / `OtxApiKey` parent parameters below are
+      // NoEcho, the nested stack's own parameters (and therefore
+      // `DescribeStacks`/console output on *that* stack) will show the
+      // plaintext value whenever an operator fills them in at deploy
+      // time. This can't be checked at synth time (the values are
+      // deploy-time CloudFormation parameter inputs, not CDK props), so
+      // warn unconditionally whenever UPSTREAM is selected. The
+      // VENDORED template source (the default) patches `NoEcho: true`
+      // onto both parameters — see `scripts/vendor-aes-siem.sh`.
+      Annotations.of(this).addWarningV2(
+        'AutoSocSiem:UpstreamTemplateSecretNotNoEcho',
+        `templateSource=UPSTREAM: the raw upstream aes-siem template ` +
+          `does NOT mark its GeoLite2LicenseKey / OtxApiKey parameters ` +
+          `NoEcho. If you fill in either value at deploy time, it will be ` +
+          `visible in the nested stack's own parameters via ` +
+          `DescribeStacks/console even though this stack's parent ` +
+          `parameter is NoEcho. Switch to templateSource=VENDORED ` +
+          `(the default) to get the NoEcho patch this repo applies to ` +
+          `the vendored template.`,
+      );
     }
 
     const geoLite2LicenseKey = new CfnParameter(this, 'GeoLite2LicenseKey', {

@@ -65,25 +65,17 @@ def extract_instance_id(bucket: str, key: str, version_id: str) -> str | None:
     return None
 
 
-def lambda_handler(event, context):
-    if "Records" not in event or not event["Records"]:
-        return
-
-    record = event["Records"][0]
+def process_record(record: dict, partition: str, region: str, account_id: str) -> None:
+    """Diff a single S3 ObjectCreated record's current vs previous object
+    version and, on a critical-file change, import a Security Hub
+    finding. Raises on any unrecoverable error so the caller's retry /
+    DLQ behavior is preserved per-record.
+    """
     bucket = record["s3"]["bucket"]["name"]
     key = unquote_plus(record["s3"]["object"]["key"])
     current_version = record["s3"]["object"].get("versionId")
     if not current_version:
         return
-
-    # Derive partition + account from the invoked function ARN so this
-    # handler works in aws-cn / aws-us-gov too, not just the commercial
-    # partition. ARN format:
-    #   arn:<partition>:lambda:<region>:<account>:function:<name>
-    arn_parts = context.invoked_function_arn.split(":")
-    partition = arn_parts[1]
-    account_id = arn_parts[4]
-    region = boto3.session.Session().region_name
 
     versions = s3.list_object_versions(Bucket=bucket, Prefix=key).get(
         "Versions", []
@@ -161,3 +153,34 @@ def lambda_handler(event, context):
                 s3.delete_object(Bucket=bucket, Key=key, VersionId=prev_version)
             except Exception as e:
                 print(f"Delete previous S3 object version failed: {e}")
+
+
+def lambda_handler(event, context):
+    if "Records" not in event or not event["Records"]:
+        return
+
+    # Derive partition + account from the invoked function ARN so this
+    # handler works in aws-cn / aws-us-gov too, not just the commercial
+    # partition. ARN format:
+    #   arn:<partition>:lambda:<region>:<account>:function:<name>
+    arn_parts = context.invoked_function_arn.split(":")
+    partition = arn_parts[1]
+    account_id = arn_parts[4]
+    region = boto3.session.Session().region_name
+
+    # An S3 Event Notification payload can batch multiple records into a
+    # single Lambda invocation. Process every record rather than just
+    # Records[0] so additional inventory snapshots delivered in the same
+    # invocation are not silently acknowledged without comparison. Any
+    # unhandled exception from an individual record propagates (instead
+    # of being swallowed) so the async-invocation retry policy and DLQ
+    # still engage for that failure.
+    errors: list[Exception] = []
+    for record in event["Records"]:
+        try:
+            process_record(record, partition, region, account_id)
+        except Exception as e:  # noqa: BLE001 - re-raised below, not swallowed
+            print(f"Failed to process record {record.get('s3', {})}: {e}")
+            errors.append(e)
+    if errors:
+        raise errors[0]

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
-import {AutoFimStack} from './autofim-stack.js';
+import {AutoFimStack, type SecurityHubSeverityLabel} from './autofim-stack.js';
 
 function ctxString(app: ExtendedApp, key: string): string | undefined {
   const raw = app.node.tryGetContext(key);
@@ -32,7 +32,13 @@ if (!criticalFilePatterns) {
 new AutoFimStack(app, 'AutoFim', {
   monitoredPath,
   criticalFilePatterns,
-  findingSeverity: ctxString(app, 'fimFindingSeverity'),
+  // Cast is safe: AutoFimStack validates the raw string against
+  // VALID_SEVERITY_LABELS at construction time and throws a clear error
+  // if a `-c fimFindingSeverity=...` CLI value isn't one of Security
+  // Hub's five allowed ASFF Severity.Label literals.
+  findingSeverity: ctxString(app, 'fimFindingSeverity') as
+    | SecurityHubSeverityLabel
+    | undefined,
   inventorySchedule: ctxString(app, 'fimInventorySchedule'),
   inventoryTagKey: ctxString(app, 'fimInventoryTagKey'),
   inventoryTagValue: ctxString(app, 'fimInventoryTagValue'),

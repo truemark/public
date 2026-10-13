@@ -74,6 +74,48 @@ if ! echo "${TEMPLATE_VERSION}" | grep -q "v${EXPECTED_VERSION}"; then
 fi
 echo "Version check passed: template contains v${EXPECTED_VERSION}"
 
+# Patch NoEcho onto the GeoLite2LicenseKey / OtxApiKey parameters.
+# Upstream does not mark these secret-ish parameters NoEcho, so without
+# this patch the values remain visible via DescribeStacks on the nested
+# stack regardless of how the parent CDK stack passes them in. Only
+# insert the line if it is not already present directly beneath the
+# parameter's `MaxLength:` line, so repeated re-vendors stay idempotent.
+for PARAM in GeoLite2LicenseKey OtxApiKey; do
+  if grep -A6 "^  ${PARAM}:" "${TARGET}" | grep -q 'NoEcho: true'; then
+    continue
+  fi
+  # Insert `NoEcho: true` right after the parameter's MaxLength line,
+  # matched only within that parameter's own 6-line block so we never
+  # touch an unrelated parameter that happens to share a MaxLength value.
+  python3 - "${TARGET}" "${PARAM}" <<'PY'
+import sys
+path, param = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    lines = f.readlines()
+out = []
+in_block = False
+patched = False
+for i, line in enumerate(lines):
+    out.append(line)
+    if line.strip() == f"{param}:":
+        in_block = True
+        continue
+    if in_block and line.strip().startswith("MaxLength:"):
+        out.append("    NoEcho: true\n")
+        in_block = False
+        patched = True
+    elif in_block and line.startswith("  ") and not line.startswith("    "):
+        # Reached the next top-level parameter without seeing MaxLength;
+        # stop looking (nothing to patch for this occurrence).
+        in_block = False
+if not patched:
+    sys.exit(f"error: could not find MaxLength line under {param}: to patch NoEcho")
+with open(path, "w") as f:
+    f.writelines(out)
+PY
+  echo "Patched NoEcho: true onto ${PARAM}"
+done
+
 cat > "${METADATA}" <<EOF
 # Vendored aes-siem template
 

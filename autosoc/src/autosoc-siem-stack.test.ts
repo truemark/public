@@ -1,4 +1,4 @@
-import {Match, Template} from 'aws-cdk-lib/assertions';
+import {Annotations, Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {describe, expect, test} from 'vitest';
 import {
@@ -62,6 +62,52 @@ describe('AutoSocSiemStack', () => {
         ReservedConcurrency: '25',
       }),
     });
+  });
+
+  test('warns that upstream template does not guarantee NoEcho on secrets', () => {
+    const app = new ExtendedApp({
+      account: TEST_ENV.account,
+      region: TEST_ENV.region,
+    });
+    const stack = new AutoSocSiemStack(app, 'AutoSocSiem', {
+      env: TEST_ENV,
+      snsEmail: 'ops@example.com',
+      templateSource: AesSiemTemplateSource.UPSTREAM,
+    });
+    Annotations.fromStack(stack).hasWarning(
+      '*',
+      Match.stringLikeRegexp('.*NoEcho.*'),
+    );
+  });
+
+  test('vendored templates patch NoEcho onto GeoLite2LicenseKey / OtxApiKey', async () => {
+    // Regression guard for the "nested stack parameters expose API keys
+    // without NoEcho" finding: the upstream aes-siem template does not
+    // mark these parameters NoEcho, so `scripts/vendor-aes-siem.sh`
+    // patches them in. Assert both vendored templates (commercial +
+    // China) still carry the patch.
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {fileURLToPath} = await import('node:url');
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const file of [
+      'siem-on-amazon-opensearch-service.template',
+      'siem-on-amazon-opensearch-service-china.template',
+    ]) {
+      const vendored = path.resolve(here, '../vendor/aes-siem', file);
+      if (!fs.existsSync(vendored)) continue; // fresh checkout, skip
+      const contents = fs.readFileSync(vendored, 'utf-8');
+      const geoLite2Block = contents.slice(
+        contents.indexOf('GeoLite2LicenseKey:'),
+        contents.indexOf('TrustedProxyIpList:'),
+      );
+      const otxBlock = contents.slice(
+        contents.indexOf('OtxApiKey:'),
+        contents.indexOf('EnableTor:'),
+      );
+      expect(geoLite2Block).toContain('NoEcho: true');
+      expect(otxBlock).toContain('NoEcho: true');
+    }
   });
 
   test('passes secret values through NoEcho parent parameters', () => {

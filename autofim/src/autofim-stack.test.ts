@@ -1,7 +1,7 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {describe, expect, test} from 'vitest';
-import {AutoFimStack} from './autofim-stack.js';
+import {AutoFimStack, type SecurityHubSeverityLabel} from './autofim-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
@@ -9,6 +9,10 @@ function synth(
   props: {
     monitoredPath?: string;
     criticalFilePatterns?: string;
+    // Deliberately widened to plain `string` (not
+    // `SecurityHubSeverityLabel`) so tests can exercise the stack's
+    // runtime validation against invalid values, mirroring how a raw
+    // `-c fimFindingSeverity=...` CLI value arrives in cdk.ts.
     findingSeverity?: string;
     inventorySchedule?: string;
     inventoryTagKey?: string;
@@ -31,7 +35,11 @@ function synth(
     monitoredPath: props.monitoredPath ?? '/etc/paymentapp/',
     criticalFilePatterns:
       props.criticalFilePatterns ?? '^/etc/paymentapp/config.*$',
-    findingSeverity: props.findingSeverity,
+    // Cast through `as` so we can feed the stack's runtime validation
+    // both valid and intentionally-invalid strings from tests.
+    findingSeverity: props.findingSeverity as
+      | SecurityHubSeverityLabel
+      | undefined,
     inventorySchedule: props.inventorySchedule,
     inventoryTagKey: props.inventoryTagKey,
     inventoryTagValue: props.inventoryTagValue,
@@ -224,6 +232,24 @@ describe('AutoFimStack', () => {
         ]),
       }),
     });
+  });
+
+  test('rejects an invalid findingSeverity', () => {
+    expect(() => synth({findingSeverity: 'super-critical'})).toThrow(
+      /findingSeverity must be one of/,
+    );
+  });
+
+  test('accepts each of the five Security Hub severity labels', () => {
+    for (const label of [
+      'INFORMATIONAL',
+      'LOW',
+      'MEDIUM',
+      'HIGH',
+      'CRITICAL',
+    ]) {
+      expect(() => synth({findingSeverity: label})).not.toThrow();
+    }
   });
 
   test('scopes Security Hub permission to the active AWS partition', () => {
