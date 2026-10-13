@@ -548,3 +548,18 @@ done
   immediately after the version-pin check and before the `NoEcho` patch.
   This runs automatically on every `pnpm run vendor:aes-siem`; the
   checked-in vendored templates already have the substitution applied.
+
+### 11. `vendor-aes-siem.sh` now auto-generates its own patch provenance
+
+- **Symptom:** the generated `.UPSTREAM.md` used to list only the
+  upstream URL/release/fetch timestamp, while the two patches the script
+  actually applies (`NoEcho` + placeholder resolution) were documented by
+  hand in gotchas #9/#10 above. Every re-vendor overwrote `.UPSTREAM.md`
+  without those notes, so the checked-in file could drift from what the
+  script truly does.
+- **Fix:** `vendor-aes-siem.sh` now accumulates a `PATCHES` array as it
+  applies each patch and renders it into a **"Patches applied by
+  `vendor-aes-siem.sh` on top of the raw GitHub source"** section of the
+  generated `.UPSTREAM.md`, so the file is always in sync with the
+  script's actual behavior. Nothing to do on your end — this is automatic
+  on every `pnpm run vendor:aes-siem`.

@@ -159,11 +159,6 @@ Parameters:
     AllowedPattern: ^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|[0-9a-zA-Z]{16}|)$
     Description: (Optional) If you would like to enrich geoip location such as IP address's country, get a license key from MaxMind and input the key. The license is a string of 16 or 40 digits
     MaxLength: 40
-    # NoEcho added by truemark/public: the upstream template omits this,
-    # which leaves the key visible via DescribeStacks on the nested
-    # stack even when the parent CDK stack's own parameter is NoEcho.
-    # See autosoc/scripts/vendor-aes-siem.sh for the automated patch
-    # applied on every re-vendor.
     NoEcho: true
   TrustedProxyIpList:
     Type: String
@@ -181,7 +176,6 @@ Parameters:
     AllowedPattern: ^([0-9a-f,x]{64}|)$
     Description: '(Optional) If you would like to download IoC from AlienVault OTX, please enter OTX API Key. See details: https://otx.alienvault.com'
     MaxLength: 64
-    # NoEcho added by truemark/public — see GeoLite2LicenseKey above.
     NoEcho: true
   EnableTor:
     Type: String

@@ -74,6 +74,11 @@ if ! echo "${TEMPLATE_VERSION}" | grep -q "v${EXPECTED_VERSION}"; then
 fi
 echo "Version check passed: template contains v${EXPECTED_VERSION}"
 
+# Track every patch this script applies on top of the raw upstream source
+# so the generated .UPSTREAM.md always reflects reality instead of relying
+# on that file's provenance notes being kept in sync by hand.
+PATCHES=()
+
 # Resolve the %%BUCKET_NAME%% / %%SOLUTION_NAME%% / %%VERSION%% placeholders
 # that upstream's own `deployment/build-s3-dist.sh` packaging script would
 # normally substitute before publishing a template. The raw GitHub source
@@ -92,6 +97,7 @@ echo "Version check passed: template contains v${EXPECTED_VERSION}"
 # `Fn::Sub`-expanded `aes-siem-${AWS::Region}` so the vendored template
 # stays Region-portable like the rest of the template's own `!Sub` usage.
 SOLUTION_NAME="siem-on-amazon-opensearch-service"
+set +e
 python3 - "${TARGET}" "${SOLUTION_NAME}" "${EXPECTED_VERSION}" <<'PY'
 import re
 import sys
@@ -116,10 +122,20 @@ if "%%BUCKET_NAME%%" in text or "%%VERSION%%" in text or "%%SOLUTION_NAME%%" in 
     sys.exit("error: unresolved %%...%% placeholder(s) remain after substitution")
 if text == before:
     print("warning: no %%...%% placeholders found to substitute (already resolved?)")
+    sys.exit(2)
 with open(path, "w") as f:
     f.write(text)
 PY
-echo "Resolved %%BUCKET_NAME%%/%%SOLUTION_NAME%%/%%VERSION%% placeholders"
+PLACEHOLDER_STATUS=$?
+set -e
+if [[ "${PLACEHOLDER_STATUS}" -eq 0 ]]; then
+  echo "Resolved %%BUCKET_NAME%%/%%SOLUTION_NAME%%/%%VERSION%% placeholders"
+  PATCHES+=("Resolves the Lambda code bucket and solution/version build placeholders (\`%%BUCKET_NAME%%\` -> \`!Sub 'aes-siem-\${AWS::Region}'\`, \`%%SOLUTION_NAME%%/%%VERSION%%\` -> \`${SOLUTION_NAME}/v${EXPECTED_VERSION}\`).")
+elif [[ "${PLACEHOLDER_STATUS}" -eq 2 ]]; then
+  echo "No %%...%% placeholders found to substitute (already resolved?)"
+else
+  exit "${PLACEHOLDER_STATUS}"
+fi
 
 # Patch NoEcho onto the GeoLite2LicenseKey / OtxApiKey parameters.
 # Upstream does not mark these secret-ish parameters NoEcho, so without
@@ -161,24 +177,32 @@ with open(path, "w") as f:
     f.writelines(out)
 PY
   echo "Patched NoEcho: true onto ${PARAM}"
+  PATCHES+=("Adds \`NoEcho: true\` to \`${PARAM}\`.")
 done
 
-cat > "${METADATA}" <<EOF
-# Vendored aes-siem template
-
-- Upstream URL: \`${UPSTREAM_URL}\`
-- Release: \`v${EXPECTED_VERSION}\`
-- File: \`${TEMPLATE_FILE_NAME}\`
-- Fetched: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
-- Template header: \`${TEMPLATE_VERSION#Description: }\`
-
-**Do not edit \`${TEMPLATE_FILE_NAME}\` by hand without recording the diff here** so
-future refreshes can be reconciled against upstream.
-
-To refresh, run \`pnpm run vendor:aes-siem\` from \`autosoc/\`; it fetches
-the exact tag recorded above. Previous copies are kept beside the template
-with a \`.previous\` suffix for diffing.
-EOF
+{
+  echo "# Vendored aes-siem template"
+  echo ""
+  echo "- Upstream URL: \`${UPSTREAM_URL}\`"
+  echo "- Release: \`v${EXPECTED_VERSION}\`"
+  echo "- File: \`${TEMPLATE_FILE_NAME}\`"
+  echo "- Fetched: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  echo "- Template header: \`${TEMPLATE_VERSION#Description: }\`"
+  echo ""
+  if [[ ${#PATCHES[@]} -gt 0 ]]; then
+    echo "**Patches applied by \`vendor-aes-siem.sh\` on top of the raw GitHub source:**"
+    for p in "${PATCHES[@]}"; do
+      echo "- ${p}"
+    done
+    echo ""
+  fi
+  echo "**Do not edit \`${TEMPLATE_FILE_NAME}\` by hand without recording the diff here** so"
+  echo "future refreshes can be reconciled against upstream."
+  echo ""
+  echo "To refresh, run \`pnpm run vendor:aes-siem\` from \`autosoc/\`; it fetches"
+  echo "the exact tag recorded above. Previous copies are kept beside the template"
+  echo "with a \`.previous\` suffix for diffing."
+} > "${METADATA}"
 
 if [[ -f "${TARGET}.previous" ]]; then
   echo ""

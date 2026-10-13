@@ -5,3 +5,8 @@ node_modules
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Python venv / test artifacts for lambda/fim-change-detector tests
+.venv
+__pycache__
+.pytest_cache

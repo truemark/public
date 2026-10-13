@@ -31,6 +31,12 @@ def is_critical(path: str) -> bool:
 
 
 def load_file_metadata(bucket: str, key: str, version_id: str) -> dict:
+    """Return ``{path: (ModificationTime, Size)}`` for each AWS:File entry in
+    the snapshot. Size is tracked alongside ModificationTime so that a file
+    replaced/edited while its mtime is preserved (e.g. by a tool that
+    restores the original timestamp after tampering) is still detected as
+    changed rather than producing a false negative.
+    """
     obj = s3.get_object(Bucket=bucket, Key=key, VersionId=version_id)
     data = {}
     for line in obj["Body"].read().decode().splitlines():
@@ -39,8 +45,9 @@ def load_file_metadata(bucket: str, key: str, version_id: str) -> dict:
             n = i.get("Name", "").strip()
             d = i.get("InstalledDir", "").strip()
             m = i.get("ModificationTime", "").strip()
+            sz = str(i.get("Size", "")).strip()
             if n and d and m:
-                data[f"{d.rstrip('/')}/{n}"] = m
+                data[f"{d.rstrip('/')}/{n}"] = (m, sz)
     return data
 
 
@@ -49,10 +56,17 @@ def _parse_dt(ts: str) -> datetime:
 
 
 def is_modified(path: str, current: dict, previous: dict) -> bool:
+    cur_mtime, cur_size = current[path]
+    prev_mtime, prev_size = previous[path]
+    # Size is compared as a plain string first (fast path, also catches
+    # missing/empty values consistently); fall back to an exact mismatch if
+    # either side doesn't parse as an int.
+    if cur_size != prev_size:
+        return True
     try:
-        return _parse_dt(current[path]) != _parse_dt(previous[path])
+        return _parse_dt(cur_mtime) != _parse_dt(prev_mtime)
     except Exception:
-        return current[path] != previous[path]
+        return cur_mtime != prev_mtime
 
 
 def extract_instance_id(bucket: str, key: str, version_id: str) -> str | None:

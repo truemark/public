@@ -95,10 +95,21 @@ Default values live in `cdk.json`. Available context flags:
 pnpm test
 ```
 
+The Lambda handler's diff logic has its own Python unit tests
+(`lambda/fim-change-detector/test_lambda_function.py`), run independently
+of the CDK/vitest suite:
+
+```bash
+cd autofim/lambda/fim-change-detector
+python3 -m venv .venv && source .venv/bin/activate
+pip install boto3 pytest
+pytest test_lambda_function.py
+```
+
 ## Gotchas
 
-Three real deltas from the upstream AWS blog/sample caught during the
-first end-to-end deployment.
+Four real deltas from the upstream AWS blog/sample caught during the
+first end-to-end deployment and subsequent review.
 
 ### 1. `AWS:File` inventory `Pattern` must be a list, not a string
 
@@ -160,6 +171,21 @@ first end-to-end deployment.
   Security Hub on *after* FIM findings have already been attempted,
   re-trigger a change on the monitored file (or wait for the next SSM
   Inventory interval) to produce a new finding.
+
+### 4. Comparing `ModificationTime` alone misses tamper-and-restore edits
+
+- **Symptom:** Replacing or editing a critical file while deliberately (or
+  coincidentally) preserving its original mtime produces **no** Security
+  Hub finding — a false negative for file-integrity monitoring.
+- **Root cause:** The original diff logic only compared the SSM Inventory
+  `AWS:File` snapshot's `ModificationTime` field between the current and
+  previous snapshot.
+- **Fix in this stack:** `load_file_metadata` / `is_modified` in
+  `lambda/fim-change-detector/lambda_function.py` also track and compare
+  the `Size` field; a size mismatch alone is enough to flag the file as
+  modified regardless of mtime. See
+  `lambda/fim-change-detector/test_lambda_function.py` for the regression
+  test (`test_is_modified_detects_size_change_with_identical_mtime`).
 
 ## Attribution
 
