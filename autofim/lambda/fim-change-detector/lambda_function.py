@@ -76,7 +76,13 @@ def lambda_handler(event, context):
     if not current_version:
         return
 
-    account_id = context.invoked_function_arn.split(":")[4]
+    # Derive partition + account from the invoked function ARN so this
+    # handler works in aws-cn / aws-us-gov too, not just the commercial
+    # partition. ARN format:
+    #   arn:<partition>:lambda:<region>:<account>:function:<name>
+    arn_parts = context.invoked_function_arn.split(":")
+    partition = arn_parts[1]
+    account_id = arn_parts[4]
     region = boto3.session.Session().region_name
 
     versions = s3.list_object_versions(Bucket=bucket, Prefix=key).get(
@@ -119,7 +125,7 @@ def lambda_handler(event, context):
             "SchemaVersion": "2018-10-08",
             "Id": finding_id,
             "ProductArn": (
-                f"arn:aws:securityhub:{region}:{account_id}"
+                f"arn:{partition}:securityhub:{region}:{account_id}"
                 f":product/{account_id}/default"
             ),
             "AwsAccountId": account_id,

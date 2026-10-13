@@ -1,0 +1,2619 @@
+Description: SIEM on Amazon OpenSearch Service v2.10.6
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Initial Deployment Parameters
+        Parameters:
+          - AllowedSourceIpAddresses
+      - Label:
+          default: Basic Configuration
+        Parameters:
+          - DeploymentTarget
+          - DomainOrCollectionName
+          - SnsEmail
+          - ReservedConcurrency
+      - Label:
+          default: Log Enrichment - optional
+        Parameters:
+          - GeoLite2LicenseKey
+          - TrustedProxyIpList
+          - OtxApiKey
+          - EnableTor
+          - EnableAbuseCh
+          - IocDownloadInterval
+      - Label:
+          default: Advanced Configuration - optional
+        Parameters:
+          - LogBucketPolicyUpdate
+          - VpcEndpointId
+          - CreateS3VpcEndpoint
+          - CreateSqsVpcEndpoint
+          - CreateSsmVpcEndpoint
+          - CreateStsVpcEndpoint
+      - Label:
+          default: Control Tower Integration - optional
+        Parameters:
+          - ControlTowerLogBucketNameList
+          - ControlTowerSqsForLogBuckets
+          - ControlTowerRoleArnForEsLoader
+      - Label:
+          default: Security Lake Integration - optional
+        Parameters:
+          - SecurityLakeSubscriberSqs
+          - SecurityLakeRoleArn
+          - SecurityLakeExternalId
+      - Label:
+          default: Other parameters
+        Parameters: []
+Mappings:
+  RegionMap:
+    af-south-1:
+      ElbV2AccountId: '098369216593'
+    ap-east-1:
+      ElbV2AccountId: '754344448648'
+    ap-northeast-1:
+      ElbV2AccountId: '582318560864'
+    ap-northeast-2:
+      ElbV2AccountId: '600734575887'
+    ap-northeast-3:
+      ElbV2AccountId: '383597477331'
+    ap-south-1:
+      ElbV2AccountId: '718504428378'
+    ap-southeast-1:
+      ElbV2AccountId: '114774131450'
+    ap-southeast-2:
+      ElbV2AccountId: '783225319266'
+    ap-southeast-3:
+      ElbV2AccountId: '589379963580'
+    ca-central-1:
+      ElbV2AccountId: '985666609251'
+    cn-north-1:
+      ElbV2AccountId: '638102146993'
+    cn-northwest-1:
+      ElbV2AccountId: '037604701340'
+    eu-central-1:
+      ElbV2AccountId: '054676820928'
+    eu-north-1:
+      ElbV2AccountId: '897822967062'
+    eu-south-1:
+      ElbV2AccountId: '635631232127'
+    eu-west-1:
+      ElbV2AccountId: '156460612806'
+    eu-west-2:
+      ElbV2AccountId: '652711504416'
+    eu-west-3:
+      ElbV2AccountId: '009996457667'
+    me-south-1:
+      ElbV2AccountId: '076674570225'
+    sa-east-1:
+      ElbV2AccountId: '507241528517'
+    us-east-1:
+      ElbV2AccountId: '127311923021'
+    us-east-2:
+      ElbV2AccountId: '033677994240'
+    us-gov-east-1:
+      ElbV2AccountId: '190560391635'
+    us-gov-west-1:
+      ElbV2AccountId: '048591011584'
+    us-iso-east-1:
+      ElbV2AccountId: '770363063475'
+    us-iso-west-1:
+      ElbV2AccountId: '121062877647'
+    us-isob-east-1:
+      ElbV2AccountId: '740734521339'
+    us-isof-east-1:
+      ElbV2AccountId: '091100254016'
+    us-isof-south-1:
+      ElbV2AccountId: '412137745753'
+    us-west-1:
+      ElbV2AccountId: '027434742980'
+    us-west-2:
+      ElbV2AccountId: '797873946194'
+    ap-south-2:
+      ElbV2AccountId: '999999999999'
+    ap-southeast-4:
+      ElbV2AccountId: '999999999999'
+    ca-west-1:
+      ElbV2AccountId: '999999999999'
+    eu-central-2:
+      ElbV2AccountId: '999999999999'
+    eu-south-2:
+      ElbV2AccountId: '999999999999'
+    il-central-1:
+      ElbV2AccountId: '999999999999'
+    me-central-1:
+      ElbV2AccountId: '999999999999'
+Parameters:
+  DeploymentTarget:
+    Type: String
+    Default: opensearch_managed_cluster
+    AllowedValues:
+      - opensearch_managed_cluster
+      - opensearch_serverless
+    Description: Where would you like to deploy the SIEM solution? Amazon OpenSearch managed cluster or serverless? Serverless is experimental option
+  DomainOrCollectionName:
+    Type: String
+    Default: aes-siem
+    AllowedPattern: ^[0-9a-zA-Z_-]*
+    Description: Amazon OpenSearch Service Domain name or OpenSearch Serverless Collection name
+  VpcEndpointId:
+    Type: String
+    Default: ''
+    AllowedPattern: (^vpce-[0-9a-z]*|aos-[0-9a-z]*|)
+    Description: (Optional) Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions
+      and other resources will be deployed into VPC
+  AllowedSourceIpAddresses:
+    Type: String
+    Default: 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+    AllowedPattern: ^[0-9./\s]*
+    Description: Space-delimited list of CIDR blocks. This parameter applies only during the initial deployment
+  SnsEmail:
+    Type: String
+    Default: ''
+    AllowedPattern: ^([0-9a-zA-Z@_\-\+\.]*|)
+    Description: (Optional) Input your email as SNS topic, where Amazon OpenSearch Service will send alerts to
+  GeoLite2LicenseKey:
+    Type: String
+    Default: ''
+    AllowedPattern: ^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|[0-9a-zA-Z]{16}|)$
+    Description: (Optional) If you would like to enrich geoip location such as IP address's country, get a license key from MaxMind and input the key. The license is a string of 16 or 40 digits
+    MaxLength: 40
+  TrustedProxyIpList:
+    Type: String
+    Default: 127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+    AllowedPattern: (|[0-9a-fA-F./\s:,]*)
+    Description: (Optional) Specify IP addresses or network addresses of trusted Elastic Load Balancing (ELB)/ Contents Delivery Service (CDN)/ Proxy server other than Amazon CloudFront and AWS Global Accelerator.
+      Once entered, this SIEM solution will perform an X-Forwarded-For analysis of web access logs and select the client's IP address.
+  ReservedConcurrency:
+    Type: Number
+    Default: 10
+    Description: Input lambda reserved concurrency for es-loader. Increase this value if there are steady logs delay despite without errors
+  OtxApiKey:
+    Type: String
+    Default: ''
+    AllowedPattern: ^([0-9a-f,x]{64}|)$
+    Description: '(Optional) If you would like to download IoC from AlienVault OTX, please enter OTX API Key. See details: https://otx.alienvault.com'
+    MaxLength: 64
+  EnableTor:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: 'Would you like to download TOR IoC? See details: https://check.torproject.org/api/bulk'
+  EnableAbuseCh:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: 'Would you like to download IoC from abuse.ch? See details: https://feodotracker.abuse.ch/blocklist/'
+  IocDownloadInterval:
+    Type: Number
+    Default: 720
+    Description: Specify interval in minute to download IoC, default is 720 minutes ( = 12 hours ).min is 30 minutes. max is 10080 minutes ( = 7 days ).
+    MaxValue: 10080
+    MinValue: 30
+  LogBucketPolicyUpdate:
+    Type: String
+    Default: update_and_override
+    AllowedValues:
+      - update_and_override
+      - keep
+    Description: Select "update_and_override" or "keep" for the current policy of the Log bucket. Be sure to select "update_and_override" for the first deployment. If you select "update_and_override" when
+      updating, you need to create and manage the bucket policy for writing logs to your S3 Log bucket by yourself
+  CreateSqsVpcEndpoint:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create new SQS VPC Endpoint with SIEM solution. If you use existing VPC and already have SQS VPC Endpoint, select false
+  CreateSsmVpcEndpoint:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create new Systems Manager VPC Endpoint with SIEM solution. If you use existing VPC and already have Systems Manager VPC Endpoint, select false
+  CreateStsVpcEndpoint:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create new STS VPC Endpoint with SIEM solution. If you use existing VPC and already have STS VPC Endpoint, select false
+  CreateS3VpcEndpoint:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create new S3 VPC Endpoint with SIEM solution. If you use existing VPC and already have S3 VPC Endpoint, select false
+  ControlTowerLogBucketNameList:
+    Type: String
+    Default: ''
+    AllowedPattern: ^[-0-9a-z.\s,]*$
+    Description: Specify S3 log bucket names in the Log Archive account. Comma separated list. (e.g., aws-controltower-logs-123456789012-us-east-1, aws-controltower-s3-access-logs-123456789012-us-east-1
+      )
+  ControlTowerRoleArnForEsLoader:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(arn:aws.*:iam::[0-9]{12}:role/.*|)$
+    Description: Specify IAM Role ARN to be assumed by aes-siem-es-loader. (e.g., arn:aws:iam::123456789012:role/ct-role-for-siem )
+  ControlTowerSqsForLogBuckets:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(arn:aws[0-9a-zA-Z:/_-]*|)$
+    Description: Specify SQS ARN for S3 log buckets in Log Archive Account. (e.g., arn:aws:sqs:us-east-1:123456789012:aes-siem-ct )
+  SecurityLakeRoleArn:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(arn:aws.*:iam::[0-9]{12}:role/AmazonSecurityLake-[0-9a-f-]*|)$
+    Description: Specify IAM Role ARN to be assumed by aes-siem-es-loader. (e.g., arn:aws:iam::123456789012:role/AmazonSecurityLake-00001111-2222-3333-5555-666677778888 )
+  SecurityLakeExternalId:
+    Type: String
+    Default: ''
+    AllowedPattern: ^([0-9a-zA-Z]*|)$
+    Description: Specify Security Lake external ID for cross account. (e.g., externalid123 )
+  SecurityLakeSubscriberSqs:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(arn:aws.*:sqs:.*:[0-9]{12}:AmazonSecurityLake-[0-9a-f-]*-Main-Queue|)$
+    Description: Specify SQS ARN of Security Lake Subscriber. (e.g., arn:aws:sqs:us-east-1:123456789012:AmazonSecurityLake-00001111-2222-3333-5555-666677778888-Main-Queue )
+Conditions:
+  isGlobalRegion: !Not
+    - !Or
+      - !Equals
+        - !Ref 'AWS::Region'
+        - cn-north-1
+      - !Equals
+        - !Ref 'AWS::Region'
+        - cn-northwest-1
+      - !Equals
+        - !Ref 'AWS::Region'
+        - us-gov-east-1
+      - !Equals
+        - !Ref 'AWS::Region'
+        - us-gov-west-1
+  isChinaRegion: !Or
+    - !Equals
+      - !Ref 'AWS::Region'
+      - cn-north-1
+    - !Equals
+      - !Ref 'AWS::Region'
+      - cn-northwest-1
+  IsServerless: !Equals
+    - !Ref 'DeploymentTarget'
+    - opensearch_serverless
+  IsManagedCluster: !Equals
+    - !Ref 'DeploymentTarget'
+    - opensearch_managed_cluster
+  hasVpce: !Not
+    - !Equals
+      - !Ref 'VpcEndpointId'
+      - ''
+  IsInVpc: !Or
+    - !Equals
+      - false
+      - true
+    - !Condition 'hasVpce'
+  HasGeoipLicense: !Or
+    - !Not
+      - !Equals
+        - !Ref 'GeoLite2LicenseKey'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'TrustedProxyIpList'
+        - ''
+  EnableIOC: !Or
+    - !Not
+      - !Equals
+        - !Ref 'OtxApiKey'
+        - ''
+    - !Equals
+      - !Ref 'EnableTor'
+      - 'true'
+    - !Equals
+      - !Ref 'EnableAbuseCh'
+      - 'true'
+  HasSnsEmail: !Not
+    - !Equals
+      - !Ref 'SnsEmail'
+      - ''
+  KeepLogBucketPolicy: !Equals
+    - !Ref 'LogBucketPolicyUpdate'
+    - keep
+  SqsVpceIsRequired: !And
+    - !Equals
+      - !Ref 'CreateSqsVpcEndpoint'
+      - 'true'
+    - !Condition 'IsInVpc'
+  SsmVpceIsRequired: !And
+    - !Equals
+      - !Ref 'CreateSsmVpcEndpoint'
+      - 'true'
+    - !Condition 'IsInVpc'
+  S3VpceIsRequired: !And
+    - !Equals
+      - !Ref 'CreateS3VpcEndpoint'
+      - 'true'
+    - !Condition 'IsInVpc'
+  IsControlTowerAcccess: !And
+    - !Not
+      - !Equals
+        - !Ref 'ControlTowerLogBucketNameList'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'ControlTowerRoleArnForEsLoader'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'ControlTowerSqsForLogBuckets'
+        - ''
+  IsSecurityLakeAcccess: !And
+    - !Not
+      - !Equals
+        - !Ref 'SecurityLakeExternalId'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'SecurityLakeRoleArn'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'SecurityLakeSubscriberSqs'
+        - ''
+  StsVpceIsRequired: !And
+    - !Condition 'IsInVpc'
+    - !Equals
+      - !Ref 'CreateStsVpcEndpoint'
+      - 'true'
+    - !Or
+      - !Condition 'IsControlTowerAcccess'
+      - !Condition 'IsSecurityLakeAcccess'
+Resources:
+  LambdaResourceValidatorServiceRole8BE4D6B0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaResourceValidatorE0EF57CE:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / resource validator for deployment
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          AOS_SUBNET_IDS: ''
+          DEPLOYMENT_TARGET: !Ref 'DeploymentTarget'
+          DOMAIN_OR_COLLECTION_NAME: !Ref 'DomainOrCollectionName'
+          S3_LOG: !Sub 'aes-siem-${AWS::AccountId}-log'
+          S3_SNAPSHOT: !Sub 'aes-siem-${AWS::AccountId}-snapshot'
+          SOLUTION_PREFIX: aes-siem
+          VPCE_ID: !Ref 'VpcEndpointId'
+      FunctionName: aes-siem-resource-validator
+      Handler: index.resource_validator_handler
+      MemorySize: 128
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaResourceValidatorServiceRole8BE4D6B0.Arn'
+      Runtime: python3.14
+      Timeout: 30
+    DependsOn:
+      - LambdaResourceValidatorServiceRole8BE4D6B0
+  LambdaResourceValidatorCurrentVersion1C9DB5C1861832cceedb2a2c32c2fd5c4aedf102:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaResourceValidatorE0EF57CE'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  aessiempolicyforvpcvalidation724B105E:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeVpcEndpointServices
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - aoss:BatchGetCollection
+              - aoss:BatchGetVpcEndpoint
+              - ec2:DescribeRouteTables
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcEndpoints
+              - ec2:DescribeVpcs
+              - es:DescribeVpcEndpoints
+              - iam:GetRole
+            Effect: Allow
+            Resource: '*'
+          - Action: s3:GetBucketPolicy
+            Effect: Allow
+            Resource: !Sub 'arn:aws:s3:::aes-siem-${AWS::AccountId}-log'
+            Sid: ToGetBucektPolicy
+          - Action: s3:PutObject
+            Effect: Allow
+            Resource: !Sub 'arn:aws:s3:::aes-siem-${AWS::AccountId}-snapshot/*'
+            Sid: ToUploadPolicy
+          - Action:
+              - ssm:PutParameter
+              - ssm:DeleteParameters
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+            Sid: ToPutParameterPolicy
+        Version: '2012-10-17'
+      PolicyName: aes-siem-policy-for-vpc-validation
+      Roles:
+        - !Ref 'LambdaResourceValidatorServiceRole8BE4D6B0'
+  ExecCustomResourceValidator:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'LambdaResourceValidatorE0EF57CE.Arn'
+      ConfigVersion: 2.10.6
+      vpce: !Ref 'VpcEndpointId'
+      DeploymentTarget: !Ref 'DeploymentTarget'
+      BucketPolicyUpdate: !Ref 'LogBucketPolicyUpdate'
+    DependsOn:
+      - aessiempolicyforvpcvalidation724B105E
+      - LambdaResourceValidatorServiceRole8BE4D6B0
+  KmsAesSiemLog44B26597:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: CMK for SIEM solution
+      KeyPolicy:
+        Statement:
+          - Action: kms:*
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Resource: '*'
+          - Action: kms:GenerateDataKey
+            Effect: Allow
+            Principal:
+              Service: guardduty.amazonaws.com
+            Resource: '*'
+            Sid: Allow GuardDuty to use the key
+          - Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource: '*'
+            Sid: Allow VPC Flow Logs to use the key
+          - Action:
+              - kms:DescribeKey
+              - kms:ReEncryptFrom
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Resource: '*'
+            Sid: Allow principals in the account to decrypt log files
+          - Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Condition:
+              ForAnyValue:StringEquals:
+                aws:CalledVia: athena.amazonaws.com
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Resource: '*'
+            Sid: Allow Athena to query s3 objects with this key
+          - Action: kms:DescribeKey
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Resource: '*'
+            Sid: Allow CloudTrail to describe key
+          - Action: kms:GenerateDataKey*
+            Condition:
+              StringLike:
+                kms:EncryptionContext:aws:cloudtrail:arn:
+                  - !Sub 'arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*'
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Resource: '*'
+            Sid: Allow CloudTrail to encrypt logs
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Resource: '*'
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Resource: '*'
+        Version: '2012-10-17'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  KmsAesSiemLogAliasE0A4C571:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/aes-siem-key
+      TargetKeyId: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  S3BucketForGeoip04B5F171:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub 'aes-siem-${AWS::AccountId}-geo'
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 8
+            Id: delete-ioc-temp-files
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 8
+            Prefix: IOC/tmp/
+            Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  S3BucketForGeoipPolicy854C0CB1:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'S3BucketForGeoip04B5F171'
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+        Version: '2012-10-17'
+  S3BucketForLog20898FE4:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub 'aes-siem-${AWS::AccountId}-log'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+    DependsOn:
+      - ExecCustomResourceValidator
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  S3BucketForLogPolicy546D5712:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'S3BucketForLog20898FE4'
+      PolicyDocument: !If
+        - KeepLogBucketPolicy
+        - !Sub '${s3bucketpolicy15FD9DEDA.Parameter.Value}${s3bucketpolicy21E45697B.Parameter.Value}${s3bucketpolicy3A1928812.Parameter.Value}${s3bucketpolicy416563D71.Parameter.Value}${s3bucketpolicy50CFAB8F6.Parameter.Value}${s3bucketpolicy6CDE0535D.Parameter.Value}${s3bucketpolicy7DA6B2438.Parameter.Value}${s3bucketpolicy8D93B955E.Parameter.Value}'
+        - Statement:
+            - Action: s3:*
+              Condition:
+                Bool:
+                  aws:SecureTransport: 'false'
+              Effect: Deny
+              Principal:
+                AWS: '*'
+              Resource:
+                - !GetAtt 'S3BucketForLog20898FE4.Arn'
+                - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+            - Action: s3:PutObject
+              Effect: Allow
+              Principal:
+                AWS: !Sub
+                  - arn:${AWS::Partition}:iam::${Param1}:root
+                  - Param1: !FindInMap
+                      - RegionMap
+                      - !Ref 'AWS::Region'
+                      - ElbV2AccountId
+              Resource:
+                - !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/*'
+                - !Sub '${S3BucketForLog20898FE4.Arn}/*/AWSLogs/${AWS::AccountId}/*'
+              Sid: ALB,CLB Policy
+            - Action:
+                - s3:GetBucketAcl
+                - s3:ListBucket
+                - s3:PutObject
+              Condition:
+                StringEquals:
+                  aws:SourceAccount:
+                    - !Ref 'AWS::AccountId'
+              Effect: Allow
+              Principal:
+                Service: delivery.logs.amazonaws.com
+              Resource:
+                - !GetAtt 'S3BucketForLog20898FE4.Arn'
+                - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+              Sid: AWSLogDelivery For NLB,R53Resolver,Flowlogs
+            - Action:
+                - s3:GetBucketAcl
+                - s3:ListBucket
+              Effect: Allow
+              Principal:
+                Service:
+                  - cloudtrail.amazonaws.com
+                  - config.amazonaws.com
+              Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
+              Sid: AWSLogDeliveryAclCheck For Cloudtrail, Config
+            - Action: s3:PutObject
+              Condition:
+                StringEquals:
+                  aws:SourceAccount:
+                    - !Ref 'AWS::AccountId'
+              Effect: Allow
+              Principal:
+                Service:
+                  - cloudtrail.amazonaws.com
+                  - config.amazonaws.com
+              Resource: !Sub '${S3BucketForLog20898FE4.Arn}/*/*'
+              Sid: AWSLogDeliveryWrite For CloudTrail, Config
+            - Action:
+                - s3:GetBucketLocation
+                - s3:PutObject
+              Condition:
+                StringEquals:
+                  aws:SourceAccount:
+                    - !Ref 'AWS::AccountId'
+              Effect: Allow
+              Principal:
+                Service: guardduty.amazonaws.com
+              Resource:
+                - !GetAtt 'S3BucketForLog20898FE4.Arn'
+                - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+              Sid: Allow GuardDuty to put objects
+          Version: '2012-10-17'
+    DependsOn:
+      - ExecCustomResourceValidator
+  S3BucketForLogNotificationsHandlerPolicy73AA8CE9:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: s3:PutBucketNotification
+            Effect: Allow
+            Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
+        Version: '2012-10-17'
+      PolicyName: S3BucketForLogNotificationsHandlerPolicy73AA8CE9
+      Roles:
+        - !Ref 'BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC'
+    DependsOn:
+      - ExecCustomResourceValidator
+  S3BucketForLogNotificationsAEE88E1E:
+    Type: Custom::S3BucketNotifications
+    Properties:
+      ServiceToken: !GetAtt 'BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691.Arn'
+      BucketName: !Ref 'S3BucketForLog20898FE4'
+      NotificationConfiguration:
+        LambdaFunctionConfigurations:
+          - Events:
+              - s3:ObjectCreated:*
+            LambdaFunctionArn: !GetAtt 'LambdaEsLoader4B1E2DD9.Arn'
+      Managed: true
+      SkipDestinationValidation: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3
+      - S3BucketForLogNotificationsHandlerPolicy73AA8CE9
+      - S3BucketForLogPolicy546D5712
+  S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'LambdaEsLoader4B1E2DD9.Arn'
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !GetAtt 'S3BucketForLog20898FE4.Arn'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy15FD9DEDA:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy1CustomResourcePolicyFF310180
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy1CustomResourcePolicyFF310180:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy1CustomResourcePolicyFF310180
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  AWS679f53fac002430cb0da5b7982bd22872D164C4C:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/aws_api_caller.zip'
+      FunctionName: aes-siem-aws-api-caller
+      Handler: index.handler
+      Role: !GetAtt 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2.Arn'
+      Runtime: nodejs24.x
+      Timeout: 30
+    DependsOn:
+      - AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2
+  s3bucketpolicy21E45697B:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy2CustomResourcePolicyFE3F6536
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy2CustomResourcePolicyFE3F6536:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy2CustomResourcePolicyFE3F6536
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy3A1928812:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy3CustomResourcePolicyE5E99D27
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy3CustomResourcePolicyE5E99D27:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy3CustomResourcePolicyE5E99D27
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy416563D71:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy4CustomResourcePolicy96788499
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy4CustomResourcePolicy96788499:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy4CustomResourcePolicy96788499
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy50CFAB8F6:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy5CustomResourcePolicy730B91F1
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy5CustomResourcePolicy730B91F1:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy5CustomResourcePolicy730B91F1
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy6CDE0535D:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy6CustomResourcePolicyFF335DCB
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy6CustomResourcePolicyFF335DCB:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy6CustomResourcePolicyFF335DCB
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy7DA6B2438:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy7CustomResourcePolicy21A26A03
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy7CustomResourcePolicy21A26A03:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy7CustomResourcePolicy21A26A03
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy8D93B955E:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.6-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.6-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy8CustomResourcePolicyB90BE56A
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy8CustomResourcePolicyB90BE56A:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy8CustomResourcePolicyB90BE56A
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  S3BucketForSnapshot40E67D36:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub 'aes-siem-${AWS::AccountId}-snapshot'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  S3BucketForSnapshotPolicy3DEBD2C0:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'S3BucketForSnapshot40E67D36'
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Resource:
+              - !GetAtt 'S3BucketForSnapshot40E67D36.Arn'
+              - !Sub '${S3BucketForSnapshot40E67D36.Arn}/*'
+          - Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt 'AesSiemSnapshotRoleF313ED39.Arn'
+            Resource: !Sub '${S3BucketForSnapshot40E67D36.Arn}/*'
+            Sid: Allow OpenSearch Service to store snapshot
+        Version: '2012-10-17'
+  AesSiemSnapshotRoleF313ED39:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: opensearchservice.amazonaws.com
+        Version: '2012-10-17'
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: s3:ListBucket
+                Effect: Allow
+                Resource: !GetAtt 'S3BucketForSnapshot40E67D36.Arn'
+              - Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Effect: Allow
+                Resource: !Sub '${S3BucketForSnapshot40E67D36.Arn}/*'
+            Version: '2012-10-17'
+          PolicyName: s3access
+      RoleName: aes-siem-snapshot-role
+  AesSiemSnsRole64262F46:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: opensearchservice.amazonaws.com
+        Version: '2012-10-17'
+      RoleName: aes-siem-sns-role
+  AesSiemSnsRoleDefaultPolicy7B8095B5:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+          - Action: sns:Publish
+            Effect: Allow
+            Resource: !Ref 'SnsTopic2C1570A4'
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+        Version: '2012-10-17'
+      PolicyName: AesSiemSnsRoleDefaultPolicy7B8095B5
+      Roles:
+        - !Ref 'AesSiemSnsRole64262F46'
+  AesSiemEsLoaderEC2RoleFE3F9F00:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+        Version: '2012-10-17'
+      RoleName: aes-siem-es-loader-for-ec2
+  AesSiemEsLoaderEC2RoleDefaultPolicyAF44001A:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - sqs:GetQueue*
+              - sqs:ListQueues*
+              - sqs:ReceiveMessage*
+              - sqs:DeleteMessage*
+            Effect: Allow
+            Resource: !GetAtt 'AesSiemDlq1CD8439D.Arn'
+          - Action: kms:Decrypt
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForLog20898FE4.Arn'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: AesSiemEsLoaderEC2RoleDefaultPolicyAF44001A
+      Roles:
+        - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+  AesSiemEsLoaderEC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+      Roles:
+        - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+  AesSiemVpcNoinboundSecurityGroup58555CE0:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: aes-siem/AesSiemVpcNoinboundSecurityGroup
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Condition: IsInVpc
+  AesSiemVpcSecurityGroup2nd:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: aes-siem/AesSiemVpcSecurityGroup2nd
+      GroupName: aes-siem-vpc-sg2
+      SecurityGroupIngress:
+        - CidrIp: !GetAtt 'ExecCustomResourceValidator.cidr_block0'
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: !GetAtt 'ExecCustomResourceValidator.cidr_block1'
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: !GetAtt 'ExecCustomResourceValidator.cidr_block2'
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: !GetAtt 'ExecCustomResourceValidator.cidr_block3'
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: IsInVpc
+  VpcAesSiemSQSEndpoint8BFF7847:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+      ServiceName: !If
+        - isChinaRegion
+        - !Sub 'cn.com.amazonaws.${AWS::Region}.sqs'
+        - !Sub 'com.amazonaws.${AWS::Region}.sqs'
+      SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+      VpcEndpointType: Interface
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: SqsVpceIsRequired
+  VpcAesSiemSSMEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
+      SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+      VpcEndpointType: Interface
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: SsmVpceIsRequired
+  VpcAesSiemSTSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+      ServiceName: !If
+        - isChinaRegion
+        - !Sub 'cn.com.amazonaws.${AWS::Region}.sts'
+        - !Sub 'com.amazonaws.${AWS::Region}.sts'
+      SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+      VpcEndpointType: Interface
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: StsVpceIsRequired
+  VpcAesSiemS3Endpoint003F70DF:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      RouteTableIds: !GetAtt 'ExecCustomResourceValidator.route_table_ids'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: Gateway
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: S3VpceIsRequired
+  AesSiemDlq1CD8439D:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsDataKeyReusePeriodSeconds: 86400
+      KmsMasterKeyId: alias/aws/sqs
+      MessageRetentionPeriod: 1209600
+      QueueName: aes-siem-dlq
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  AesSiemSqsSplitLogs0191F431:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsDataKeyReusePeriodSeconds: 86400
+      KmsMasterKeyId: alias/aws/sqs
+      MessageRetentionPeriod: 1209600
+      QueueName: aes-siem-sqs-splitted-logs
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
+        maxReceiveCount: 20
+      VisibilityTimeout: 600
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  LambdaEsLoaderServiceRoleFFD43869:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Effect: Allow
+            Resource: '*'
+          - Action: sqs:SendMessage
+            Effect: Allow
+            Resource: !GetAtt 'AesSiemDlq1CD8439D.Arn'
+          - Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Resource: !GetAtt 'AesSiemDlq1CD8439D.Arn'
+          - Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Resource: !GetAtt 'AesSiemSqsSplitLogs0191F431.Arn'
+          - Action:
+              - sqs:ReceiveMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueUrl
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Resource: !GetAtt 'AesSiemSqsSplitLogs0191F431.Arn'
+          - Action: kms:Decrypt
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForLog20898FE4.Arn'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
+  LambdaEsLoader4B1E2DD9:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip'
+      DeadLetterConfig:
+        TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / es-loader
+      Environment:
+        Variables:
+          AOSS_TYPE: !GetAtt 'AesSiemDomainDeployedR2.aoss_type'
+          CONTROL_TOWER_LOG_BUCKETS: !Ref 'ControlTowerLogBucketNameList'
+          CONTROL_TOWER_ROLE_ARN: !Ref 'ControlTowerRoleArnForEsLoader'
+          CONTROL_TOWER_ROLE_SESSION_NAME: aes-siem-es-loader
+          ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.endpoint'
+          GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
+          LOG_LEVEL: info
+          POWERTOOLS_LOGGER_LOG_EVENT: 'false'
+          POWERTOOLS_METRICS_NAMESPACE: SIEM
+          POWERTOOLS_SERVICE_NAME: es-loader
+          SECURITY_LAKE_EXTERNAL_ID: !Ref 'SecurityLakeExternalId'
+          SECURITY_LAKE_ROLE_ARN: !Ref 'SecurityLakeRoleArn'
+          SECURITY_LAKE_ROLE_SESSION_NAME: aes-siem-es-loader
+          SQS_SPLITTED_LOGS_URL: !Ref 'AesSiemSqsSplitLogs0191F431'
+      FunctionName: aes-siem-es-loader
+      Handler: index.lambda_handler
+      MemorySize: 2048
+      ReservedConcurrentExecutions: !Ref 'ReservedConcurrency'
+      Role: !GetAtt 'LambdaEsLoaderServiceRoleFFD43869.Arn'
+      Runtime: python3.14
+      Timeout: 600
+      VpcConfig:
+        SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+        SecurityGroupIds: !If
+          - IsInVpc
+          - - !GetAtt 'AesSiemVpcNoinboundSecurityGroup58555CE0.GroupId'
+          - []
+    DependsOn:
+      - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
+      - LambdaEsLoaderServiceRoleFFD43869
+  LambdaEsLoaderCurrentVersion9DFE6955872eb67683f83c98f197fab519815c59:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      EventSourceArn: !GetAtt 'AesSiemSqsSplitLogs0191F431.Arn'
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
+  LambdaAddPandasLayerRoleDCA80237:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:GetFunction
+                  - lambda:ListTags
+                Effect: Allow
+                Resource: !GetAtt 'LambdaEsLoader4B1E2DD9.Arn'
+              - Action: lambda:PublishLayerVersion
+                Effect: Allow
+                Resource:
+                  - arn:aws:lambda:*:*:layer:AWSDataWrangler-*
+                  - arn:aws:lambda:*:*:layer:AWSSDKPandas-*
+              - Action:
+                  - lambda:ListLayers
+                  - lambda:GetLayerVersion
+                Effect: Allow
+                Resource: '*'
+              - Action:
+                  - s3:Get*
+                  - s3:List*
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: add-pandas-layer-policy
+  LambdaAddPandasLayerRoleDefaultPolicy6A268C17:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaAddPandasLayerRoleDefaultPolicy6A268C17
+      Roles:
+        - !Ref 'LambdaAddPandasLayerRoleDCA80237'
+  LambdaAddPandasLayer8F3F6957:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/add_pandas_layer.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / add-pandas-layer
+      Environment:
+        Variables:
+          GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
+      FunctionName: aes-siem-add-pandas-layer
+      Handler: lambda_function.lambda_handler
+      MemorySize: 128
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaAddPandasLayerRoleDCA80237.Arn'
+      Runtime: python3.14
+      Timeout: 300
+    DependsOn:
+      - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
+      - LambdaAddPandasLayerRoleDCA80237
+  LambdaAddPandasLayerCurrentVersion52D07543ac974bafe128626ad8e517ed3578982a:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  ExecLambdaAddPandasLayer:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
+      ConfigVersion: 2.10.6
+    DependsOn:
+      - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
+      - LambdaAddPandasLayerRoleDCA80237
+      - LambdaEsLoaderCurrentVersion9DFE6955872eb67683f83c98f197fab519815c59
+      - LambdaEsLoader4B1E2DD9
+      - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
+      - LambdaEsLoaderServiceRoleFFD43869
+      - LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9
+    DeletionPolicy: Retain
+  LambdaEsLoaderStopperServiceRole83AABC1A:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: lambda:PutFunctionConcurrency
+            Effect: Allow
+            Resource: !GetAtt 'LambdaEsLoader4B1E2DD9.Arn'
+          - Action: sns:Publish
+            Effect: Allow
+            Resource: !Ref 'SnsTopic2C1570A4'
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+        Version: '2012-10-17'
+      PolicyName: LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
+      Roles:
+        - !Ref 'LambdaEsLoaderStopperServiceRole83AABC1A'
+  LambdaEsLoaderStopper35C1D57B:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / es-loader-stopper
+      Environment:
+        Variables:
+          AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
+          ES_LOADER_FUNCTION_ARN: !GetAtt 'LambdaEsLoader4B1E2DD9.Arn'
+          ES_LOADER_RESERVED_CONCURRENCY: !Ref 'ReservedConcurrency'
+      FunctionName: aes-siem-es-loader-stopper
+      Handler: index.lambda_handler
+      MemorySize: 128
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaEsLoaderStopperServiceRole83AABC1A.Arn'
+      Runtime: python3.14
+      Timeout: 300
+    DependsOn:
+      - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
+      - LambdaEsLoaderStopperServiceRole83AABC1A
+  LambdaEsLoaderStopperCurrentVersion312AA850df9d09f51b080664eafc534a321faf13:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  LambdaMetricsExporterServiceRoleDDE0BD95:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Effect: Allow
+            Resource: '*'
+            Sid: ForVpcAccess
+          - Action:
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+          - Action:
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForLog20898FE4.Arn'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
+      Roles:
+        - !Ref 'LambdaMetricsExporterServiceRoleDDE0BD95'
+  LambdaMetricsExporter2737F589:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / index-metrics-exporter
+      Environment:
+        Variables:
+          COLLECTION_NAME: !Ref 'DomainOrCollectionName'
+          ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.endpoint'
+          LOG_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-log'
+          PERIOD_HOUR: '1'
+      FunctionName: aes-siem-index-metrics-exporter
+      Handler: index.lambda_handler
+      MemorySize: 256
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaMetricsExporterServiceRoleDDE0BD95.Arn'
+      Runtime: python3.14
+      Timeout: 300
+      VpcConfig:
+        SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+        SecurityGroupIds: !If
+          - IsInVpc
+          - - !GetAtt 'AesSiemVpcNoinboundSecurityGroup58555CE0.GroupId'
+          - []
+    DependsOn:
+      - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
+      - LambdaMetricsExporterServiceRoleDDE0BD95
+  LambdaMetricsExporterCurrentVersion79B0413F301f47a1bcbf5c61ea244258411b455d:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaMetricsExporter2737F589'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  EventBridgeRuleLambdaMetricsExporterE956E7F2:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt 'LambdaMetricsExporter2737F589.Arn'
+          Id: Target0
+  EventBridgeRuleLambdaMetricsExporterAllowEventRuleaessiemLambdaMetricsExporterCD618C3523DA2D6A:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'LambdaMetricsExporter2737F589.Arn'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt 'EventBridgeRuleLambdaMetricsExporterE956E7F2.Arn'
+  LambdaGeoipDownloaderServiceRoleE37FB908:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
+      Roles:
+        - !Ref 'LambdaGeoipDownloaderServiceRoleE37FB908'
+  LambdaGeoipDownloaderA5EFF97E:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / geoip-downloader
+      Environment:
+        Variables:
+          TRUSTED_PROXY_LIST: !Ref 'TrustedProxyIpList'
+          license_key: !Ref 'GeoLite2LicenseKey'
+          s3bucket_name: !Sub 'aes-siem-${AWS::AccountId}-geo'
+      FunctionName: aes-siem-geoip-downloader
+      Handler: index.lambda_handler
+      MemorySize: 320
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaGeoipDownloaderServiceRoleE37FB908.Arn'
+      Runtime: python3.14
+      Timeout: 300
+    DependsOn:
+      - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
+      - LambdaGeoipDownloaderServiceRoleE37FB908
+  LambdaGeoipDownloaderCurrentVersion7F1CD34Facfe046cc6f5fe866f807570fc1b2b04:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  ExecLambdaGeoipDownloader:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'LambdaGeoipDownloaderA5EFF97E.Arn'
+      License: !Ref 'GeoLite2LicenseKey'
+    DeletionPolicy: Retain
+  EventBridgeRuleLambdaGeoipDownloaderAFA87072:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(12 hours)
+      State: !If
+        - HasGeoipLicense
+        - ENABLED
+        - DISABLED
+      Targets:
+        - Arn: !GetAtt 'LambdaGeoipDownloaderA5EFF97E.Arn'
+          Id: Target0
+  EventBridgeRuleLambdaGeoipDownloaderAllowEventRuleaessiemLambdaGeoipDownloaderC2D21D002CAED82D:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'LambdaGeoipDownloaderA5EFF97E.Arn'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt 'EventBridgeRuleLambdaGeoipDownloaderAFA87072.Arn'
+  LambdaIocPlanServiceRole6CDE7C5D:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
+      Roles:
+        - !Ref 'LambdaIocPlanServiceRole6CDE7C5D'
+  LambdaIocPlan6E369BFB:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / ioc-plan
+      Environment:
+        Variables:
+          ABUSE_CH: !Ref 'EnableAbuseCh'
+          GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
+          LOG_LEVEL: INFO
+          OTX_API_KEY: !Ref 'OtxApiKey'
+          TOR: !Ref 'EnableTor'
+      FunctionName: aes-siem-ioc-plan
+      Handler: lambda_function.plan
+      MemorySize: 128
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaIocPlanServiceRole6CDE7C5D.Arn'
+      Runtime: python3.14
+      Timeout: 300
+    DependsOn:
+      - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
+      - LambdaIocPlanServiceRole6CDE7C5D
+  LambdaIocPlanCurrentVersion1BAA7B4C59e0d7b7a2b7c0acff6160f100beedab:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaIocPlan6E369BFB'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  LambdaIocDownloadServiceRoleEB9001C6:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:ListAllMyBuckets
+              - s3:PutFunctionConcurrency
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
+      Roles:
+        - !Ref 'LambdaIocDownloadServiceRoleEB9001C6'
+  LambdaIocDownload5519716E:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / ioc-download
+      Environment:
+        Variables:
+          GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
+          LOG_LEVEL: INFO
+          OTX_API_KEY: !Ref 'OtxApiKey'
+      FunctionName: aes-siem-ioc-download
+      Handler: lambda_function.download
+      MemorySize: 384
+      Role: !GetAtt 'LambdaIocDownloadServiceRoleEB9001C6.Arn'
+      Runtime: python3.14
+      Timeout: 900
+    DependsOn:
+      - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
+      - LambdaIocDownloadServiceRoleEB9001C6
+  LambdaIocDownloadCurrentVersion48773E6B760ab54f76400853a8183bf4296113cf:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaIocDownload5519716E'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  LambdaIocCreatedbServiceRole555565C0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - !GetAtt 'S3BucketForGeoip04B5F171.Arn'
+              - !Sub '${S3BucketForGeoip04B5F171.Arn}/*'
+        Version: '2012-10-17'
+      PolicyName: LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
+      Roles:
+        - !Ref 'LambdaIocCreatedbServiceRole555565C0'
+  LambdaIocCreatedb04F35777:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / ioc-createdb
+      Environment:
+        Variables:
+          GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
+          LOG_LEVEL: INFO
+      FunctionName: aes-siem-ioc-createdb
+      Handler: lambda_function.createdb
+      MemorySize: 1024
+      Role: !GetAtt 'LambdaIocCreatedbServiceRole555565C0.Arn'
+      Runtime: python3.14
+      Timeout: 900
+    DependsOn:
+      - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
+      - LambdaIocCreatedbServiceRole555565C0
+  LambdaIocCreatedbCurrentVersionD9D04E9C07af42e55dcb540e0c04bf75fd196a88:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaIocCreatedb04F35777'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  IocStateMachineLogGroupC1AB417E:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vendedlogs/states/aes-siem-ioc-logs
+      RetentionInDays: 30
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  IocStateMachineRole095AC46F:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+        Version: '2012-10-17'
+  IocStateMachineRoleDefaultPolicy2B85C920:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - !GetAtt 'LambdaIocPlan6E369BFB.Arn'
+              - !Sub '${LambdaIocPlan6E369BFB.Arn}:*'
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - !GetAtt 'LambdaIocCreatedb04F35777.Arn'
+              - !Sub '${LambdaIocCreatedb04F35777.Arn}:*'
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - !GetAtt 'LambdaIocDownload5519716E.Arn'
+              - !Sub '${LambdaIocDownload5519716E.Arn}:*'
+          - Action:
+              - logs:CreateLogDelivery
+              - logs:GetLogDelivery
+              - logs:UpdateLogDelivery
+              - logs:DeleteLogDelivery
+              - logs:ListLogDeliveries
+              - logs:PutResourcePolicy
+              - logs:DescribeResourcePolicies
+              - logs:DescribeLogGroups
+            Effect: Allow
+            Resource: '*'
+        Version: '2012-10-17'
+      PolicyName: IocStateMachineRoleDefaultPolicy2B85C920
+      Roles:
+        - !Ref 'IocStateMachineRole095AC46F'
+  IocStateMachine01BE6E56:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString: !Sub '{"StartAt":"IocPlan","States":{"IocPlan":{"Next":"need to download?","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocPlan6E369BFB.Arn}","Payload":""}},"need
+        to download?":{"Type":"Choice","Choices":[{"Variable":"$.mapped[0].ioc","IsPresent":false,"Next":"SkipDownload"}],"Default":"MapDownload"},"MapDownload":{"Type":"Map","Next":"IocCreatedb","ItemsPath":"$.mapped","ItemSelector":{"mapped.$":"$$.Map.Item.Value"},"ItemProcessor":{"ProcessorConfig":{"Mode":"INLINE"},"StartAt":"IocDownload","States":{"IocDownload":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.Timeout","States.TaskFailed"],"ResultPath":"$.catcher","Next":"IgnoreTimeout"}],"Type":"Task","TimeoutSeconds":899,"OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocDownload5519716E.Arn}","Payload.$":"$"}},"IgnoreTimeout":{"Type":"Pass","End":true}}},"MaxConcurrency":4},"IocCreatedb":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocCreatedb04F35777.Arn}","Payload.$":"$"}},"SkipDownload":{"Type":"Pass","End":true}},"TimeoutSeconds":3600}'
+      LoggingConfiguration:
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt 'IocStateMachineLogGroupC1AB417E.Arn'
+        Level: ALL
+      RoleArn: !GetAtt 'IocStateMachineRole095AC46F.Arn'
+      StateMachineName: aes-siem-ioc-state-machine
+    DependsOn:
+      - IocStateMachineRoleDefaultPolicy2B85C920
+      - IocStateMachineRole095AC46F
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  IocStateMachineEventsRoleC1BF1919:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: '2012-10-17'
+  IocStateMachineEventsRoleDefaultPolicyC412ACCE:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: states:StartExecution
+            Effect: Allow
+            Resource: !Ref 'IocStateMachine01BE6E56'
+        Version: '2012-10-17'
+      PolicyName: IocStateMachineEventsRoleDefaultPolicyC412ACCE
+      Roles:
+        - !Ref 'IocStateMachineEventsRoleC1BF1919'
+  EventBridgeRuleStepFunctionsIoc6CE991F5:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: !Sub 'rate(${IocDownloadInterval} minutes)'
+      State: !If
+        - EnableIOC
+        - ENABLED
+        - DISABLED
+      Targets:
+        - Arn: !Ref 'IocStateMachine01BE6E56'
+          Id: Target0
+          RoleArn: !GetAtt 'IocStateMachineEventsRoleC1BF1919.Arn'
+  AesSiemDeployRoleForLambda654D64F2:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - logs:PutResourcePolicy
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Effect: Allow
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:PutRetentionPolicy
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/aes/domains/${DomainOrCollectionName}/*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/OpenSearchService/domains/${DomainOrCollectionName}/*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aes-siem-*'
+            Version: '2012-10-17'
+          PolicyName: cwl_loggroup
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - ec2:DescribeVpcEndpoints
+                  - es:CreateDomain
+                  - es:DescribeDomain
+                  - es:ESHttp*
+                  - es:UpdateDomainConfig
+                  - iam:GetRole
+                Effect: Allow
+                Resource: '*'
+              - Action: iam:CreateServiceLinkedRole
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/observability.aoss.amazonaws.com/AWSServiceRoleForAmazonOpenSearchServerless'
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/opensearchservice.amazonaws.com/AWSServiceRoleForAmazonOpenSearchService'
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/es.amazonaws.com/AWSServiceRoleForAmazonElasticsearchService'
+              - Action:
+                  - aoss:APIAccessAll
+                  - aoss:DashboardsAccessAll
+                  - aoss:BatchGetCollection
+                  - aoss:BatchGetVpcEndpoint
+                  - aoss:CreateCollection
+                  - aoss:CreateSecurityPolicy
+                  - aoss:GetSecurityPolicy
+                  - aoss:UpdateSecurityPolicy
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: opensearch_deployment
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - events:DeleteRule
+                  - events:ListRules
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                  - lambda:AddPermission
+                  - lambda:RemovePermission
+                Effect: Allow
+                Resource: '*'
+            Version: '2012-10-17'
+          PolicyName: crhelper
+        - PolicyDocument:
+            Statement:
+              - Action: iam:PassRole
+                Effect: Allow
+                Resource: !GetAtt 'AesSiemSnapshotRoleF313ED39.Arn'
+            Version: '2012-10-17'
+          PolicyName: assume_snapshotrole
+        - PolicyDocument:
+            Statement:
+              - Action: s3:ListBucket
+                Effect: Allow
+                Resource: !GetAtt 'S3BucketForSnapshot40E67D36.Arn'
+              - Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Effect: Allow
+                Resource: !Sub '${S3BucketForSnapshot40E67D36.Arn}/*'
+            Version: '2012-10-17'
+          PolicyName: s3access
+      RoleName: aes-siem-deploy-role-for-lambda
+  AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Effect: Allow
+            Resource: '*'
+        Version: '2012-10-17'
+      PolicyName: AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
+      Roles:
+        - !Ref 'AesSiemDeployRoleForLambda654D64F2'
+  AossDataAccessPolicyForDeployment:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Description: Created By SIEM Solution. DO NOT EDIT
+      Name: siem-data-access-for-deploymet
+      Policy: !Sub '[{"Description":"For SIEM Deployment","Principal":["${AesSiemDeployRoleForLambda654D64F2.Arn}"],"Rules":[{"Resource":["collection/${DomainOrCollectionName}"],"Permission":["aoss:CreateCollectionItems","aoss:UpdateCollectionItems"],"ResourceType":"collection"},{"Resource":["index/${DomainOrCollectionName}/*"],"Permission":["aoss:*"],"ResourceType":"index"}]},{"Description":"For
+        SIEM Deployment2","Principal":["${AesSiemDeployRoleForLambda654D64F2.Arn}"],"Rules":[{"Resource":["collection/*"],"Permission":["aoss:DescribeCollectionItems"],"ResourceType":"collection"}]}]'
+      Type: data
+    Condition: IsServerless
+  AossDataAccessPolicyForLoader:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Description: Created By SIEM Solution. DO NOT EDIT
+      Name: siem-data-access-for-loader
+      Policy: !Sub '[{"Description":"For SIEM Loader","Principal":["${LambdaEsLoaderServiceRoleFFD43869.Arn}"],"Rules":[{"Resource":["index/${DomainOrCollectionName}/log-*","index/${DomainOrCollectionName}/metrics-*"],"Permission":["aoss:CreateIndex","aoss:UpdateIndex","aoss:ReadDocument","aoss:WriteDocument"],"ResourceType":"index"}]},{"Description":"For
+        SIEM metrics exporter","Principal":["${LambdaMetricsExporterServiceRoleDDE0BD95.Arn}"],"Rules":[{"Resource":["index/${DomainOrCollectionName}/*"],"Permission":["aoss:DescribeIndex"],"ResourceType":"index"}]}]'
+      Type: data
+    Condition: IsServerless
+  LambdaDeployAES636B5079:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / opensearch domain deployment
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          ALLOWED_SOURCE_ADDRESSES: !Ref 'AllowedSourceIpAddresses'
+          DEPLOYMENT_TARGET: !Ref 'DeploymentTarget'
+          DOMAIN_OR_COLLECTION_NAME: !Ref 'DomainOrCollectionName'
+          ROLE_AOS_ADMIN: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
+          S3_SNAPSHOT: !Ref 'S3BucketForSnapshot40E67D36'
+          SOLUTION_PREFIX: aes-siem
+          VPCE_ID: !Ref 'VpcEndpointId'
+      FunctionName: aes-siem-deploy-aes
+      Handler: index.aes_domain_handler
+      MemorySize: 256
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
+      Runtime: python3.14
+      Timeout: 300
+    DependsOn:
+      - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
+      - AesSiemDeployRoleForLambda654D64F2
+  LambdaDeployAESCurrentVersion047915F14390d56d7b93e30e7b269e10c6fe5477:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaDeployAES636B5079'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  AesSiemDomainDeployedR2:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
+      ConfigVersion: 2.10.6
+      Target: !Ref 'DeploymentTarget'
+      Name: !Ref 'DomainOrCollectionName'
+      vpce: !Ref 'VpcEndpointId'
+    DependsOn:
+      - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
+      - AesSiemDeployRoleForLambda654D64F2
+  LambdaConfigureAESA0471961:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - arm64
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.6 / opensearch configuration
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref 'AWS::AccountId'
+          DOMAIN_OR_COLLECTION_NAME: !Ref 'DomainOrCollectionName'
+          ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.endpoint'
+          ROLE_AOS_ADMIN: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
+          ROLE_ES_LOADER: !GetAtt 'LambdaEsLoaderServiceRoleFFD43869.Arn'
+          ROLE_METRICS_EXPORTER: !GetAtt 'LambdaMetricsExporterServiceRoleDDE0BD95.Arn'
+          ROLE_SNAPSHOT: !GetAtt 'AesSiemSnapshotRoleF313ED39.Arn'
+          S3_SNAPSHOT: !Ref 'S3BucketForSnapshot40E67D36'
+          SOLUTION_PREFIX: aes-siem
+      FunctionName: aes-siem-configure-aes
+      Handler: index.aes_config_handler
+      MemorySize: 1024
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
+      Runtime: python3.14
+      Timeout: 600
+      VpcConfig:
+        SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+        SecurityGroupIds: !If
+          - IsInVpc
+          - - !GetAtt 'AesSiemVpcNoinboundSecurityGroup58555CE0.GroupId'
+          - []
+    DependsOn:
+      - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
+      - AesSiemDeployRoleForLambda654D64F2
+  LambdaConfigureAESCurrentVersion65114768aca29bbd57fe5fc765897affcdd1f906:
+    Type: AWS::Lambda::Version
+    Properties:
+      Description: 2.10.6
+      FunctionName: !Ref 'LambdaConfigureAESA0471961'
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  AesSiemDomainConfiguredR2:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
+      ConfigVersion: 2.10.6
+      Target: !Ref 'DeploymentTarget'
+      Name: !Ref 'DomainOrCollectionName'
+    DependsOn:
+      - AesSiemDomainDeployedR2
+    DeletionPolicy: Retain
+  aessiempolicytoloadentriestoesE6506021:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: es:ESHttp*
+            Effect: Allow
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainOrCollectionName}/*'
+          - Action: aoss:APIAccessAll
+            Effect: Allow
+            Resource: !Sub
+              - arn:aws:aoss:${AWS::Region}:${AWS::AccountId}:collection/${Param1}
+              - Param1: !Select
+                  - 0
+                  - !Split
+                    - .
+                    - !GetAtt 'AesSiemDomainDeployedR2.endpoint'
+        Version: '2012-10-17'
+      PolicyName: aes-siem-policy-to-load-entries-to-es
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
+        - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+        - !Ref 'LambdaMetricsExporterServiceRoleDDE0BD95'
+  aessiempolicytogetparametersbypathB5BFC6F0:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParametersByPath
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/exclude-logs/*'
+        Version: '2012-10-17'
+      PolicyName: aes-siem-policy-to-get-parameters-by-path
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
+        - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+  BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: AWS CloudFormation handler for "Custom::S3BucketNotifications" resources (@aws-cdk/aws-s3)
+      Code:
+        ZipFile: "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nEVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'\nCONFIGURATION_TYPES\
+          \ = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n  response_status = \"SUCCESS\"\n  error_message = \"\"\n  try:\n\
+          \    props = event[\"ResourceProperties\"]\n    notification_configuration = props[\"NotificationConfiguration\"]\n    managed = props.get('Managed', 'true').lower() == 'true'\n    skipDestinationValidation\
+          \ = props.get('SkipDestinationValidation', 'false').lower() == 'true'\n    stack_id = event['StackId']\n    old = event.get(\"OldResourceProperties\", {}).get(\"NotificationConfiguration\", {})\n\
+          \    if managed:\n      config = handle_managed(event[\"RequestType\"], notification_configuration)\n    else:\n      config = handle_unmanaged(props[\"BucketName\"], stack_id, event[\"RequestType\"\
+          ], notification_configuration, old)\n    s3.put_bucket_notification_configuration(Bucket=props[\"BucketName\"], NotificationConfiguration=config, SkipDestinationValidation=skipDestinationValidation)\n\
+          \  except Exception as e:\n    logging.exception(\"Failed to put bucket notification configuration\")\n    response_status = \"FAILED\"\n    error_message = f\"Error: {str(e)}. \"\n  finally:\n\
+          \    submit_response(event, context, response_status, error_message)\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\
+          \ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration, old):\n  def get_id(n):\n    n['Id'] = ''\n    sorted_notifications = sort_filter_rules(n)\n    strToHash=json.dumps(sorted_notifications,\
+          \ sort_keys=True).replace('\"Name\": \"prefix\"', '\"Name\": \"Prefix\"').replace('\"Name\": \"suffix\"', '\"Name\": \"Suffix\"')\n    return f\"{stack_id}-{hash(strToHash)}\"\n  def with_id(n):\n\
+          \    n['Id'] = get_id(n)\n    return n\n\n  external_notifications = {}\n  existing_notifications = s3.get_bucket_notification_configuration(Bucket=bucket)\n  for t in CONFIGURATION_TYPES:\n \
+          \   if request_type == 'Update':\n        old_incoming_ids = [get_id(n) for n in old.get(t, [])]\n        external_notifications[t] = [n for n in existing_notifications.get(t, []) if not get_id(n)\
+          \ in old_incoming_ids]      \n    elif request_type == 'Delete':\n        external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\
+          \    elif request_type == 'Create':\n        external_notifications[t] = [n for n in existing_notifications.get(t, [])]\n  if EVENTBRIDGE_CONFIGURATION in existing_notifications:\n    external_notifications[EVENTBRIDGE_CONFIGURATION]\
+          \ = existing_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  if request_type == 'Delete':\n    return external_notifications\n\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external\
+          \ = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n\n  if EVENTBRIDGE_CONFIGURATION\
+          \ in notification_configuration:\n    notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]\n  elif EVENTBRIDGE_CONFIGURATION in external_notifications:\n\
+          \    notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  return notifications\n\ndef submit_response(event: dict, context, response_status: str, error_message:\
+          \ str):\n  response_body = json.dumps(\n    {\n      \"Status\": response_status,\n      \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n\
+          \      \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n      \"StackId\": event[\"StackId\"],\n      \"RequestId\": event[\"RequestId\"],\n      \"\
+          LogicalResourceId\": event[\"LogicalResourceId\"],\n      \"NoEcho\": False,\n    }\n  ).encode(\"utf-8\")\n  headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n\
+          \  try:\n    req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n    with urllib.request.urlopen(req) as response:\n      print(response.read().decode(\"\
+          utf-8\"))\n    print(\"Status code: \" + response.reason)\n  except Exception as e:\n      print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n\ndef sort_filter_rules(json_obj):\n\
+          \  if not isinstance(json_obj, dict):\n      return json_obj\n  for key, value in json_obj.items():\n      if isinstance(value, dict):\n          json_obj[key] = sort_filter_rules(value)\n   \
+          \   elif isinstance(value, list):\n          json_obj[key] = [sort_filter_rules(item) for item in value]\n  if \"Filter\" in json_obj and \"Key\" in json_obj[\"Filter\"] and \"FilterRules\" in\
+          \ json_obj[\"Filter\"][\"Key\"]:\n      filter_rules = json_obj[\"Filter\"][\"Key\"][\"FilterRules\"]\n      sorted_filter_rules = sorted(filter_rules, key=lambda x: x[\"Name\"])\n      json_obj[\"\
+          Filter\"][\"Key\"][\"FilterRules\"] = sorted_filter_rules\n  return json_obj"
+      Handler: index.handler
+      Role: !GetAtt 'BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC.Arn'
+      Runtime: python3.13
+      Timeout: 300
+    DependsOn:
+      - BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC
+  SnsTopic2C1570A4:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: AES SIEM
+      KmsMasterKeyId: !GetAtt 'KmsAesSiemLog44B26597.Arn'
+      TopicName: aes-siem-alert
+  SnsTopicPolicy520DD923:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: sns:Publish
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Resource: !Ref 'SnsTopic2C1570A4'
+            Sid: '0'
+        Version: '2012-10-17'
+      Topics:
+        - !Ref 'SnsTopic2C1570A4'
+  SnsTopicTokenSubscriptionD7374A11:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref 'SnsEmail'
+      Protocol: email
+      TopicArn: !Ref 'SnsTopic2C1570A4'
+    Condition: HasSnsEmail
+  EventBridgeRuleAosNotificationsC282068B:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        resources:
+          - !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainOrCollectionName}'
+        source:
+          - aws.es
+      State: ENABLED
+      Targets:
+        - Arn: !Ref 'SnsTopic2C1570A4'
+          Id: Target0
+    Condition: HasSnsEmail
+  accesstocontroltowerlogbucketsDFC3958F:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource: !Ref 'ControlTowerRoleArnForEsLoader'
+          - Action:
+              - sqs:ReceiveMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueUrl
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Resource: !Sub
+              - arn:aws:sqs:*:${Param1}:*
+              - Param1: !Select
+                  - 4
+                  - !Split
+                    - ':'
+                    - !Ref 'ControlTowerRoleArnForEsLoader'
+        Version: '2012-10-17'
+      PolicyName: access_to_control_tower
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
+        - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+    Condition: IsControlTowerAcccess
+  EventSourceMappingForCT63FDE1BA:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Ref 'ControlTowerSqsForLogBuckets'
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+    Condition: IsControlTowerAcccess
+  accesstosecuritylakelogbuckets32CCAD02:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource: !Ref 'SecurityLakeRoleArn'
+          - Action:
+              - sqs:ReceiveMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueUrl
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Resource: !Sub
+              - arn:aws:sqs:*:${Param1}:*
+              - Param1: !Select
+                  - 4
+                  - !Split
+                    - ':'
+                    - !Ref 'SecurityLakeRoleArn'
+        Version: '2012-10-17'
+      PolicyName: access_to_security_lake
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
+        - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
+    Condition: IsSecurityLakeAcccess
+  EventSourceMappingForCT230540116:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Ref 'SecurityLakeSubscriberSqs'
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+    Condition: IsSecurityLakeAcccess
+  TotalFreeStorageSpaceRemainsLowAlarm3888040E:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Triggered when total free space for the cluster remains less 200MB for 30 minutes.
+      ComparisonOperator: LessThanOrEqualToThreshold
+      Dimensions:
+        - Name: ClientId
+          Value: !Ref 'AWS::AccountId'
+        - Name: DomainName
+          Value: !Ref 'DomainOrCollectionName'
+      EvaluationPeriods: 30
+      MetricName: FreeStorageSpace
+      Namespace: AWS/ES
+      Period: 60
+      Statistic: Sum
+      Threshold: 200
+  EsLoaderStopperRule2C1D9F30:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        detail-type:
+          - CloudWatch Alarm State Change
+        resources:
+          - !GetAtt 'TotalFreeStorageSpaceRemainsLowAlarm3888040E.Arn'
+        source:
+          - aws.cloudwatch
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt 'LambdaEsLoaderStopper35C1D57B.Arn'
+          Id: Target0
+  EsLoaderStopperRuleAllowEventRuleaessiemLambdaEsLoaderStopper325F7AA593386C47:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'LambdaEsLoaderStopper35C1D57B.Arn'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt 'EsLoaderStopperRule2C1D9F30.Arn'
+  SIEMDashboard35199390:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardBody: !Sub '{"widgets":[{"type":"text","width":24,"height":1,"x":0,"y":0,"properties":{"markdown":"# CloudWatch Alarm"}},{"type":"metric","width":6,"height":6,"x":0,"y":1,"properties":{"view":"timeSeries","title":"${TotalFreeStorageSpaceRemainsLowAlarm3888040E}","region":"${AWS::Region}","annotations":{"alarms":["${TotalFreeStorageSpaceRemainsLowAlarm3888040E.Arn}"]},"yAxis":{}}},{"type":"text","width":24,"height":1,"x":0,"y":7,"properties":{"markdown":"#
+        Lambda Function: ${LambdaEsLoader4B1E2DD9}"}},{"type":"metric","width":12,"height":4,"x":0,"y":8,"properties":{"view":"timeSeries","title":"Error count and success rate (%)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Errors","FunctionName","${LambdaEsLoader4B1E2DD9}",{"color":"#d13212","label":"Errors
+        (Count)","id":"errors","stat":"Sum"}],[{"label":"Success rate (%)","color":"#2ca02c","expression":"100 - 100 * errors / MAX([errors, invocations])","yAxis":"right"}],["AWS/Lambda","Invocations","FunctionName","${LambdaEsLoader4B1E2DD9}",{"id":"invocations","visible":false,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false},"right":{"max":100,"showUnits":false}},"period":60}},{"type":"metric","width":12,"height":4,"x":12,"y":8,"properties":{"view":"timeSeries","title":"Invocations
+        (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Invocations","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"metric","width":12,"height":4,"x":0,"y":12,"properties":{"view":"timeSeries","title":"Duration
+        (Milliseconds)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Duration","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Minimum"}],["AWS/Lambda","Duration","FunctionName","${LambdaEsLoader4B1E2DD9}"],["AWS/Lambda","Duration","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"period":60}},{"type":"metric","width":12,"height":4,"x":12,"y":12,"properties":{"view":"timeSeries","title":"Throttles
+        (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Throttles","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"log","width":12,"height":4,"x":0,"y":16,"properties":{"view":"table","title":"Longest
+        5 invocations","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, @duration, @requestId\n                | sort @duration desc\n                |
+        head 5"}},{"type":"metric","width":12,"height":4,"x":12,"y":16,"properties":{"view":"timeSeries","title":"ConcurrentExecutions (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","ConcurrentExecutions","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"text","width":24,"height":1,"x":0,"y":20,"properties":{"markdown":"#
+        OpenSearch Service: ${DomainOrCollectionName} domain"}},{"type":"metric","width":12,"height":4,"x":0,"y":21,"properties":{"view":"timeSeries","title":"Data Node CPUUtilization (Cluster Max Percentage)","region":"${AWS::Region}","metrics":[["AWS/ES","CPUUtilization","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Maximum"}]],"yAxis":{"left":{"max":100,"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":21,"properties":{"view":"timeSeries","title":"Data
+        Node JVMMemoryPressure (Cluster Max Percentage)","region":"${AWS::Region}","metrics":[["AWS/ES","JVMMemoryPressure","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"max":100,"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":0,"y":25,"properties":{"view":"timeSeries","title":"HTTP
+        requests by error response code (Cluster Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","4xx","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","5xx","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":25,"properties":{"view":"timeSeries","title":"Active
+        Shards Count","region":"${AWS::Region}","metrics":[["AWS/ES","Shards.active","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"],["AWS/ES","Shards.activePrimary","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":29,"properties":{"view":"timeSeries","title":"Cluster
+        DiskThroughputThrottle","region":"${AWS::Region}","metrics":[["AWS/ES","ThroughputThrottle","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"Cluster Disk ThroughputThrottle","stat":"Maximum"}]],"annotations":{"horizontal":[{"value":1,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":29,"properties":{"view":"timeSeries","title":"ClusterIndexWritesBlocked
+        (Cluster Max Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ClusterIndexWritesBlocked","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":12,"height":1,"x":0,"y":33,"properties":{"markdown":"#
+        Read / Search"}},{"type":"text","width":12,"height":1,"x":12,"y":33,"properties":{"markdown":"# Write / Indexing"}},{"type":"metric","width":12,"height":4,"x":0,"y":34,"properties":{"view":"timeSeries","title":"EBS
+        Read Throughput / IOPS","region":"${AWS::Region}","metrics":[["AWS/ES","ReadThroughput","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"ReadThroughput (Bytes/Second)","stat":"Maximum"}],["AWS/ES","ReadIOPS","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"ReadIOPS
+        (Count/Second)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":34,"properties":{"view":"timeSeries","title":"EBS
+        Write Throughput / IOPS","region":"${AWS::Region}","metrics":[["AWS/ES","WriteThroughput","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"WriteThroughput (Bytes/Second)","stat":"Maximum"}],["AWS/ES","WriteIOPS","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"WriteIOPS
+        (Count/Second)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":38,"properties":{"view":"timeSeries","title":"EBS
+        Read Latency / Disk Queue","region":"${AWS::Region}","metrics":[["AWS/ES","ReadLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"ReadLatency (Seconds)","stat":"Maximum"}],["AWS/ES","DiskQueueDepth","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"DiskQueueDepth
+        (Count)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":38,"properties":{"view":"timeSeries","title":"EBS
+        Write Latency / Disk Queue","region":"${AWS::Region}","metrics":[["AWS/ES","WriteLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"WriteLatency (Seconds)","stat":"Maximum"}],["AWS/ES","DiskQueueDepth","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"DiskQueueDepth
+        (Count)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":42,"properties":{"view":"timeSeries","title":"Search
+        Rate / Latency (Node Average)","region":"${AWS::Region}","metrics":[["AWS/ES","SearchRate","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"SearchRate (Count)"}],["AWS/ES","SearchLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"SearchLatency
+        (Milliseconds)","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":42,"properties":{"view":"timeSeries","title":"Indexing
+        Rate / Latency (Node Average)","region":"${AWS::Region}","metrics":[["AWS/ES","IndexingRate","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"IndexingRate (Count)"}],["AWS/ES","IndexingLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"IndexingLatency
+        (Milliseconds)","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":46,"properties":{"view":"timeSeries","title":"ThreadpoolReadQueue
+        (Node Average Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolSearchQueue","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"annotations":{"horizontal":[{"value":1000,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":46,"properties":{"view":"timeSeries","title":"ThreadpoolWriteQueue
+        (Node Average Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolWriteQueue","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"annotations":{"horizontal":[{"value":10000,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":0,"y":50,"properties":{"view":"timeSeries","title":"Threadpool
+        Search Rejected Count (Node Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolSearchRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":50,"properties":{"view":"timeSeries","title":"Threadpool
+        Indexing Rejected Count (Node Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","CoordinatingWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","PrimaryWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","ReplicaWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":24,"height":1,"x":0,"y":54,"properties":{"markdown":"#
+        SQS"}},{"type":"metric","width":12,"height":4,"x":0,"y":55,"properties":{"view":"timeSeries","title":"${AesSiemSqsSplitLogs0191F431.QueueName}: NumberOfMessagesReceived (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","NumberOfMessagesReceived","QueueName","${AesSiemSqsSplitLogs0191F431.QueueName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":55,"properties":{"view":"timeSeries","title":"${AesSiemDlq1CD8439D.QueueName}:
+        ApproximateNumberOfMessagesVisible (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${AesSiemDlq1CD8439D.QueueName}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":24,"height":1,"x":0,"y":59,"properties":{"markdown":"#
+        Lambda Function Logs: ${LambdaEsLoader4B1E2DD9}"}},{"type":"log","width":24,"height":6,"x":0,"y":60,"properties":{"view":"table","title":"CRITICAL Logs","region":"${AWS::Region}","query":"SOURCE
+        ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"CRITICAL\"\n                | sort @timestamp desc\n                | limit 100"}},{"type":"log","width":24,"height":6,"x":0,"y":66,"properties":{"view":"table","title":"ERROR
+        Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"ERROR\"\n                | sort
+        @timestamp desc\n                | limit 100"}},{"type":"text","width":12,"height":3,"x":0,"y":72,"properties":{"markdown":"## Sample query\nTo investigate critical/error log with CloudWatch Logs
+        Insights\n\n```\nfields @timestamp, @message\n| filter s3_key == \"copy s3_key and paste here\"\nOR @requestId == \"copy function_request_id and paste here\"```"}},{"type":"log","width":24,"height":6,"x":0,"y":75,"properties":{"view":"table","title":"Exception
+        Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, @message\n                | filter @message =~ /^\\[ERROR]/\n                | filter
+        @message not like /No active exception to reraise/\n                | filter @message not like /unknown file format/\n                # exclude raise without Exception\n                | sort @timestamp
+        desc\n                | limit 100"}}]}'
+      DashboardName: SIEM
+    Condition: IsManagedCluster
+  SIEMDashboardServerlessC64B983C:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardBody: !Sub
+        - '{"widgets":[{"type":"text","width":24,"height":1,"x":0,"y":0,"properties":{"markdown":"# Lambda Function: ${LambdaEsLoader4B1E2DD9}"}},{"type":"metric","width":12,"height":4,"x":0,"y":1,"properties":{"view":"timeSeries","title":"Error
+          count and success rate (%)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Errors","FunctionName","${LambdaEsLoader4B1E2DD9}",{"color":"#d13212","label":"Errors (Count)","id":"errors","stat":"Sum"}],[{"label":"Success
+          rate (%)","color":"#2ca02c","expression":"100 - 100 * errors / MAX([errors, invocations])","yAxis":"right"}],["AWS/Lambda","Invocations","FunctionName","${LambdaEsLoader4B1E2DD9}",{"id":"invocations","visible":false,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false},"right":{"max":100,"showUnits":false}},"period":60}},{"type":"metric","width":12,"height":4,"x":12,"y":1,"properties":{"view":"timeSeries","title":"Invocations
+          (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Invocations","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"metric","width":12,"height":4,"x":0,"y":5,"properties":{"view":"timeSeries","title":"Duration
+          (Milliseconds)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Duration","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Minimum"}],["AWS/Lambda","Duration","FunctionName","${LambdaEsLoader4B1E2DD9}"],["AWS/Lambda","Duration","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"period":60}},{"type":"metric","width":12,"height":4,"x":12,"y":5,"properties":{"view":"timeSeries","title":"Throttles
+          (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Throttles","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"log","width":12,"height":4,"x":0,"y":9,"properties":{"view":"table","title":"Longest
+          5 invocations","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, @duration, @requestId\n                | sort @duration desc\n                |
+          head 5"}},{"type":"metric","width":12,"height":4,"x":12,"y":9,"properties":{"view":"timeSeries","title":"ConcurrentExecutions (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","ConcurrentExecutions","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"text","width":24,"height":1,"x":0,"y":13,"properties":{"markdown":"#
+          OpenSearch Serverless: ${DomainOrCollectionName} collection"}},{"type":"metric","width":12,"height":4,"x":0,"y":14,"properties":{"view":"timeSeries","title":"HTTP requests by response code 2xs,
+          3xx","region":"${AWS::Region}","metrics":[["AWS/AOSS","2xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}],["AWS/AOSS","3xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":1,"x":12,"y":14,"properties":{"markdown":"#
+          Write / Indexing"}},{"type":"metric","width":12,"height":4,"x":0,"y":18,"properties":{"view":"timeSeries","title":"HTTP requests by error response code 4xx, 5xx","region":"${AWS::Region}","metrics":[["AWS/AOSS","4xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}],["AWS/AOSS","5xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":18,"properties":{"view":"timeSeries","title":"IngestionDataRate:
+          The indexing rate per second to a collection (Bytes/s)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionDataRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":4,"x":0,"y":22,"properties":{"markdown":""}},{"type":"metric","width":12,"height":4,"x":12,"y":22,"properties":{"view":"timeSeries","title":"IngestionDocumentRate:
+          The rate per second at which documents are being ingested to a collection (Counts)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionDocumentRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":1,"x":0,"y":26,"properties":{"markdown":"#
+          Read / Search"}},{"type":"metric","width":12,"height":4,"x":12,"y":26,"properties":{"view":"timeSeries","title":"IngestionDocumentErrors: The total number of document errors during ingestion (counts)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionDocumentErrors","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"color":"#d13212","period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":30,"properties":{"view":"timeSeries","title":"SearchOCU:
+          The number of OCUs used to search collection data","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchOCU","ClientId","${AWS::AccountId}",{"period":3600,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":30,"properties":{"view":"timeSeries","title":"IndexingOCU:
+          The number of OCUs used to ingest collection data","region":"${AWS::Region}","metrics":[["AWS/AOSS","IndexingOCU","ClientId","${AWS::AccountId}",{"period":3600,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":34,"properties":{"view":"timeSeries","title":"SearchRequestRate:
+          The total number of search requests (Counts/min)","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchRequestRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":34,"properties":{"view":"timeSeries","title":"IngestionRequestRate:
+          The total number of bulk write operations (Counts/min)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionRequestRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":38,"properties":{"view":"timeSeries","title":"SearchRequestLatency:
+          The time to complete a search operation (milliseconds)","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchRequestLatency","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":38,"properties":{"view":"timeSeries","title":"IngestionRequestLatency:
+          The time to complete bulk write operations (milliseconds)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionRequestLatency","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":42,"properties":{"view":"timeSeries","title":"SearchRequestErrors:
+          The total number of query errors (Counts/min)","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchRequestErrors","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"color":"#d13212","period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":42,"properties":{"view":"timeSeries","title":"IngestionRequestErrors:
+          The total number of bulk indexing request errors (counts)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionRequestErrors","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"color":"#d13212","period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":24,"height":1,"x":0,"y":46,"properties":{"markdown":"#
+          SQS"}},{"type":"metric","width":12,"height":4,"x":0,"y":47,"properties":{"view":"timeSeries","title":"${AesSiemSqsSplitLogs0191F431.QueueName}: NumberOfMessagesReceived (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","NumberOfMessagesReceived","QueueName","${AesSiemSqsSplitLogs0191F431.QueueName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":47,"properties":{"view":"timeSeries","title":"${AesSiemDlq1CD8439D.QueueName}:
+          ApproximateNumberOfMessagesVisible (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${AesSiemDlq1CD8439D.QueueName}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":24,"height":1,"x":0,"y":51,"properties":{"markdown":"#
+          Lambda Function Logs: ${LambdaEsLoader4B1E2DD9}"}},{"type":"log","width":24,"height":6,"x":0,"y":52,"properties":{"view":"table","title":"CRITICAL Logs","region":"${AWS::Region}","query":"SOURCE
+          ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"CRITICAL\"\n                | sort @timestamp desc\n                | limit
+          100"}},{"type":"log","width":24,"height":6,"x":0,"y":58,"properties":{"view":"table","title":"ERROR Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' |
+          fields @timestamp, message, s3_key\n                | filter level == \"ERROR\"\n                | sort @timestamp desc\n                | limit 100"}},{"type":"text","width":12,"height":3,"x":0,"y":64,"properties":{"markdown":"##
+          Sample query\nTo investigate critical/error log with CloudWatch Logs Insights\n\n```\nfields @timestamp, @message\n| filter s3_key == \"copy s3_key and paste here\"\nOR @requestId == \"copy function_request_id
+          and paste here\"```"}},{"type":"log","width":24,"height":6,"x":0,"y":67,"properties":{"view":"table","title":"Exception Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}''
+          | fields @timestamp, @message\n                | filter @message =~ /^\\[ERROR]/\n                | filter @message not like /No active exception to reraise/\n                | filter @message
+          not like /unknown file format/\n                # exclude raise without Exception\n                | sort @timestamp desc\n                | limit 100"}}]}'
+        - Param1: !Select
+            - 0
+            - !Split
+              - .
+              - !GetAtt 'AesSiemDomainDeployedR2.endpoint'
+      DashboardName: SIEM-Serverless
+    Condition: IsServerless
+Outputs:
+  RoleDeploy:
+    Value: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
+    Export:
+      Name: role-deploy
+  DashboardsUrl:
+    Value: !Sub 'https://${AesSiemDomainDeployedR2.endpoint}/_dashboards/'
+    Export:
+      Name: dashboards-url
+  DashboardsPassword:
+    Description: Please change the password in OpenSearch Dashboards ASAP
+    Value: !GetAtt 'AesSiemDomainDeployedR2.kibanapass'
+    Export:
+      Name: dashboards-pass
+  DashboardsAdminID:
+    Value: !GetAtt 'AesSiemDomainDeployedR2.kibanaadmin'
+    Export:
+      Name: dashboards-admin
+Rules: {}

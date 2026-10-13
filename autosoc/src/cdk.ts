@@ -120,15 +120,8 @@ if (deploySiem) {
       | 'keep'
       | undefined,
 
-    // Enrichment. The literal-value `-c` flags are the only supported
-    // path because CloudFormation does not resolve `ssm-secure` /
-    // `secretsmanager` dynamic references inside nested-stack
-    // Parameters. See the secret-handling caveat on
-    // `AutoSocSiemStackProps.geoLite2LicenseKey` and switch to the
-    // VENDORED template if the plaintext must stay out of the
-    // synthesized parent template.
-    geoLite2LicenseKey: ctxString(app, 'siemGeoLite2LicenseKey'),
-    otxApiKey: ctxString(app, 'siemOtxApiKey'),
+    // Secret enrichment values are supplied through NoEcho CloudFormation
+    // parameters declared by AutoSocSiemStack, never through CDK context.
     enableTor: ctxBool(app, 'siemEnableTor'),
     enableAbuseCh: ctxBool(app, 'siemEnableAbuseCh'),
     iocDownloadIntervalMinutes: ctxNumber(

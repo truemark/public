@@ -124,7 +124,7 @@ describe('AutoSocStack', () => {
   test('creates a Security Lake subscriber when SIEM context is supplied', () => {
     const withSub = synth({
       siemSubscriberAccountId: '222222222222',
-      siemSubscriberExternalId: 'super-secret-external-id',
+      siemSubscriberExternalId: 'supersecretexternalid',
     });
     withSub.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
     withSub.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 1);
@@ -132,7 +132,7 @@ describe('AutoSocStack', () => {
       SubscriberName: 'autosoc-siem',
       AccessTypes: ['S3'],
       SubscriberIdentity: {
-        ExternalId: 'super-secret-external-id',
+        ExternalId: 'supersecretexternalid',
         Principal: '222222222222',
       },
     });
@@ -152,5 +152,14 @@ describe('AutoSocStack', () => {
         'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
       ]),
     );
+  });
+
+  test('rejects a Security Lake external id outside aes-siem allowed characters', () => {
+    expect(() =>
+      synth({
+        siemSubscriberAccountId: '222222222222',
+        siemSubscriberExternalId: 'external-id-with-hyphens',
+      }),
+    ).toThrow(/must be alphanumeric only/);
   });
 });

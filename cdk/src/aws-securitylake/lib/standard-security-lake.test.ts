@@ -112,6 +112,8 @@ test('Test StandardSecurityLake patches subscriber SQS visibility timeout', () =
       ]),
     }),
   });
+  expect(json).toContain('SubscriberEndpoint');
+  expect(json).not.toContain(':sqs:*');
   // Queue URL must be partition-aware: constructed via the stack's
   // `urlSuffix` token (Ref: AWS::URLSuffix), not a hard-coded
   // `amazonaws.com` suffix that would break aws-cn / GovCloud.

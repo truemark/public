@@ -29,7 +29,7 @@ cdk deploy --all \
   -c deploySiem=true \
   -c siemEmail=soc@example.com \
   -c siemSubscriberAccountId=$(aws sts get-caller-identity --query Account --output text) \
-  -c siemSubscriberExternalId=<random-shared-secret>
+  -c siemSubscriberExternalId=$(openssl rand -hex 16)
 ```
 
 Supplying the subscriber context flags causes `AutoSoc` to create a
@@ -55,14 +55,14 @@ subscriber queue on first deploy.
 
 ### Optional SIEM context flags
 
-Every realistic knob the upstream aes-siem template exposes is surfaced as
-a `-c` context flag. Unset flags fall through to the upstream default.
+Every non-secret knob the upstream aes-siem template exposes is surfaced
+as a `-c` context flag. Unset flags fall through to the upstream default.
 
 | Flag | Default | Description |
 | --- | --- | --- |
 | `siemEmail` | **required when `deploySiem=true`** | Address for OpenSearch SNS alerts. |
-| `siemTemplateSource` | `upstream` | `upstream` loads the public aes-siem template; `vendored` loads `autosoc/vendor/aes-siem/siem.yaml` as a CDK S3 asset (see Customizing the SIEM below). |
-| `siemUpstreamTemplateFileName` | `siem-on-amazon-opensearch-service.template` | Upstream template filename under the public `aes-siem-<region>` bucket. The DNS suffix is already partition-aware (`${AWS::URLSuffix}`), but aws-samples publish a different filename for China (`siem-on-amazon-opensearch-service-china.template`). Set this flag when deploying to `cn-north-1` / `cn-northwest-1`. GovCloud operators must use `siemTemplateSource=vendored` instead — upstream does not publish a GovCloud build. |
+| `siemTemplateSource` | `vendored` | `vendored` packages the checked-in v2.10.6 template as a CDK S3 asset. `upstream` opts into the mutable public latest-template URL and is not reproducible. |
+| `siemUpstreamTemplateFileName` | partition-specific | Optional filename override in either source mode. Commercial and China templates are selected automatically. For GovCloud, run `AES_SIEM_TEMPLATE_FILE_NAME=siem-on-amazon-opensearch-service-usgov.template pnpm run vendor:aes-siem` and set this flag to the same filename. |
 | `siemDeploymentTarget` | `opensearch_managed_cluster` | Set to `opensearch_serverless` for the (experimental) Serverless path. |
 | `siemDomainOrCollectionName` | `aes-siem` | OpenSearch domain or Serverless collection name. |
 | `siemVpcEndpointId` | *(none, public endpoint)* | Interface VPC endpoint id (`vpce-…` / `aos-…`) that fronts OpenSearch. Setting it places es-loader into the VPC. |
@@ -70,8 +70,6 @@ a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemEsLoaderReservedConcurrency` | `10` | Reserved concurrency for the es-loader Lambda. |
 | `siemTrustedProxyIpList` | `127.0.0.1/8 10.0.0.0/8 …` | Space-delimited list of trusted ELB/CDN/proxy IPs; enables X-Forwarded-For client-IP selection in es-loader. |
 | `siemLogBucketPolicyUpdate` | `update_and_override` | Set to `keep` after the first deploy if you manage the log-bucket policy yourself. |
-| `siemGeoLite2LicenseKey` | *(empty, no enrichment)* | MaxMind GeoLite2 license key for IP geo enrichment inside es-loader. **The value is embedded as a literal into the synthesized parent template and `cdk.context.json`** — `NoEcho` on the nested aes-siem parameter cannot redact it in the parent. CloudFormation `ssm-secure` / `secretsmanager` dynamic references are not supported inside `AWS::CloudFormation::Stack.Parameters`, so no deploy-time resolution path exists for the upstream template. If this is unacceptable, run `pnpm run vendor:aes-siem` and patch the vendored template to pull the key from Secrets Manager at Lambda runtime; see the docstring on `AutoSocSiemStackProps.geoLite2LicenseKey`. |
-| `siemOtxApiKey` | *(empty)* | AlienVault OTX API key enabling IOC downloads. Same secret-handling caveat as `siemGeoLite2LicenseKey`. |
 | `siemEnableTor` | `false` | Download the Tor exit-node IOC feed. |
 | `siemEnableAbuseCh` | `false` | Download the abuse.ch Feodo blocklist IOC feed. |
 | `siemIocDownloadIntervalMinutes` | `720` | IOC refresh interval (30 – 10080 min). |
@@ -80,33 +78,44 @@ a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemControlTowerSqsForLogBuckets` | *(empty)* | SQS ARN in the Log Archive account that fans out S3 notifications to es-loader. |
 | `siemCreateSqsVpcEndpoint` / `siemCreateSsmVpcEndpoint` / `siemCreateStsVpcEndpoint` / `siemCreateS3VpcEndpoint` | `true` | When `siemVpcEndpointId` is set, create new VPC endpoints for the named service. Set `false` if the VPC already has one. |
 
+The optional GeoLite2 license key and OTX API key are **not** CDK context
+flags. `AutoSocSiem` exposes them as `NoEcho` CloudFormation parameters
+named `GeoLite2LicenseKey` and `OtxApiKey`; provide them through your
+deployment system's protected parameter input. They are passed to the
+nested stack by reference and are not written as literals to `cdk.context.json`
+or the synthesized parent template. Avoid putting secret values directly
+on a shell command line where they may be retained in shell history.
+
 ## Customizing the SIEM template itself
 
-By default `AutoSocSiem` references the upstream aes-siem template straight
-from the AWS-owned public S3 bucket (`AesSiemTemplateSource.UPSTREAM`). You
-can only pass parameters into it; you cannot change what resources it
-creates or edit any of its IAM / Lambda / dashboards wiring.
+By default `AutoSocSiem` packages the checked-in aes-siem v2.10.6 template
+as a CDK S3 asset (`AesSiemTemplateSource.VENDORED`). The template is
+fetched from the exact upstream release tag by the vendor script. This
+keeps fresh deployments pinned even if aws-samples changes its public
+latest-template S3 object.
 
 If you need to patch the template (add resources, tweak IAM, swap Lambda
 code, add a new log source, change a dashboard, etc.), vendor the template
 into this repo and switch the stack to the `VENDORED` source:
 
 ```
-# One-time: download the pinned upstream template into autosoc/vendor/aes-siem/
+# Refresh the pinned v2.10.6 template from its exact upstream release tag
 pnpm run vendor:aes-siem
 
-# Make your edits in autosoc/vendor/aes-siem/siem.yaml
+# Make your edits in autosoc/vendor/aes-siem/
 
-# Deploy using the vendored copy as a CDK S3 asset
+# Deploy using the vendored copy as a CDK S3 asset (the default source)
 cdk deploy AutoSocSiem -c deploySiem=true \
   -c siemEmail=soc@example.com \
   -c siemTemplateSource=vendored
 ```
 
-The vendor script also writes `UPSTREAM.md` recording the source URL,
-fetch timestamp, and template header; and keeps the previous copy as
-`siem.yaml.previous` for diffing. Re-run it any time upstream ships a new
-version to pull the latest and inspect the delta against your patches.
+The vendor script writes a per-template `.UPSTREAM.md` record with the
+exact release URL, fetch timestamp, and template header; it keeps the
+previous copy beside the template with a `.previous` suffix for diffing.
+To upgrade, change `AES_SIEM_TEMPLATE_VERSION`, rerun the script for each
+partition template, and inspect the delta against your patches. Do not use
+`siemTemplateSource=upstream` for reproducible deployments.
 
 Anything you *add alongside* the nested stack (new SNS targets, extra
 CloudWatch dashboards, Lambdas that watch an OpenSearch index, etc.) can
@@ -518,4 +527,3 @@ done
   ```
   Invoked es-loader s3_key=aws/S3_DATA/2.0/region=.../eventDay=.../*.gz.parquet
   ```
-

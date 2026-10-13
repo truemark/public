@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Download the pinned upstream aes-siem CloudFormation template into
 # autosoc/vendor/aes-siem/ so AutoSocSiemStack can package it as a CDK
-# S3 asset instead of referencing the upstream public bucket.
+# S3 asset instead of referencing a floating upstream URL.
 #
-# Once vendored, you can edit siem.yaml and deploy with
+# Once vendored, you can edit the template and deploy with
 # `AesSiemTemplateSource.VENDORED`. To refresh against upstream, re-run
 # this script and diff.
 #
@@ -14,7 +14,17 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTOSOC_ROOT="$(cd "${HERE}/.." && pwd)"
 VENDOR_DIR="${AUTOSOC_ROOT}/vendor/aes-siem"
-TARGET="${VENDOR_DIR}/siem.yaml"
+TEMPLATE_FILE_NAME="${AES_SIEM_TEMPLATE_FILE_NAME:-siem-on-amazon-opensearch-service.template}"
+case "${TEMPLATE_FILE_NAME}" in
+  siem-on-amazon-opensearch-service.template|siem-on-amazon-opensearch-service-china.template|siem-on-amazon-opensearch-service-usgov.template)
+    ;;
+  *)
+    echo "error: unsupported AES_SIEM_TEMPLATE_FILE_NAME: ${TEMPLATE_FILE_NAME}" >&2
+    exit 1
+    ;;
+esac
+TARGET="${VENDOR_DIR}/${TEMPLATE_FILE_NAME}"
+METADATA="${TARGET}.UPSTREAM.md"
 # Extract the version pinned in TypeScript source so this script never
 # drifts from the AES_SIEM_TEMPLATE_VERSION constant.
 EXPECTED_VERSION="$(grep -E "AES_SIEM_TEMPLATE_VERSION = '[0-9.]+'" \
@@ -26,11 +36,8 @@ if [[ -z "${EXPECTED_VERSION}" ]]; then
   exit 1
 fi
 
-# The upstream public template URL is a *latest* alias; it does not
-# contain a version tag. We rely on verifying the downloaded Description
-# header matches EXPECTED_VERSION below. Prefer an explicit, immutable
-# URL via AES_SIEM_UPSTREAM_URL when reproducibility matters.
-UPSTREAM_URL="${AES_SIEM_UPSTREAM_URL:-https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template}"
+# Use the exact release tag rather than the mutable per-Region S3 alias.
+UPSTREAM_URL="https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v${EXPECTED_VERSION}/deployment/${TEMPLATE_FILE_NAME}"
 
 mkdir -p "${VENDOR_DIR}"
 
@@ -59,27 +66,29 @@ if ! echo "${TEMPLATE_VERSION}" | grep -q "v${EXPECTED_VERSION}"; then
   echo "  expected: v${EXPECTED_VERSION} (from AES_SIEM_TEMPLATE_VERSION in autosoc-siem-stack.ts)" >&2
   echo "  got:      ${TEMPLATE_VERSION#Description: }" >&2
   echo "" >&2
-  echo "Either:" >&2
-  echo "  1. Bump AES_SIEM_TEMPLATE_VERSION in autosoc/src/autosoc-siem-stack.ts to match the upstream release, OR" >&2
-  echo "  2. Set AES_SIEM_UPSTREAM_URL to a URL that serves v${EXPECTED_VERSION} and re-run this script." >&2
+  echo "Bump AES_SIEM_TEMPLATE_VERSION in autosoc/src/autosoc-siem-stack.ts" >&2
+  echo "to a release tag that contains this template, then re-run the script." >&2
   rm -f "${TARGET}"
   [[ -f "${TARGET}.previous" ]] && mv "${TARGET}.previous" "${TARGET}"
   exit 1
 fi
 echo "Version check passed: template contains v${EXPECTED_VERSION}"
 
-cat > "${VENDOR_DIR}/UPSTREAM.md" <<EOF
+cat > "${METADATA}" <<EOF
 # Vendored aes-siem template
 
 - Upstream URL: \`${UPSTREAM_URL}\`
+- Release: \`v${EXPECTED_VERSION}\`
+- File: \`${TEMPLATE_FILE_NAME}\`
 - Fetched: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
 - Template header: \`${TEMPLATE_VERSION#Description: }\`
 
-**Do not edit \`siem.yaml\` by hand without recording the diff here** so
+**Do not edit \`${TEMPLATE_FILE_NAME}\` by hand without recording the diff here** so
 future refreshes can be reconciled against upstream.
 
-To refresh, run \`pnpm run vendor:aes-siem\` from \`autosoc/\`.
-Previous vendored copy is kept in \`siem.yaml.previous\` for diffing.
+To refresh, run \`pnpm run vendor:aes-siem\` from \`autosoc/\`; it fetches
+the exact tag recorded above. Previous copies are kept beside the template
+with a \`.previous\` suffix for diffing.
 EOF
 
 if [[ -f "${TARGET}.previous" ]]; then
@@ -90,5 +99,5 @@ fi
 
 echo ""
 echo "Done. To use the vendored template, pass"
-echo "  templateSource: AesSiemTemplateSource.VENDORED"
-echo "to AutoSocSiemStack (or set -c siemTemplateSource=vendored)."
+echo "  -c siemTemplateSource=vendored"
+echo "to CDK (the vendored source is the default)."

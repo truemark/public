@@ -787,12 +787,14 @@ export class StandardSecurityLake extends ExtendedConstruct {
             policy: AwsCustomResourcePolicy.fromStatements([
               new PolicyStatement({
                 actions: ['sqs:SetQueueAttributes'],
-                // The subscriber queue name is Security-Lake-generated and
-                // not knowable at synth time; scope to the data-lake
-                // account/region.
-                resources: [
-                  `arn:${stack.partition}:sqs:${stack.region}:${stack.account}:*`,
-                ],
+                // Scope to the exact queue ARN exposed by the
+                // SubscriberNotification resource
+                // (`attrSubscriberEndpoint`), which is already an SQS
+                // ARN. Using the token means CloudFormation substitutes
+                // the real queue ARN at deploy-time, so the custom-
+                // resource role cannot be abused to modify unrelated
+                // queues in the account.
+                resources: [notification.attrSubscriberEndpoint],
               }),
             ]),
           },

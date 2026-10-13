@@ -6,6 +6,7 @@ import {
   type SecurityLakeSubscriberProps,
   StandardSecurityLake,
 } from 'truemark-cdk-lib/aws-securitylake';
+import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
 /**
  * The full set of AWS native log sources this stack enables on the data
@@ -48,6 +49,7 @@ export class AutoSocStack extends ExtendedStack {
     const siemSubscriberExternalId = this.node.tryGetContext(
       'siemSubscriberExternalId',
     ) as string | undefined;
+    validateSecurityLakeExternalId(siemSubscriberExternalId);
     const subscribers: SecurityLakeSubscriberProps[] = [];
     if (siemSubscriberAccountId && siemSubscriberExternalId) {
       subscribers.push({

@@ -206,7 +206,7 @@ export class AutoFimStack extends ExtendedStack {
       new iam.PolicyStatement({
         actions: ['securityhub:BatchImportFindings'],
         resources: [
-          `arn:aws:securityhub:${this.region}:${this.account}` +
+          `arn:${this.partition}:securityhub:${this.region}:${this.account}` +
             `:product/${this.account}/default`,
         ],
       }),

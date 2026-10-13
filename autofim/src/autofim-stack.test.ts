@@ -14,10 +14,11 @@ function synth(
     inventoryTagKey?: string;
     inventoryTagValue?: string;
   } = {},
+  region = TEST_ENV.region,
 ): Template {
   const app = new ExtendedApp({
     account: TEST_ENV.account,
-    region: TEST_ENV.region,
+    region,
     standardTags: {
       automationTags: {
         id: 'autofim',
@@ -26,7 +27,7 @@ function synth(
     },
   });
   const stack = new AutoFimStack(app, 'AutoFim', {
-    env: TEST_ENV,
+    env: {...TEST_ENV, region},
     monitoredPath: props.monitoredPath ?? '/etc/paymentapp/',
     criticalFilePatterns:
       props.criticalFilePatterns ?? '^/etc/paymentapp/config.*$',
@@ -223,5 +224,22 @@ describe('AutoFimStack', () => {
         ]),
       }),
     });
+  });
+
+  test('scopes Security Hub permission to the active AWS partition', () => {
+    const template = synth({}, 'cn-north-1');
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'securityhub:BatchImportFindings',
+            Resource: Match.anyValue(),
+          }),
+        ]),
+      }),
+    });
+    expect(
+      JSON.stringify(template.findResources('AWS::IAM::Policy')),
+    ).toContain('AWS::Partition');
   });
 });

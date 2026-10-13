@@ -73,8 +73,12 @@ Default values live in `cdk.json`. Available context flags:
 
 ## Resources deployed
 
-- `AWS::S3::Bucket` x2 — `fim-logs-*` (Object Lock GOVERNANCE 90d) and
-  `fim-inventory-*` (versioned, SSM-writable).
+- `AWS::S3::Bucket` x2 — `fim-logs-*` (server-access-log destination
+  for the inventory bucket; versioned, SSE-S3, 365-day lifecycle
+  expiration with 90-day noncurrent-version cleanup; Object Lock is
+  intentionally **disabled** because S3 forbids access-log delivery to
+  Object-Lock-enabled destinations) and `fim-inventory-*` (versioned,
+  SSM-writable).
 - `AWS::SQS::Queue` — `fim-change-detector-dlq`, 14-day retention.
 - `AWS::Lambda::Function` — `fim-change-detector` (Python 3.12,
   reserved concurrency 10, DLQ wired).

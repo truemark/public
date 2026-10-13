@@ -1,10 +1,17 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {Annotations, CfnStack, Fn} from 'aws-cdk-lib';
+import {
+  Annotations,
+  CfnCondition,
+  CfnParameter,
+  CfnStack,
+  Fn,
+} from 'aws-cdk-lib';
 import {Asset} from 'aws-cdk-lib/aws-s3-assets';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
+import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
 /**
  * Version of the upstream aes-siem CloudFormation template nested by this
@@ -16,20 +23,22 @@ import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 export const AES_SIEM_TEMPLATE_VERSION = '2.10.6';
 
 /**
- * Path (relative to this file) where a vendored copy of the aes-siem
- * CloudFormation template can be dropped. When present, the stack packages
- * it as a CDK S3 asset instead of pointing at the upstream public bucket.
- * See `scripts/vendor-aes-siem.sh` to populate this directory.
+ * Directory (relative to this file) containing the versioned aes-siem
+ * CloudFormation template packaged as a CDK S3 asset.
  */
-const VENDORED_TEMPLATE_RELATIVE_PATH = '../vendor/aes-siem/siem.yaml';
+const VENDORED_TEMPLATE_RELATIVE_PATH = '../vendor/aes-siem';
+const COMMERCIAL_TEMPLATE_FILE_NAME =
+  'siem-on-amazon-opensearch-service.template';
+const CHINA_TEMPLATE_FILE_NAME =
+  'siem-on-amazon-opensearch-service-china.template';
 
 /**
  * How this stack sources the aes-siem CloudFormation template.
  */
 export enum AesSiemTemplateSource {
   /**
-   * Reference the upstream public S3 template URL (default). Zero
-   * maintenance; cannot be edited.
+   * Reference the upstream public S3 template URL. This URL tracks the
+   * latest upstream version and is not reproducible.
    *
    * **Important:** the upstream public URL
    * `https://aes-siem-<region>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template`
@@ -38,19 +47,18 @@ export enum AesSiemTemplateSource {
    * aws-samples publishes a new release, the next CloudFormation
    * deployment will pick it up even if nothing changed in this repo.
    *
-   * For reproducible, version-locked deployments use
-   * {@link AesSiemTemplateSource.VENDORED} with
-   * `pnpm run vendor:aes-siem`, which verifies the downloaded template
-   * header matches {@link AES_SIEM_TEMPLATE_VERSION} before packaging it
-   * as a CDK S3 asset.
+   * The default, {@link AesSiemTemplateSource.VENDORED}, uses the
+   * checked-in release template. Run `pnpm run vendor:aes-siem` to
+   * download the exact release tag and verify its header before packaging
+   * it as a CDK S3 asset.
    */
   UPSTREAM = 'upstream',
 
   /**
-   * Package a vendored template at `autosoc/vendor/aes-siem/siem.yaml` as
-   * a CDK S3 asset. Use this when you need to patch the template (add
-   * resources, tweak IAM, swap Lambda code, etc.). Populate the file via
-   * `pnpm run vendor:aes-siem`.
+   * Package the versioned template at
+   * `autosoc/vendor/aes-siem/<templateFileName>` as a CDK S3 asset. This
+   * is the default source and is reproducible. Use it when patching the
+   * template (add resources, tweak IAM, swap Lambda code, etc.).
    */
   VENDORED = 'vendored',
 }
@@ -76,26 +84,16 @@ export interface AutoSocSiemStackProps extends ExtendedStackProps {
   /**
    * How to load the aes-siem CloudFormation template.
    *
-   * @default AesSiemTemplateSource.UPSTREAM
+   * @default AesSiemTemplateSource.VENDORED
    */
   readonly templateSource?: AesSiemTemplateSource;
 
   /**
-   * File name of the upstream aes-siem template under the per-Region
-   * public bucket `aes-siem-<region>`. aws-samples ship two builds:
-   *   * commercial partition: `siem-on-amazon-opensearch-service.template`
-   *   * China partition:      `siem-on-amazon-opensearch-service-china.template`
-   *
-   * CloudFormation `AWS::Partition` is a Token at CDK synth time, so
-   * the construct cannot branch on partition automatically. China
-   * operators must pass the china filename explicitly here (or set
-   * `-c siemUpstreamTemplateFileName=siem-on-amazon-opensearch-service-china.template`).
-   * GovCloud is not published upstream — use
-   * {@link AesSiemTemplateSource.VENDORED}.
-   *
-   * Ignored when {@link templateSource} is `VENDORED`.
-   *
-   * @default 'siem-on-amazon-opensearch-service.template'
+   * Explicit template filename override. When omitted, the stack selects
+   * the commercial or China template based on `AWS::Partition`. GovCloud
+   * operators should select
+   * `siem-on-amazon-opensearch-service-usgov.template` and use the
+   * vendored source.
    */
   readonly upstreamTemplateFileName?: string;
 
@@ -164,51 +162,6 @@ export interface AutoSocSiemStackProps extends ExtendedStackProps {
   readonly logBucketPolicyUpdate?: 'update_and_override' | 'keep';
 
   // ─── Enrichment ────────────────────────────────────────────────────────
-
-  /**
-   * MaxMind GeoLite2 license key enabling GeoIP enrichment inside
-   * es-loader. Omit to deploy without geo enrichment.
-   *
-   * **Secret-handling caveat.** The value lands in the synthesized
-   * **parent** CloudFormation template as a literal
-   * `AWS::CloudFormation::Stack.Parameters` entry and (when sourced via
-   * `-c siemGeoLite2LicenseKey=…`) also in `cdk.context.json`. The nested
-   * aes-siem template declares this parameter as `NoEcho`, which only
-   * redacts it in the child template's events/outputs — it does **not**
-   * redact the value from the parent template this stack synthesizes.
-   *
-   * CloudFormation `ssm-secure` dynamic references cannot bridge this
-   * gap: the allowed-properties list for `{{resolve:ssm-secure:…}}` does
-   * **not** include `AWS::CloudFormation::Stack.Parameters`, so a
-   * dynamic-reference string is passed through unresolved and the nested
-   * stack deployment fails. Likewise for Secrets Manager dynamic
-   * references.
-   *
-   * For environments where exposing this value in the synth artefacts is
-   * unacceptable, switch to the `VENDORED` template source
-   * ({@link AesSiemTemplateSource.VENDORED}) and modify the vendored
-   * template to read the key directly from Secrets Manager / SSM inside
-   * the es-loader Lambda at runtime (e.g. replace the
-   * `GeoLite2LicenseKey` parameter with an environment variable
-   * referencing the secret ARN and a `secretsmanager:GetSecretValue`
-   * policy on the es-loader role).
-   *
-   * @default - no geo enrichment
-   */
-  readonly geoLite2LicenseKey?: string;
-
-  /**
-   * AlienVault OTX API key. When set, es-loader downloads IOCs on the
-   * schedule given by {@link iocDownloadIntervalMinutes}.
-   *
-   * **Secret-handling caveat.** See {@link geoLite2LicenseKey} — the same
-   * nested-stack `NoEcho` / dynamic-reference limitation applies. Use
-   * the vendored-template path if the plaintext must stay out of the
-   * synthesized parent template.
-   *
-   * @default - OTX IOC feed disabled
-   */
-  readonly otxApiKey?: string;
 
   /**
    * Download the Tor exit-node list as an IOC feed.
@@ -323,14 +276,12 @@ export class AutoSocSiemStack extends ExtendedStack {
   /** Resolved source of the aes-siem template that was packaged. */
   readonly templateSource: AesSiemTemplateSource;
 
-  /** Upstream template file name actually used when `UPSTREAM`. */
-  readonly upstreamTemplateFileName: string;
+  private readonly templateFileNameOverride?: string;
 
   constructor(scope: Construct, id: string, props: AutoSocSiemStackProps) {
     super(scope, id, props);
-    this.upstreamTemplateFileName =
-      props.upstreamTemplateFileName ??
-      'siem-on-amazon-opensearch-service.template';
+    validateSecurityLakeExternalId(props.securityLakeSubscriberExternalId);
+    this.templateFileNameOverride = props.upstreamTemplateFileName;
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
     this.addMetadata(
@@ -339,7 +290,7 @@ export class AutoSocSiemStack extends ExtendedStack {
     );
     this.addMetadata('AesSiemVersion', AES_SIEM_TEMPLATE_VERSION);
     this.templateSource =
-      props.templateSource ?? AesSiemTemplateSource.UPSTREAM;
+      props.templateSource ?? AesSiemTemplateSource.VENDORED;
     this.addMetadata('AesSiemTemplateSource', this.templateSource);
     if (this.templateSource === AesSiemTemplateSource.UPSTREAM) {
       Annotations.of(this).addWarningV2(
@@ -353,9 +304,25 @@ export class AutoSocSiemStack extends ExtendedStack {
       );
     }
 
+    const geoLite2LicenseKey = new CfnParameter(this, 'GeoLite2LicenseKey', {
+      type: 'String',
+      default: '',
+      noEcho: true,
+      description: 'Optional MaxMind GeoLite2 license key.',
+    });
+    const otxApiKey = new CfnParameter(this, 'OtxApiKey', {
+      type: 'String',
+      default: '',
+      noEcho: true,
+      description: 'Optional AlienVault OTX API key.',
+    });
+
     this.siemNestedStack = new CfnStack(this, 'AesSiemNestedStack', {
       templateUrl: this.resolveTemplateUrl(),
-      parameters: buildAesSiemParameters(props),
+      parameters: buildAesSiemParameters(props, {
+        geoLite2LicenseKey: geoLite2LicenseKey.valueAsString,
+        otxApiKey: otxApiKey.valueAsString,
+      }),
     });
   }
 
@@ -367,43 +334,71 @@ export class AutoSocSiemStack extends ExtendedStack {
   private resolveTemplateUrl(): string {
     if (this.templateSource === AesSiemTemplateSource.VENDORED) {
       const here = path.dirname(fileURLToPath(import.meta.url));
-      const vendored = path.resolve(here, VENDORED_TEMPLATE_RELATIVE_PATH);
-      if (!fs.existsSync(vendored)) {
-        throw new Error(
-          `AutoSocSiemStack: templateSource is VENDORED but ${vendored} ` +
-            'does not exist. Run `pnpm run vendor:aes-siem` to download ' +
-            'the upstream template, or set templateSource to UPSTREAM.',
+      if (this.templateFileNameOverride !== undefined) {
+        return this.packageVendoredTemplate(
+          here,
+          this.templateFileNameOverride,
+          'AesSiemVendoredTemplate',
         );
       }
-      const asset = new Asset(this, 'AesSiemVendoredTemplate', {
-        path: vendored,
-      });
-      return asset.httpUrl;
+      const commercialUrl = this.packageVendoredTemplate(
+        here,
+        COMMERCIAL_TEMPLATE_FILE_NAME,
+        'AesSiemCommercialTemplate',
+      );
+      const chinaUrl = this.packageVendoredTemplate(
+        here,
+        CHINA_TEMPLATE_FILE_NAME,
+        'AesSiemChinaTemplate',
+      );
+      return Fn.conditionIf(
+        this.chinaPartitionCondition().logicalId,
+        chinaUrl,
+        commercialUrl,
+      ).toString();
     }
 
-    // The upstream template is published per-Region in a public S3 bucket.
-    // aws-samples ship two separate per-partition builds under different
-    // key names:
-    //   * commercial:  siem-on-amazon-opensearch-service.template
-    //   * China:       siem-on-amazon-opensearch-service-china.template
-    // GovCloud is not published by upstream today — operators on
-    // `aws-us-gov` must use `AesSiemTemplateSource.VENDORED`.
-    //
-    // The CloudFormation stack's `partition` attribute is a Token at
-    // synth time (`${Token[AWS.Partition.…]}`), so we can't branch on
-    // it with a plain `===` string comparison. The caller supplies the
-    // filename via {@link AutoSocSiemStackProps.upstreamTemplateFileName}
-    // (defaulting to the commercial template); China operators pass
-    // `siem-on-amazon-opensearch-service-china.template` explicitly.
-    //
-    // For the DNS suffix we use `${AWS::URLSuffix}` so the host resolves
-    // to `.amazonaws.com` in commercial and `.amazonaws.com.cn` in
-    // China without a CDK-side branch. `\x24` keeps biome's
-    // `noTemplateCurlyInString` happy.
+    if (this.templateFileNameOverride !== undefined) {
+      return this.upstreamTemplateUrl(this.templateFileNameOverride);
+    }
+    return Fn.conditionIf(
+      this.chinaPartitionCondition().logicalId,
+      this.upstreamTemplateUrl(CHINA_TEMPLATE_FILE_NAME),
+      this.upstreamTemplateUrl(COMMERCIAL_TEMPLATE_FILE_NAME),
+    ).toString();
+  }
+
+  private packageVendoredTemplate(
+    here: string,
+    fileName: string,
+    id: string,
+  ): string {
+    const vendored = path.resolve(
+      here,
+      VENDORED_TEMPLATE_RELATIVE_PATH,
+      fileName,
+    );
+    if (!fs.existsSync(vendored)) {
+      throw new Error(
+        `AutoSocSiemStack: templateSource is VENDORED but ${vendored} ` +
+          'does not exist. Run `pnpm run vendor:aes-siem` with ' +
+          '`AES_SIEM_TEMPLATE_FILE_NAME` set to this file.',
+      );
+    }
+    return new Asset(this, id, {path: vendored}).httpUrl;
+  }
+
+  private chinaPartitionCondition(): CfnCondition {
+    return new CfnCondition(this, 'IsChinaPartition', {
+      expression: Fn.conditionEquals(this.partition, 'aws-cn'),
+    });
+  }
+
+  private upstreamTemplateUrl(fileName: string): string {
     const region = '\x24{AWS::Region}';
     const urlSuffix = '\x24{AWS::URLSuffix}';
     return Fn.sub(
-      `https://aes-siem-${region}.s3.${region}.${urlSuffix}/${this.upstreamTemplateFileName}`,
+      `https://aes-siem-${region}.s3.${region}.${urlSuffix}/${fileName}`,
     );
   }
 }
@@ -415,6 +410,7 @@ export class AutoSocSiemStack extends ExtendedStack {
  */
 function buildAesSiemParameters(
   props: AutoSocSiemStackProps,
+  secrets: {geoLite2LicenseKey: string; otxApiKey: string},
 ): Record<string, string> {
   const bool = (v: boolean | undefined, def: boolean) =>
     (v ?? def) ? 'true' : 'false';
@@ -435,14 +431,9 @@ function buildAesSiemParameters(
       '127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16',
     LogBucketPolicyUpdate: props.logBucketPolicyUpdate ?? 'update_and_override',
 
-    // Enrichment. See the secret-handling caveat on
-    // `AutoSocSiemStackProps.geoLite2LicenseKey`: dynamic references
-    // (`{{resolve:ssm-secure:…}}` / `{{resolve:secretsmanager:…}}`) are
-    // not resolved by CloudFormation inside
-    // `AWS::CloudFormation::Stack.Parameters`, so the literal value is
-    // the only mechanism supported by the upstream aes-siem template.
-    GeoLite2LicenseKey: props.geoLite2LicenseKey ?? '',
-    OtxApiKey: props.otxApiKey ?? '',
+    // Secret values come from parent NoEcho parameters, not CDK context.
+    GeoLite2LicenseKey: secrets.geoLite2LicenseKey,
+    OtxApiKey: secrets.otxApiKey,
     EnableTor: bool(props.enableTor, false),
     EnableAbuseCh: bool(props.enableAbuseCh, false),
     IocDownloadInterval: (props.iocDownloadIntervalMinutes ?? 720).toString(),
