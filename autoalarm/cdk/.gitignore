@@ -1,0 +1,12 @@
+*.js
+!.prettierrc.js
+*.d.*
+*.map
+node_modules
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+# Context cache; may hold account-specific values
+cdk.context.json
