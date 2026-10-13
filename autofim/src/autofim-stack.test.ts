@@ -210,7 +210,12 @@ describe('AutoFimStack', () => {
     });
   });
 
-  test('S3 -> Lambda notification is scoped to the AWS:File/ prefix', () => {
+  test('S3 -> Lambda notification is scoped to the URL-encoded AWS%3AFile/ prefix', () => {
+    // The colon in the inventory-plugin prefix must be URL-encoded
+    // (`%3A`) to match S3's bucket-notification filter-rule semantics
+    // and the actual (URL-encoded) object keys SSM Resource Data Sync
+    // writes. A literal `AWS:File/` prefix would never match any
+    // object, so no FIM finding could ever be produced.
     const template = synth();
     // CDK models bucket notifications via the BucketNotifications custom
     // resource; the filter prefix lands under Lambda configurations.
@@ -218,7 +223,8 @@ describe('AutoFimStack', () => {
       'Custom::S3BucketNotifications',
     ) as Record<string, {Properties: {NotificationConfiguration: unknown}}>;
     const serialized = JSON.stringify(Object.values(notifs));
-    expect(serialized).toContain('AWS:File/');
+    expect(serialized).toContain('AWS%3AFile/');
+    expect(serialized).not.toContain('"AWS:File/"');
   });
 
   test('grants Lambda securityhub:BatchImportFindings', () => {

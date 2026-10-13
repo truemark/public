@@ -270,17 +270,29 @@ export class AutoFimStack extends ExtendedStack {
 
     // S3 -> Lambda event notification.
     //
-    // Scoped to the `AWS:File/` prefix so only File-inventory snapshots
+    // Scoped to the `AWS%3AFile/` prefix so only File-inventory snapshots
     // trigger the Lambda. The account-wide SSM Resource Data Sync writes
     // every inventory type (`AWS:InstanceInformation/`, `AWS:Network/`,
     // etc.) to this bucket; without this filter the handler is invoked
     // for non-file payloads, parses them as empty file metadata, and can
-    // delete the previous object version. Matches the upstream
+    // delete the previous object version.
+    //
+    // The colon must be URL-encoded as `%3A`: S3 bucket notification
+    // filter rules compare the *raw, URL-encoded* object key (the same
+    // encoding S3 uses in the `key` field of the event payload itself,
+    // which is why the Lambda handler calls `unquote_plus` on it), not
+    // the decoded key. CDK forwards the `prefix` string unchanged to
+    // `NotificationConfiguration.LambdaFunctionConfigurations[].Filter`,
+    // so passing a literal `:` either fails notification configuration
+    // or, worse, silently never matches because the actual object keys
+    // are the inventory plugin names (e.g. `AWS%3AFile/...`) that SSM
+    // Resource Data Sync writes — a literal `:` in the object key is
+    // itself URL-encoded by S3 when stored. Matches the upstream
     // aws-samples template's `S3Key.FilterRules[*].Value = AWS%3AFile/`.
     this.inventoryBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new LambdaDestination(this.changeDetector),
-      {prefix: 'AWS:File/'},
+      {prefix: 'AWS%3AFile/'},
     );
 
     // SSM Resource Data Sync: streams inventory snapshots to S3 as JSONL.

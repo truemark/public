@@ -110,6 +110,36 @@ describe('AutoSocSiemStack', () => {
     }
   });
 
+  test('vendored templates have no unresolved %%...%% build placeholders', async () => {
+    // Regression guard for the "Default VENDORED template retains
+    // unresolved Lambda placeholders" finding: the raw GitHub source
+    // template still contains literal `%%BUCKET_NAME%%` and
+    // `%%SOLUTION_NAME%%/%%VERSION%%` tokens in every Lambda `Code`
+    // block. Upstream's own `build-s3-dist.sh` packaging script resolves
+    // these before publishing a template; `scripts/vendor-aes-siem.sh`
+    // now performs the equivalent substitution so the checked-in
+    // template is directly deployable. Assert the substitution stuck and
+    // the resolved `S3Bucket` is Region-portable via `!Sub`.
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {fileURLToPath} = await import('node:url');
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const file of [
+      'siem-on-amazon-opensearch-service.template',
+      'siem-on-amazon-opensearch-service-china.template',
+    ]) {
+      const vendored = path.resolve(here, '../vendor/aes-siem', file);
+      if (!fs.existsSync(vendored)) continue; // fresh checkout, skip
+      const contents = fs.readFileSync(vendored, 'utf-8');
+      expect(contents).not.toContain('%%BUCKET_NAME%%');
+      expect(contents).not.toContain('%%SOLUTION_NAME%%');
+      expect(contents).not.toContain('%%VERSION%%');
+      // Literal '$' + '{AWS::Region}' kept broken up so biome's
+      // `noTemplateCurlyInString` lint rule does not fire on this file.
+      expect(contents).toContain(`S3Bucket: !Sub 'aes-siem-\x24{AWS::Region}'`);
+    }
+  });
+
   test('passes secret values through NoEcho parent parameters', () => {
     const template = synthSiem();
     const json = template.toJSON();

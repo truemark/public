@@ -74,6 +74,53 @@ if ! echo "${TEMPLATE_VERSION}" | grep -q "v${EXPECTED_VERSION}"; then
 fi
 echo "Version check passed: template contains v${EXPECTED_VERSION}"
 
+# Resolve the %%BUCKET_NAME%% / %%SOLUTION_NAME%% / %%VERSION%% placeholders
+# that upstream's own `deployment/build-s3-dist.sh` packaging script would
+# normally substitute before publishing a template. The raw GitHub source
+# template is never meant to be deployed as-is: every Lambda `Code` block
+# still contains these literal placeholder strings, which would make
+# CloudFormation try to source Lambda code from a bucket literally named
+# `%%BUCKET_NAME%%`.
+#
+# Upstream's own published (pre-built) per-Region templates — e.g.
+# https://aes-siem-us-east-1.s3.us-east-1.amazonaws.com/siem-on-amazon-opensearch-service.template
+# — show that `%%BUCKET_NAME%%` always resolves to `aes-siem-<region>` and
+# `%%SOLUTION_NAME%%/%%VERSION%%` always resolves to
+# `siem-on-amazon-opensearch-service/v<version>` (identical for every
+# Region/partition; only the bucket name varies by Region). Rather than
+# hardcoding a single Region, substitute `%%BUCKET_NAME%%` with the
+# `Fn::Sub`-expanded `aes-siem-${AWS::Region}` so the vendored template
+# stays Region-portable like the rest of the template's own `!Sub` usage.
+SOLUTION_NAME="siem-on-amazon-opensearch-service"
+python3 - "${TARGET}" "${SOLUTION_NAME}" "${EXPECTED_VERSION}" <<'PY'
+import re
+import sys
+
+path, solution_name, version = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as f:
+    text = f.read()
+
+before = text
+# S3Bucket: '%%BUCKET_NAME%%'  ->  S3Bucket: !Sub 'aes-siem-${AWS::Region}'
+text = text.replace(
+    "S3Bucket: '%%BUCKET_NAME%%'",
+    "S3Bucket: !Sub 'aes-siem-${AWS::Region}'",
+)
+# S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/foo.zip'  ->  resolved path
+text = re.sub(
+    r"%%SOLUTION_NAME%%/%%VERSION%%",
+    f"{solution_name}/v{version}",
+    text,
+)
+if "%%BUCKET_NAME%%" in text or "%%VERSION%%" in text or "%%SOLUTION_NAME%%" in text:
+    sys.exit("error: unresolved %%...%% placeholder(s) remain after substitution")
+if text == before:
+    print("warning: no %%...%% placeholders found to substitute (already resolved?)")
+with open(path, "w") as f:
+    f.write(text)
+PY
+echo "Resolved %%BUCKET_NAME%%/%%SOLUTION_NAME%%/%%VERSION%% placeholders"
+
 # Patch NoEcho onto the GeoLite2LicenseKey / OtxApiKey parameters.
 # Upstream does not mark these secret-ish parameters NoEcho, so without
 # this patch the values remain visible via DescribeStacks on the nested

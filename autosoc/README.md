@@ -527,3 +527,24 @@ done
   ```
   Invoked es-loader s3_key=aws/S3_DATA/2.0/region=.../eventDay=.../*.gz.parquet
   ```
+
+### 10. The raw GitHub template ships unresolved `%%...%%` build placeholders
+
+- **Symptom:** every Lambda `Code` block in the raw upstream template
+  (fetched straight from `deployment/*.template` on GitHub) contains
+  literal `%%BUCKET_NAME%%` and `%%SOLUTION_NAME%%/%%VERSION%%` tokens.
+  Deploying that file as-is asks CloudFormation to source Lambda code from
+  a bucket literally named `%%BUCKET_NAME%%`, which fails immediately.
+- **Root cause:** upstream's own `deployment/build-s3-dist.sh` packaging
+  script substitutes these placeholders before publishing a deployable
+  template; the raw GitHub source is a *build input*, not a deploy-ready
+  artifact.
+- **Current status: fixed in `vendor-aes-siem.sh`.** The script now
+  resolves `%%BUCKET_NAME%%` to `!Sub 'aes-siem-${AWS::Region}'` (matching
+  upstream's own published per-Region templates, e.g.
+  `https://aes-siem-us-east-1.s3.us-east-1.amazonaws.com/siem-on-amazon-opensearch-service.template`)
+  and `%%SOLUTION_NAME%%/%%VERSION%%` to
+  `siem-on-amazon-opensearch-service/v<AES_SIEM_TEMPLATE_VERSION>`,
+  immediately after the version-pin check and before the `NoEcho` patch.
+  This runs automatically on every `pnpm run vendor:aes-siem`; the
+  checked-in vendored templates already have the substitution applied.
