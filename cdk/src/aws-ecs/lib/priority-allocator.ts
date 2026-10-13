@@ -118,7 +118,7 @@ export class PriorityAllocator extends Construct {
 
     return new NodejsFunction(stack, LAMBDA_ID, {
       role,
-      runtime: Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_24_X,
       handler: 'handler',
       entry: path.join(
         __dirname,

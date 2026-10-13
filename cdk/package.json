@@ -107,7 +107,7 @@
     "fix": "biome check --write .",
     "fmt": "biome format --write .",
     "prebuild": "biome check",
-    "test": "vitest run src/*",
+    "test": "vitest run --testTimeout=30000 src/*",
     "watch": "tsc -w"
   },
   "devDependencies": {

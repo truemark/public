@@ -4,7 +4,11 @@ import {
   type ResourceEnvironment,
   Stack,
 } from 'aws-cdk-lib';
-import type {Metric, MetricOptions} from 'aws-cdk-lib/aws-cloudwatch';
+import type {
+  MathExpression,
+  Metric,
+  MetricOptions,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import type {
   AddToResourcePolicyResult,
   Grant,
@@ -267,6 +271,12 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
 
   metricApproximateNumberOfMessagesNotVisible(props?: MetricOptions): Metric {
     return this.queue.metricApproximateNumberOfMessagesNotVisible(props);
+  }
+
+  metricApproximateNumberOfMessagesOutstanding(
+    props?: MetricOptions,
+  ): MathExpression {
+    return this.queue.metricApproximateNumberOfMessagesOutstanding(props);
   }
 
   metricApproximateNumberOfMessagesVisible(props?: MetricOptions): Metric {

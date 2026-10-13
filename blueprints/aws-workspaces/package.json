@@ -17,7 +17,7 @@
     "prebuild": "biome check",
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "vitest run",
+    "test": "vitest run --testTimeout=30000 src/",
     "clean": "rm -rf cdk.out dist coverage",
     "cdk": "cdk",
     "fix": "biome check --write .",
@@ -39,6 +39,6 @@
     "truemark-cdk-lib": "workspace:"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   }
 }

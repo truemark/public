@@ -58,7 +58,7 @@ export class KnowledgeBaseCollectionIndex extends Construct {
 
     const fn = new NodejsFunction(this, 'Function', {
       role,
-      runtime: Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_24_X,
       handler: 'handler',
       entry: path.join(
         __dirname,
