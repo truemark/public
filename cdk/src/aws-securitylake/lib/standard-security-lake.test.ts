@@ -48,6 +48,8 @@ test('Test StandardSecurityLake creates HTTPS-notified subscriber', () => {
         externalId: 'another-external-id',
         sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
         httpsNotificationEndpoint: 'https://example.com/securitylake',
+        httpsNotificationTargetRoleArn:
+          'arn:aws:iam::111111111111:role/webhook-invoker',
       },
     ],
   });
@@ -56,8 +58,59 @@ test('Test StandardSecurityLake creates HTTPS-notified subscriber', () => {
     NotificationConfiguration: {
       HttpsNotificationConfiguration: Match.objectLike({
         Endpoint: 'https://example.com/securitylake',
+        TargetRoleArn: 'arn:aws:iam::111111111111:role/webhook-invoker',
       }),
     },
+  });
+});
+
+test('Test StandardSecurityLake throws when HTTPS subscriber missing targetRoleArn', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new StandardSecurityLake(stack, 'TestSecurityLake', {
+      subscribers: [
+        {
+          subscriberName: 'webhook',
+          principal: '333333333333',
+          externalId: 'ext',
+          sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
+          httpsNotificationEndpoint: 'https://example.com/securitylake',
+        },
+      ],
+    });
+  }).toThrow(/httpsNotificationTargetRoleArn/);
+});
+
+test('Test StandardSecurityLake patches subscriber SQS visibility timeout', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    subscribers: [
+      {
+        subscriberName: 'siem',
+        principal: '333333333333',
+        externalId: 'ext',
+        sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
+        sqsVisibilityTimeoutSeconds: 3600,
+      },
+    ],
+  });
+  const template = Template.fromStack(stack);
+  // AwsCustomResource renders as a Custom::AWS resource whose Create/Update
+  // props are Fn::Join'd strings containing the SDK call config. Serialize
+  // the whole template and grep for the three bits we care about: the SQS
+  // SetQueueAttributes call, the configured VisibilityTimeout, and the
+  // IAM policy granting the permission.
+  const json = JSON.stringify(template.toJSON());
+  expect(json).toContain('setQueueAttributes');
+  expect(json).toContain('VisibilityTimeout');
+  expect(json).toContain('3600');
+  template.resourceCountIs('Custom::AWS', 1);
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({Action: 'sqs:SetQueueAttributes'}),
+      ]),
+    }),
   });
 });
 

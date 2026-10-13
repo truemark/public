@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {CfnStack, Fn} from 'aws-cdk-lib';
+import {Annotations, CfnStack, Fn} from 'aws-cdk-lib';
 import {Asset} from 'aws-cdk-lib/aws-s3-assets';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
@@ -29,7 +29,20 @@ const VENDORED_TEMPLATE_RELATIVE_PATH = '../vendor/aes-siem/siem.yaml';
 export enum AesSiemTemplateSource {
   /**
    * Reference the upstream public S3 template URL (default). Zero
-   * maintenance; cannot be edited. Pinned by {@link AES_SIEM_TEMPLATE_VERSION}.
+   * maintenance; cannot be edited.
+   *
+   * **Important:** the upstream public URL
+   * `https://aes-siem-<region>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template`
+   * is a *latest* alias — it is not pinned to
+   * {@link AES_SIEM_TEMPLATE_VERSION} and has no S3 `versionId`. If
+   * aws-samples publishes a new release, the next CloudFormation
+   * deployment will pick it up even if nothing changed in this repo.
+   *
+   * For reproducible, version-locked deployments use
+   * {@link AesSiemTemplateSource.VENDORED} with
+   * `pnpm run vendor:aes-siem`, which verifies the downloaded template
+   * header matches {@link AES_SIEM_TEMPLATE_VERSION} before packaging it
+   * as a CDK S3 asset.
    */
   UPSTREAM = 'upstream',
 
@@ -274,6 +287,17 @@ export class AutoSocSiemStack extends ExtendedStack {
     this.templateSource =
       props.templateSource ?? AesSiemTemplateSource.UPSTREAM;
     this.addMetadata('AesSiemTemplateSource', this.templateSource);
+    if (this.templateSource === AesSiemTemplateSource.UPSTREAM) {
+      Annotations.of(this).addWarningV2(
+        'AutoSocSiem:UpstreamTemplateNotPinned',
+        `AutoSocSiemStack is pointing at the aes-siem upstream public ` +
+          `template URL, which is a latest-tracking alias and NOT pinned to ` +
+          `AES_SIEM_TEMPLATE_VERSION (${AES_SIEM_TEMPLATE_VERSION}). A fresh ` +
+          `deployment may pull a newer upstream release. Use ` +
+          `templateSource=VENDORED (pnpm run vendor:aes-siem) for ` +
+          `reproducible, version-locked deployments.`,
+      );
+    }
 
     this.siemNestedStack = new CfnStack(this, 'AesSiemNestedStack', {
       templateUrl: this.resolveTemplateUrl(),

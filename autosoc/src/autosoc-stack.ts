@@ -57,6 +57,13 @@ export class AutoSocStack extends ExtendedStack {
         description:
           'AutoSoc SIEM OpenSearch subscriber - consumes Security Lake OCSF Parquet via SQS notifications',
         sources: DEFAULT_LOG_SOURCES.map((sourceName) => ({sourceName})),
+        // aes-siem's es-loader Lambda has a 600s timeout. Security Lake
+        // auto-provisions the subscriber Main-Queue with 300s, which is
+        // less than the Lambda timeout and causes the es-loader event-
+        // source-mapping to be rejected. The StandardSecurityLake
+        // construct patches the queue via an AwsCustomResource so the
+        // first SIEM deploy succeeds. See autosoc/README.md §1.
+        sqsVisibilityTimeoutSeconds: 3600,
       });
     }
 

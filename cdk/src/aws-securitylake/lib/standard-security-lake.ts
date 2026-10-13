@@ -1,4 +1,4 @@
-import {RemovalPolicy, Stack} from 'aws-cdk-lib';
+import {Fn, RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {
   CfnServiceLinkedRole,
   ManagedPolicy,
@@ -13,6 +13,11 @@ import {
   CfnSubscriber,
   CfnSubscriberNotification,
 } from 'aws-cdk-lib/aws-securitylake';
+import {
+  AwsCustomResource,
+  AwsCustomResourcePolicy,
+  PhysicalResourceId,
+} from 'aws-cdk-lib/custom-resources';
 import type {Construct} from 'constructs';
 import {
   ExtendedConstruct,
@@ -208,9 +213,47 @@ export interface SecurityLakeSubscriberProps {
    * notifies the subscriber via SQS messages (recommended default — the
    * SIEM polls the queue).
    *
+   * When set, {@link httpsNotificationTargetRoleArn} is required.
+   *
    * @default - SQS notification
    */
   readonly httpsNotificationEndpoint?: string;
+
+  /**
+   * IAM role ARN EventBridge assumes to invoke the HTTPS endpoint when
+   * {@link httpsNotificationEndpoint} is set. The role must trust
+   * `events.amazonaws.com` and have `events:InvokeApiDestination`
+   * permissions. The AWS console provisions this helper role
+   * automatically when a subscriber is created through the UI, but the
+   * CloudFormation / API path does **not** — so a fresh account must
+   * create and pass this role explicitly, or Security Lake will reject
+   * the subscriber-notification create call.
+   *
+   * Ignored when {@link httpsNotificationEndpoint} is omitted.
+   *
+   * @default - none; required when `httpsNotificationEndpoint` is set
+   */
+  readonly httpsNotificationTargetRoleArn?: string;
+
+  /**
+   * When set and the subscriber uses the default SQS notification path,
+   * the construct patches the Security-Lake-managed Main-Queue's
+   * `VisibilityTimeout` attribute to this value (seconds) via an
+   * `AwsCustomResource`. Needed because Security Lake auto-provisions
+   * the queue with a 300s visibility timeout, which is **less than** the
+   * default aes-siem es-loader Lambda timeout of 600s, causing the
+   * event-source-mapping create to be rejected with
+   * `"The event source mapping's function timeout must be smaller than
+   * or equal to the queue's visibility timeout"`.
+   *
+   * Set to a value `>=` your subscriber Lambda's timeout. 3600 is a
+   * safe default for aes-siem.
+   *
+   * Ignored when {@link httpsNotificationEndpoint} is set.
+   *
+   * @default - no patch; the queue keeps the Security-Lake-provisioned 300s
+   */
+  readonly sqsVisibilityTimeoutSeconds?: number;
 }
 
 /**
@@ -652,6 +695,22 @@ export class StandardSecurityLake extends ExtendedConstruct {
       }
       this.subscribers.push(subscriber);
 
+      if (
+        sub.httpsNotificationEndpoint &&
+        !sub.httpsNotificationTargetRoleArn
+      ) {
+        throw new Error(
+          `StandardSecurityLake: subscriber "${sub.subscriberName}" sets ` +
+            '`httpsNotificationEndpoint` but no ' +
+            '`httpsNotificationTargetRoleArn`. The CloudFormation/API path ' +
+            'does not auto-provision the EventBridge invocation role (only ' +
+            'the AWS console does). Create a role trusted by ' +
+            '`events.amazonaws.com` with `events:InvokeApiDestination` on ' +
+            'the target endpoint and pass its ARN as ' +
+            '`httpsNotificationTargetRoleArn`.',
+        );
+      }
+
       const notification = new CfnSubscriberNotification(
         this,
         `SubscriberNotification${sub.subscriberName}`,
@@ -661,7 +720,7 @@ export class StandardSecurityLake extends ExtendedConstruct {
             ? {
                 httpsNotificationConfiguration: {
                   endpoint: sub.httpsNotificationEndpoint,
-                  targetRoleArn: `arn:${Stack.of(this).partition}:iam::${Stack.of(this).account}:role/service-role/AmazonSecurityLakeSubscriberNotificationRole`,
+                  targetRoleArn: sub.httpsNotificationTargetRoleArn as string,
                 },
               }
             : {
@@ -671,6 +730,69 @@ export class StandardSecurityLake extends ExtendedConstruct {
       );
       notification.addDependency(subscriber);
       this.subscriberNotifications.push(notification);
+
+      // Patch the Security-Lake-managed SQS Main-Queue's visibility
+      // timeout. Needed because Security Lake auto-provisions the queue
+      // with 300s, less than the aes-siem es-loader Lambda timeout (600s
+      // default), causing event-source-mapping creation to fail with
+      // "The event source mapping's function timeout must be smaller
+      // than or equal to the queue's visibility timeout."
+      if (
+        !sub.httpsNotificationEndpoint &&
+        sub.sqsVisibilityTimeoutSeconds !== undefined
+      ) {
+        const timeout = sub.sqsVisibilityTimeoutSeconds;
+        const stack = Stack.of(this);
+        // The notification resource returns the queue ARN via
+        // `SubscriberEndpoint`. Convert to a queue URL for the SQS SDK.
+        // ARN: arn:aws:sqs:<region>:<account>:<name>
+        // URL: https://sqs.<region>.amazonaws.com/<account>/<name>
+        const queueName = Fn.select(
+          5,
+          Fn.split(':', notification.attrSubscriberEndpoint),
+        );
+        const queueUrl = `https://sqs.${stack.region}.amazonaws.com/${stack.account}/${queueName}`;
+        const patch = new AwsCustomResource(
+          this,
+          `SubscriberQueueVisibilityPatch${sub.subscriberName}`,
+          {
+            onCreate: {
+              service: 'SQS',
+              action: 'setQueueAttributes',
+              parameters: {
+                QueueUrl: queueUrl,
+                Attributes: {VisibilityTimeout: timeout.toString()},
+              },
+              physicalResourceId: PhysicalResourceId.of(
+                `${sub.subscriberName}-visibility-${timeout}`,
+              ),
+            },
+            onUpdate: {
+              service: 'SQS',
+              action: 'setQueueAttributes',
+              parameters: {
+                QueueUrl: queueUrl,
+                Attributes: {VisibilityTimeout: timeout.toString()},
+              },
+              physicalResourceId: PhysicalResourceId.of(
+                `${sub.subscriberName}-visibility-${timeout}`,
+              ),
+            },
+            policy: AwsCustomResourcePolicy.fromStatements([
+              new PolicyStatement({
+                actions: ['sqs:SetQueueAttributes'],
+                // The subscriber queue name is Security-Lake-generated and
+                // not knowable at synth time; scope to the data-lake
+                // account/region.
+                resources: [
+                  `arn:${stack.partition}:sqs:${stack.region}:${stack.account}:*`,
+                ],
+              }),
+            ]),
+          },
+        );
+        patch.node.addDependency(notification);
+      }
     }
   }
 }
