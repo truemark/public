@@ -150,55 +150,46 @@ export interface AutoSocSiemStackProps extends ExtendedStackProps {
    * MaxMind GeoLite2 license key enabling GeoIP enrichment inside
    * es-loader. Omit to deploy without geo enrichment.
    *
-   * **Warning:** values passed here as literal strings are embedded into
-   * both the synthesized parent CloudFormation template
-   * (`AWS::CloudFormation::Stack.Parameters`) and the local `cdk.context.json`
-   * when sourced via `-c siemGeoLite2LicenseKey=…` context. The nested
-   * aes-siem template declares this parameter as `NoEcho`, but that only
-   * affects the child template's own exports — it does **not** redact the
-   * value from the parent template that this stack synthesizes. For
-   * production, prefer {@link geoLite2LicenseKeyParameterName} so the
-   * value is resolved from SSM Parameter Store at CloudFormation
-   * deploy-time via a `{{resolve:ssm-secure:…}}` dynamic reference.
+   * **Secret-handling caveat.** The value lands in the synthesized
+   * **parent** CloudFormation template as a literal
+   * `AWS::CloudFormation::Stack.Parameters` entry and (when sourced via
+   * `-c siemGeoLite2LicenseKey=…`) also in `cdk.context.json`. The nested
+   * aes-siem template declares this parameter as `NoEcho`, which only
+   * redacts it in the child template's events/outputs — it does **not**
+   * redact the value from the parent template this stack synthesizes.
+   *
+   * CloudFormation `ssm-secure` dynamic references cannot bridge this
+   * gap: the allowed-properties list for `{{resolve:ssm-secure:…}}` does
+   * **not** include `AWS::CloudFormation::Stack.Parameters`, so a
+   * dynamic-reference string is passed through unresolved and the nested
+   * stack deployment fails. Likewise for Secrets Manager dynamic
+   * references.
+   *
+   * For environments where exposing this value in the synth artefacts is
+   * unacceptable, switch to the `VENDORED` template source
+   * ({@link AesSiemTemplateSource.VENDORED}) and modify the vendored
+   * template to read the key directly from Secrets Manager / SSM inside
+   * the es-loader Lambda at runtime (e.g. replace the
+   * `GeoLite2LicenseKey` parameter with an environment variable
+   * referencing the secret ARN and a `secretsmanager:GetSecretValue`
+   * policy on the es-loader role).
    *
    * @default - no geo enrichment
    */
   readonly geoLite2LicenseKey?: string;
 
   /**
-   * Name of an SSM Parameter Store SecureString parameter containing the
-   * MaxMind GeoLite2 license key. When set, the parameter value is
-   * resolved at CloudFormation deploy-time via a
-   * `{{resolve:ssm-secure:<name>:<version>}}` dynamic reference, so the
-   * secret never appears in the synthesized template, `cdk.context.json`,
-   * or shell history. Mutually exclusive with {@link geoLite2LicenseKey}.
-   *
-   * @default - no geo enrichment
-   */
-  readonly geoLite2LicenseKeyParameterName?: string;
-
-  /**
    * AlienVault OTX API key. When set, es-loader downloads IOCs on the
    * schedule given by {@link iocDownloadIntervalMinutes}.
    *
-   * **Warning:** same caveat as {@link geoLite2LicenseKey} — literal
-   * values are embedded into the synthesized parent template and
-   * `cdk.context.json`. Prefer {@link otxApiKeyParameterName} in
-   * production.
+   * **Secret-handling caveat.** See {@link geoLite2LicenseKey} — the same
+   * nested-stack `NoEcho` / dynamic-reference limitation applies. Use
+   * the vendored-template path if the plaintext must stay out of the
+   * synthesized parent template.
    *
    * @default - OTX IOC feed disabled
    */
   readonly otxApiKey?: string;
-
-  /**
-   * Name of an SSM Parameter Store SecureString parameter containing the
-   * AlienVault OTX API key. Resolved at CloudFormation deploy-time via
-   * `{{resolve:ssm-secure:<name>:<version>}}`. Mutually exclusive with
-   * {@link otxApiKey}.
-   *
-   * @default - OTX IOC feed disabled
-   */
-  readonly otxApiKeyParameterName?: string;
 
   /**
    * Download the Tor exit-node list as an IOC feed.
@@ -315,18 +306,6 @@ export class AutoSocSiemStack extends ExtendedStack {
 
   constructor(scope: Construct, id: string, props: AutoSocSiemStackProps) {
     super(scope, id, props);
-    if (props.geoLite2LicenseKey && props.geoLite2LicenseKeyParameterName) {
-      throw new Error(
-        'AutoSocSiemStack: pass either geoLite2LicenseKey or ' +
-          'geoLite2LicenseKeyParameterName, not both.',
-      );
-    }
-    if (props.otxApiKey && props.otxApiKeyParameterName) {
-      throw new Error(
-        'AutoSocSiemStack: pass either otxApiKey or ' +
-          'otxApiKeyParameterName, not both.',
-      );
-    }
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
     this.addMetadata(
@@ -416,17 +395,14 @@ function buildAesSiemParameters(
       '127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16',
     LogBucketPolicyUpdate: props.logBucketPolicyUpdate ?? 'update_and_override',
 
-    // Enrichment. For SecureString SSM parameter names, build a
-    // `{{resolve:ssm-secure:<name>:<version>}}` dynamic reference that
-    // CloudFormation resolves server-side at deploy-time so the plaintext
-    // value never materializes in the synthesized template, the CDK
-    // context cache, or shell history.
-    GeoLite2LicenseKey: props.geoLite2LicenseKeyParameterName
-      ? `{{resolve:ssm-secure:${props.geoLite2LicenseKeyParameterName}:1}}`
-      : (props.geoLite2LicenseKey ?? ''),
-    OtxApiKey: props.otxApiKeyParameterName
-      ? `{{resolve:ssm-secure:${props.otxApiKeyParameterName}:1}}`
-      : (props.otxApiKey ?? ''),
+    // Enrichment. See the secret-handling caveat on
+    // `AutoSocSiemStackProps.geoLite2LicenseKey`: dynamic references
+    // (`{{resolve:ssm-secure:…}}` / `{{resolve:secretsmanager:…}}`) are
+    // not resolved by CloudFormation inside
+    // `AWS::CloudFormation::Stack.Parameters`, so the literal value is
+    // the only mechanism supported by the upstream aes-siem template.
+    GeoLite2LicenseKey: props.geoLite2LicenseKey ?? '',
+    OtxApiKey: props.otxApiKey ?? '',
     EnableTor: bool(props.enableTor, false),
     EnableAbuseCh: bool(props.enableAbuseCh, false),
     IocDownloadInterval: (props.iocDownloadIntervalMinutes ?? 720).toString(),

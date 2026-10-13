@@ -119,21 +119,15 @@ if (deploySiem) {
       | 'keep'
       | undefined,
 
-    // Enrichment. Prefer the `*ParameterName` context flags for
-    // production: they point at an SSM Parameter Store SecureString and
-    // CloudFormation resolves `{{resolve:ssm-secure:<name>:1}}` at
-    // deploy-time, so the literal secret never lands in the synthesized
-    // template, the CDK context cache, or shell history. The plain
-    // `siemGeoLite2LicenseKey` / `siemOtxApiKey` flags remain for
-    // convenience in dev / sandbox accounts only; see the warning on
-    // `AutoSocSiemStackProps.geoLite2LicenseKey`.
+    // Enrichment. The literal-value `-c` flags are the only supported
+    // path because CloudFormation does not resolve `ssm-secure` /
+    // `secretsmanager` dynamic references inside nested-stack
+    // Parameters. See the secret-handling caveat on
+    // `AutoSocSiemStackProps.geoLite2LicenseKey` and switch to the
+    // VENDORED template if the plaintext must stay out of the
+    // synthesized parent template.
     geoLite2LicenseKey: ctxString(app, 'siemGeoLite2LicenseKey'),
-    geoLite2LicenseKeyParameterName: ctxString(
-      app,
-      'siemGeoLite2LicenseKeyParameterName',
-    ),
     otxApiKey: ctxString(app, 'siemOtxApiKey'),
-    otxApiKeyParameterName: ctxString(app, 'siemOtxApiKeyParameterName'),
     enableTor: ctxBool(app, 'siemEnableTor'),
     enableAbuseCh: ctxBool(app, 'siemEnableAbuseCh'),
     iocDownloadIntervalMinutes: ctxNumber(

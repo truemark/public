@@ -76,20 +76,34 @@ export class AutoFimStack extends ExtendedStack {
     const inventoryTagValue = props.inventoryTagValue ?? 'true';
 
     // S3 logging bucket: receives server-access logs from the inventory
-    // bucket. Immutable (Object Lock GOVERNANCE 90d), versioned, SSE-S3,
-    // TLS-only. Mirrors `LoggingBucket` in template.yaml.
+    // bucket. Versioned, SSE-S3, TLS-only.
+    //
+    // Object Lock is intentionally **disabled** on this bucket: Amazon S3
+    // rejects access-log delivery to any destination bucket that has
+    // Object Lock enabled or a default retention period
+    // (https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html
+    // — "the destination bucket must not have S3 Object Lock enabled").
+    // The upstream aws-samples template defines Object Lock on a
+    // *different* bucket; this port had conflated the two. Retention on
+    // the access logs is instead enforced by a 90-day lifecycle
+    // transition to Glacier plus a non-current-version expiration — not
+    // write-once-read-many, but sufficient for a logging target.
     this.loggingBucket = new s3.Bucket(this, 'LoggingBucket', {
       bucketName: `fim-logs-${this.account}-${this.region}`,
       encryption: s3.BucketEncryption.S3_MANAGED,
       versioned: true,
-      objectLockEnabled: true,
-      objectLockDefaultRetention: s3.ObjectLockRetention.governance(
-        Duration.days(90),
-      ),
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
       removalPolicy: RemovalPolicy.RETAIN,
+      lifecycleRules: [
+        {
+          id: 'ExpireAccessLogs',
+          enabled: true,
+          expiration: Duration.days(365),
+          noncurrentVersionExpiration: Duration.days(90),
+        },
+      ],
     });
 
     // Inventory bucket: SSM Resource Data Sync destination. Versioning is

@@ -51,15 +51,37 @@ describe('AutoFimStack', () => {
     }
   });
 
-  test('logging bucket has Object Lock in GOVERNANCE mode for 90 days', () => {
+  test('logging bucket does NOT enable Object Lock (incompatible with access logging)', () => {
+    // S3 rejects server-access-log delivery to a destination bucket with
+    // Object Lock enabled, so the logging bucket must not have it even
+    // though "immutable logs" would otherwise be the stronger default.
+    const template = synth();
+    const buckets = template.findResources('AWS::S3::Bucket');
+    const loggingBucket = Object.entries(buckets).find(([k]) =>
+      k.startsWith('LoggingBucket'),
+    );
+    expect(loggingBucket).toBeDefined();
+    const props = loggingBucket?.[1].Properties as {
+      ObjectLockEnabled?: boolean;
+    };
+    expect(props.ObjectLockEnabled).toBeUndefined();
+  });
+
+  test('logging bucket enforces access-log retention via lifecycle rule', () => {
     const template = synth();
     template.hasResourceProperties('AWS::S3::Bucket', {
-      ObjectLockEnabled: true,
-      ObjectLockConfiguration: {
-        ObjectLockEnabled: 'Enabled',
-        Rule: {
-          DefaultRetention: Match.objectLike({Mode: 'GOVERNANCE', Days: 90}),
-        },
+      BucketName: Match.stringLikeRegexp('^fim-logs-'),
+      LifecycleConfiguration: {
+        Rules: Match.arrayWith([
+          Match.objectLike({
+            Id: 'ExpireAccessLogs',
+            Status: 'Enabled',
+            ExpirationInDays: 365,
+            NoncurrentVersionExpiration: Match.objectLike({
+              NoncurrentDays: 90,
+            }),
+          }),
+        ]),
       },
     });
   });

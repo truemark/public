@@ -139,38 +139,6 @@ describe('AutoSocSiemStack', () => {
     });
   });
 
-  test('resolves GeoLite2 / OTX secrets via SSM SecureString dynamic reference when *ParameterName is set', () => {
-    const template = synthSiem({
-      geoLite2LicenseKeyParameterName: '/autosoc/siem/geolite2-license-key',
-      otxApiKeyParameterName: '/autosoc/siem/otx-api-key',
-    });
-    template.hasResourceProperties('AWS::CloudFormation::Stack', {
-      Parameters: Match.objectLike({
-        GeoLite2LicenseKey:
-          '{{resolve:ssm-secure:/autosoc/siem/geolite2-license-key:1}}',
-        OtxApiKey: '{{resolve:ssm-secure:/autosoc/siem/otx-api-key:1}}',
-      }),
-    });
-  });
-
-  test('throws when both GeoLite2 literal + parameter name are supplied', () => {
-    expect(() =>
-      synthSiem({
-        geoLite2LicenseKey: 'literal-key',
-        geoLite2LicenseKeyParameterName: '/autosoc/siem/geolite2-license-key',
-      }),
-    ).toThrow(/geoLite2LicenseKey.*geoLite2LicenseKeyParameterName/);
-  });
-
-  test('throws when both OTX literal + parameter name are supplied', () => {
-    expect(() =>
-      synthSiem({
-        otxApiKey: 'literal-key',
-        otxApiKeyParameterName: '/autosoc/siem/otx-api-key',
-      }),
-    ).toThrow(/otxApiKey.*otxApiKeyParameterName/);
-  });
-
   test('VENDORED template source packages an asset when the file exists, throws when missing', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
