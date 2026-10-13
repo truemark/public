@@ -220,9 +220,7 @@ export class AutoFimStack extends ExtendedStack {
         name: 'AWS-GatherSoftwareInventory',
         associationName: 'fim-inventory-association',
         scheduleExpression: inventorySchedule,
-        targets: [
-          {key: `tag:${inventoryTagKey}`, values: [inventoryTagValue]},
-        ],
+        targets: [{key: `tag:${inventoryTagKey}`, values: [inventoryTagValue]}],
         parameters: {
           applications: ['Disabled'],
           awsComponents: ['Disabled'],
