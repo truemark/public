@@ -186,6 +186,16 @@ first end-to-end deployment and subsequent review.
   modified regardless of mtime. See
   `lambda/fim-change-detector/test_lambda_function.py` for the regression
   test (`test_is_modified_detects_size_change_with_identical_mtime`).
+- **Known residual limitation:** this still cannot catch a same-size
+  content edit that also preserves mtime — the built-in SSM `AWS:File`
+  inventory type exposes only metadata (name, size, dates), not a content
+  hash, so that specific case is indistinguishable from "unchanged" with
+  the data available. Closing this gap would require collecting a content
+  hash (e.g. sha256) via SSM custom inventory and comparing that instead
+  of/alongside `Size`. This is called out explicitly in the
+  `load_file_metadata` docstring and in
+  `test_is_modified_false_when_mtime_and_size_unchanged` so it isn't
+  mistaken for a regression if observed in practice.
 
 ## Attribution
 

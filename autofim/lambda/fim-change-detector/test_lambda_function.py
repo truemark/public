@@ -35,6 +35,12 @@ def test_is_modified_detects_size_change_with_identical_mtime():
 
 
 def test_is_modified_false_when_mtime_and_size_unchanged():
+    # Known, documented limitation (see README gotcha #4 and the
+    # load_file_metadata docstring): a same-size content edit that also
+    # preserves mtime is indistinguishable from "unchanged" using the
+    # AWS:File inventory type's metadata alone, since no content hash is
+    # available. This test documents that boundary rather than asserting
+    # detection that the current data cannot support.
     path = "/etc/paymentapp/config.yaml"
     current = {path: ("2024-01-01T00:00:00Z", "100")}
     previous = {path: ("2024-01-01T00:00:00Z", "100")}

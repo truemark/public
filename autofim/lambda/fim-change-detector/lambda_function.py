@@ -34,8 +34,16 @@ def load_file_metadata(bucket: str, key: str, version_id: str) -> dict:
     """Return ``{path: (ModificationTime, Size)}`` for each AWS:File entry in
     the snapshot. Size is tracked alongside ModificationTime so that a file
     replaced/edited while its mtime is preserved (e.g. by a tool that
-    restores the original timestamp after tampering) is still detected as
-    changed rather than producing a false negative.
+    restores the original timestamp after tampering) is detected as changed
+    whenever the replacement content is a different length.
+
+    Known limitation: the built-in SSM ``AWS:File`` inventory type only
+    exposes metadata (name, size, dates) and does not include a content
+    hash, so a same-size edit that also preserves mtime (a content-only
+    tamper with no length change) cannot be distinguished from "unchanged"
+    by this comparison alone. Detecting that case would require collecting
+    a hash (e.g. sha256) via SSM custom inventory and comparing that
+    instead of/in addition to Size.
     """
     obj = s3.get_object(Bucket=bucket, Key=key, VersionId=version_id)
     data = {}
@@ -61,6 +69,12 @@ def is_modified(path: str, current: dict, previous: dict) -> bool:
     # Size is compared as a plain string first (fast path, also catches
     # missing/empty values consistently); fall back to an exact mismatch if
     # either side doesn't parse as an int.
+    #
+    # NOTE: this only catches tamper-and-restore edits that also change the
+    # file's length. A same-size content edit with a preserved mtime is
+    # indistinguishable from "unchanged" using AWS:File metadata alone (no
+    # content hash is available) and is a known, documented limitation -
+    # see the module docstring on load_file_metadata and README gotcha #4.
     if cur_size != prev_size:
         return True
     try:
