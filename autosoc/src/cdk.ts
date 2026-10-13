@@ -98,6 +98,7 @@ if (deploySiem) {
   const siem = new AutoSocSiemStack(app, 'AutoSocSiem', {
     snsEmail: siemEmail,
     templateSource: siemTemplateSource as AesSiemTemplateSource | undefined,
+    upstreamTemplateFileName: ctxString(app, 'siemUpstreamTemplateFileName'),
 
     // OpenSearch shape
     deploymentTarget: siemDeploymentTarget as

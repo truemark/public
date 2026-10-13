@@ -62,6 +62,7 @@ a `-c` context flag. Unset flags fall through to the upstream default.
 | --- | --- | --- |
 | `siemEmail` | **required when `deploySiem=true`** | Address for OpenSearch SNS alerts. |
 | `siemTemplateSource` | `upstream` | `upstream` loads the public aes-siem template; `vendored` loads `autosoc/vendor/aes-siem/siem.yaml` as a CDK S3 asset (see Customizing the SIEM below). |
+| `siemUpstreamTemplateFileName` | `siem-on-amazon-opensearch-service.template` | Upstream template filename under the public `aes-siem-<region>` bucket. The DNS suffix is already partition-aware (`${AWS::URLSuffix}`), but aws-samples publish a different filename for China (`siem-on-amazon-opensearch-service-china.template`). Set this flag when deploying to `cn-north-1` / `cn-northwest-1`. GovCloud operators must use `siemTemplateSource=vendored` instead — upstream does not publish a GovCloud build. |
 | `siemDeploymentTarget` | `opensearch_managed_cluster` | Set to `opensearch_serverless` for the (experimental) Serverless path. |
 | `siemDomainOrCollectionName` | `aes-siem` | OpenSearch domain or Serverless collection name. |
 | `siemVpcEndpointId` | *(none, public endpoint)* | Interface VPC endpoint id (`vpce-…` / `aos-…`) that fronts OpenSearch. Setting it places es-loader into the VPC. |
@@ -240,8 +241,13 @@ account, following this order avoids ~90% of the rework described below:
 2. **Deploy `AutoSoc` with `-c createLakeFormationSlr=true` and the
    subscriber context flags in the *same* first deploy** (see §4). The
    service-linked role's retain policy is NOT retroactive.
-3. **Raise the subscriber Main-Queue visibility timeout** (see §1) as soon
-   as the queue exists but before you deploy the SIEM.
+3. **Wait for `AutoSoc` to reach `CREATE_COMPLETE`** before deploying
+   `AutoSocSiem`. The subscriber Main-Queue visibility timeout is now
+   patched automatically by the `AwsCustomResource` emitted by
+   `StandardSecurityLake` when `sqsVisibilityTimeoutSeconds` is set
+   (see §1); no manual `sqs set-queue-attributes` call is required
+   anymore. The patch runs as part of `AutoSoc`, so the SIEM deploy
+   just needs the parent stack to be done.
 4. **Deploy `AutoSocSiem`.**
 5. On the one-and-only successful create, immediately grab the `aesadmin`
    password from CloudWatch logs (see §7) and store it in your password
@@ -249,7 +255,7 @@ account, following this order avoids ~90% of the rework described below:
 6. Add your workstation's public IP to the OpenSearch access policy
    allowlist (see §8) before trying Dashboards.
 
-### 1. SQS visibility timeout vs Lambda timeout mismatch
+### 1. SQS visibility timeout vs Lambda timeout mismatch (now auto-patched)
 
 - **Symptom:** aes-siem CFN rolls back; `CreateEventSourceMapping` rejects
   with "The event source mapping's function timeout must be smaller than
@@ -258,7 +264,16 @@ account, following this order avoids ~90% of the rework described below:
   (`AmazonSecurityLake-<uuid>-Main-Queue`) with the default 300s visibility
   timeout. aes-siem's es-loader has a 600s Lambda timeout. AWS requires
   visibility ≥ function timeout.
-- **Fix:** Patch the queue once, before deploying the SIEM:
+- **Current status: fixed in-template.** `AutoSocStack` passes
+  `sqsVisibilityTimeoutSeconds: 3600` on the subscriber, and
+  `StandardSecurityLake` responds by emitting an `AwsCustomResource` that
+  calls `sqs:SetQueueAttributes` on the Security-Lake-managed Main-Queue
+  immediately after it is created. The patch is partition-aware (uses
+  `${AWS::URLSuffix}` so it works in `aws-cn` / GovCloud) and runs as
+  part of the `AutoSoc` deploy, before any dependent SIEM stack is
+  created. No manual `aws sqs set-queue-attributes` call is required.
+- **Manual fallback** (only needed for one-off recovery scenarios where
+  the subscriber is recreated out of band from CFN):
   ```bash
   QUEUE_URL=$(aws sqs list-queues --region "$AWS_REGION" \
     --queue-name-prefix AmazonSecurityLake \
@@ -266,9 +281,6 @@ account, following this order avoids ~90% of the rework described below:
   aws sqs set-queue-attributes --region "$AWS_REGION" \
     --queue-url "$QUEUE_URL" --attributes VisibilityTimeout=3600
   ```
-- **Important:** the queue is externally managed by Security Lake, not by
-  our CFN, so this is **not** baked into CDK. If the subscriber is ever
-  deleted and recreated, re-run the patch.
 
 ### 2. Lambda reserved-concurrency vs account quota
 

@@ -80,6 +80,25 @@ export interface AutoSocSiemStackProps extends ExtendedStackProps {
    */
   readonly templateSource?: AesSiemTemplateSource;
 
+  /**
+   * File name of the upstream aes-siem template under the per-Region
+   * public bucket `aes-siem-<region>`. aws-samples ship two builds:
+   *   * commercial partition: `siem-on-amazon-opensearch-service.template`
+   *   * China partition:      `siem-on-amazon-opensearch-service-china.template`
+   *
+   * CloudFormation `AWS::Partition` is a Token at CDK synth time, so
+   * the construct cannot branch on partition automatically. China
+   * operators must pass the china filename explicitly here (or set
+   * `-c siemUpstreamTemplateFileName=siem-on-amazon-opensearch-service-china.template`).
+   * GovCloud is not published upstream — use
+   * {@link AesSiemTemplateSource.VENDORED}.
+   *
+   * Ignored when {@link templateSource} is `VENDORED`.
+   *
+   * @default 'siem-on-amazon-opensearch-service.template'
+   */
+  readonly upstreamTemplateFileName?: string;
+
   // ─── OpenSearch deployment shape ───────────────────────────────────────
 
   /**
@@ -304,8 +323,14 @@ export class AutoSocSiemStack extends ExtendedStack {
   /** Resolved source of the aes-siem template that was packaged. */
   readonly templateSource: AesSiemTemplateSource;
 
+  /** Upstream template file name actually used when `UPSTREAM`. */
+  readonly upstreamTemplateFileName: string;
+
   constructor(scope: Construct, id: string, props: AutoSocSiemStackProps) {
     super(scope, id, props);
+    this.upstreamTemplateFileName =
+      props.upstreamTemplateFileName ??
+      'siem-on-amazon-opensearch-service.template';
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
     this.addMetadata(
@@ -357,13 +382,28 @@ export class AutoSocSiemStack extends ExtendedStack {
     }
 
     // The upstream template is published per-Region in a public S3 bucket.
-    // Build the Fn::Sub input so biome's `noTemplateCurlyInString` rule
-    // (which flags `${...}` placeholders in plain strings) does not trip
-    // on the CloudFormation `${AWS::Region}` pseudo-parameter. The `$` is
-    // escaped with `\x24` so the source text contains no `${`.
+    // aws-samples ship two separate per-partition builds under different
+    // key names:
+    //   * commercial:  siem-on-amazon-opensearch-service.template
+    //   * China:       siem-on-amazon-opensearch-service-china.template
+    // GovCloud is not published by upstream today — operators on
+    // `aws-us-gov` must use `AesSiemTemplateSource.VENDORED`.
+    //
+    // The CloudFormation stack's `partition` attribute is a Token at
+    // synth time (`${Token[AWS.Partition.…]}`), so we can't branch on
+    // it with a plain `===` string comparison. The caller supplies the
+    // filename via {@link AutoSocSiemStackProps.upstreamTemplateFileName}
+    // (defaulting to the commercial template); China operators pass
+    // `siem-on-amazon-opensearch-service-china.template` explicitly.
+    //
+    // For the DNS suffix we use `${AWS::URLSuffix}` so the host resolves
+    // to `.amazonaws.com` in commercial and `.amazonaws.com.cn` in
+    // China without a CDK-side branch. `\x24` keeps biome's
+    // `noTemplateCurlyInString` happy.
     const region = '\x24{AWS::Region}';
+    const urlSuffix = '\x24{AWS::URLSuffix}';
     return Fn.sub(
-      `https://aes-siem-${region}.s3.${region}.amazonaws.com/siem-on-amazon-opensearch-service.template`,
+      `https://aes-siem-${region}.s3.${region}.${urlSuffix}/${this.upstreamTemplateFileName}`,
     );
   }
 }

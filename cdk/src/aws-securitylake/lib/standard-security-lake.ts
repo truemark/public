@@ -745,13 +745,19 @@ export class StandardSecurityLake extends ExtendedConstruct {
         const stack = Stack.of(this);
         // The notification resource returns the queue ARN via
         // `SubscriberEndpoint`. Convert to a queue URL for the SQS SDK.
-        // ARN: arn:aws:sqs:<region>:<account>:<name>
-        // URL: https://sqs.<region>.amazonaws.com/<account>/<name>
+        // ARN: arn:<partition>:sqs:<region>:<account>:<name>
+        // URL: https://sqs.<region>.<url-suffix>/<account>/<name>
+        //
+        // The URL suffix is partition-aware (`amazonaws.com`,
+        // `amazonaws.com.cn`, `c2s.ic.gov`, etc.); hard-coding
+        // `amazonaws.com` breaks `aws-cn` and GovCloud. Use the stack's
+        // `urlSuffix` token so CloudFormation substitutes the right
+        // value at deploy time.
         const queueName = Fn.select(
           5,
           Fn.split(':', notification.attrSubscriberEndpoint),
         );
-        const queueUrl = `https://sqs.${stack.region}.amazonaws.com/${stack.account}/${queueName}`;
+        const queueUrl = `https://sqs.${stack.region}.${stack.urlSuffix}/${stack.account}/${queueName}`;
         const patch = new AwsCustomResource(
           this,
           `SubscriberQueueVisibilityPatch${sub.subscriberName}`,

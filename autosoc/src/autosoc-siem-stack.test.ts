@@ -139,6 +139,39 @@ describe('AutoSocSiemStack', () => {
     });
   });
 
+  // Literal '$' + '{AWS::URLSuffix}' kept broken up so biome's
+  // `noTemplateCurlyInString` lint rule does not fire on the test file.
+  const URL_SUFFIX_TOKEN = `\x24{AWS::URLSuffix}`;
+
+  test('UPSTREAM template URL uses AWS::URLSuffix for commercial partition', () => {
+    const template = synthSiem();
+    const stacks = template.findResources('AWS::CloudFormation::Stack');
+    const [nested] = Object.values(stacks);
+    const sub = (nested.Properties.TemplateURL as {'Fn::Sub': string})[
+      'Fn::Sub'
+    ];
+    expect(sub).toContain(URL_SUFFIX_TOKEN);
+    expect(sub).toContain('siem-on-amazon-opensearch-service.template');
+    expect(sub).not.toContain('siem-on-amazon-opensearch-service-china');
+  });
+
+  test('UPSTREAM template URL swaps to the China filename when upstreamTemplateFileName is overridden', () => {
+    const template = synthSiem({
+      upstreamTemplateFileName:
+        'siem-on-amazon-opensearch-service-china.template',
+    });
+    const stacks = template.findResources('AWS::CloudFormation::Stack');
+    const [nested] = Object.values(stacks);
+    const sub = (nested.Properties.TemplateURL as {'Fn::Sub': string})[
+      'Fn::Sub'
+    ];
+    // AWS::URLSuffix handles the amazonaws.com -> amazonaws.com.cn
+    // swap automatically in the China partition; the filename override
+    // is the only CDK-side change required.
+    expect(sub).toContain(URL_SUFFIX_TOKEN);
+    expect(sub).toContain('siem-on-amazon-opensearch-service-china.template');
+  });
+
   test('VENDORED template source packages an asset when the file exists, throws when missing', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
