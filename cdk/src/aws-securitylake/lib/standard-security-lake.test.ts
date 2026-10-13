@@ -3,6 +3,124 @@ import {expect, test} from 'vitest';
 import {HelperTest} from '../../helper.test';
 import {AwsLogSourceName, StandardSecurityLake} from './standard-security-lake';
 
+test('Test StandardSecurityLake creates SQS-notified subscriber', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    logSources: [{sourceName: AwsLogSourceName.CLOUD_TRAIL_MGMT}],
+    subscribers: [
+      {
+        subscriberName: 'siem',
+        principal: '222222222222',
+        externalId: 'super-secret-external-id',
+        description: 'SIEM subscriber',
+        sources: [{sourceName: AwsLogSourceName.CLOUD_TRAIL_MGMT}],
+      },
+    ],
+  });
+  const template = Template.fromStack(stack);
+  template.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
+  template.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 1);
+  template.hasResourceProperties('AWS::SecurityLake::Subscriber', {
+    SubscriberName: 'siem',
+    AccessTypes: ['S3'],
+    SubscriberIdentity: {
+      ExternalId: 'super-secret-external-id',
+      Principal: '222222222222',
+    },
+    Sources: [
+      {
+        AwsLogSource: {SourceName: 'CLOUD_TRAIL_MGMT', SourceVersion: '2.0'},
+      },
+    ],
+  });
+  template.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
+    NotificationConfiguration: {SqsNotificationConfiguration: {}},
+  });
+});
+
+test('Test StandardSecurityLake creates HTTPS-notified subscriber', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    subscribers: [
+      {
+        subscriberName: 'webhook',
+        principal: '333333333333',
+        externalId: 'another-external-id',
+        sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
+        httpsNotificationEndpoint: 'https://example.com/securitylake',
+        httpsNotificationTargetRoleArn:
+          'arn:aws:iam::111111111111:role/webhook-invoker',
+      },
+    ],
+  });
+  const template = Template.fromStack(stack);
+  template.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
+    NotificationConfiguration: {
+      HttpsNotificationConfiguration: Match.objectLike({
+        Endpoint: 'https://example.com/securitylake',
+        TargetRoleArn: 'arn:aws:iam::111111111111:role/webhook-invoker',
+      }),
+    },
+  });
+});
+
+test('Test StandardSecurityLake throws when HTTPS subscriber missing targetRoleArn', () => {
+  const stack = HelperTest.stack();
+  expect(() => {
+    new StandardSecurityLake(stack, 'TestSecurityLake', {
+      subscribers: [
+        {
+          subscriberName: 'webhook',
+          principal: '333333333333',
+          externalId: 'ext',
+          sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
+          httpsNotificationEndpoint: 'https://example.com/securitylake',
+        },
+      ],
+    });
+  }).toThrow(/httpsNotificationTargetRoleArn/);
+});
+
+test('Test StandardSecurityLake patches subscriber SQS visibility timeout', () => {
+  const stack = HelperTest.stack();
+  new StandardSecurityLake(stack, 'TestSecurityLake', {
+    subscribers: [
+      {
+        subscriberName: 'siem',
+        principal: '333333333333',
+        externalId: 'ext',
+        sources: [{sourceName: AwsLogSourceName.VPC_FLOW}],
+        sqsVisibilityTimeoutSeconds: 3600,
+      },
+    ],
+  });
+  const template = Template.fromStack(stack);
+  // AwsCustomResource renders as a Custom::AWS resource whose Create/Update
+  // props are Fn::Join'd strings containing the SDK call config. Serialize
+  // the whole template and grep for the three bits we care about: the SQS
+  // SetQueueAttributes call, the configured VisibilityTimeout, and the
+  // IAM policy granting the permission.
+  const json = JSON.stringify(template.toJSON());
+  expect(json).toContain('setQueueAttributes');
+  expect(json).toContain('VisibilityTimeout');
+  expect(json).toContain('3600');
+  template.resourceCountIs('Custom::AWS', 1);
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({Action: 'sqs:SetQueueAttributes'}),
+      ]),
+    }),
+  });
+  expect(json).toContain('SubscriberEndpoint');
+  expect(json).not.toContain(':sqs:*');
+  // Queue URL must be partition-aware: constructed via the stack's
+  // `urlSuffix` token (Ref: AWS::URLSuffix), not a hard-coded
+  // `amazonaws.com` suffix that would break aws-cn / GovCloud.
+  expect(json).toContain('AWS::URLSuffix');
+  expect(json).not.toContain('amazonaws.com/');
+});
+
 test('Test StandardSecurityLake default', () => {
   const stack = HelperTest.stack();
   new StandardSecurityLake(stack, 'TestSecurityLake');
