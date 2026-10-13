@@ -14,6 +14,8 @@ Upgrade to the latest stable AWS CDK and move Lambdas to Node.js 24.
   `context.succeed`/`fail`/`done` and `context.callbackWaitsForEmptyEventLoop`. Functions whose
   handlers still use a callback signature or those APIs must migrate to `async` handlers, or pin
   `runtime: Runtime.NODEJS_22_X` until they do. Handlers that are already `async` need no change.
+- The default OpenTelemetry collector layer pin moves from `:1` to `:6`. This only affects
+  functions with `otel.enabled`; consumers setting `otel.layerVersionArn` are unaffected.
 - `StandardQueue` implements `metricApproximateNumberOfMessagesOutstanding`, the metric
   `IQueue` gained in `aws-cdk-lib` 2.272.0.
 - The library's TypeScript `target` moves from `ES2018` to `ES2022`.
