@@ -109,12 +109,30 @@ export class AutoFimStack extends ExtendedStack {
     // SSM Resource Data Sync requires an explicit bucket policy allowing
     // the SSM service to GetBucketAcl and PutObject (see
     // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-inventory-datasync.html).
+    //
+    // Both statements include `aws:SourceAccount` + `aws:SourceArn` guards
+    // (confused-deputy protection), matching the upstream aws-samples
+    // template and the SSM policy guidance at
+    // https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-cross-service-confused-deputy-prevention.html.
+    // The source ARN is the Resource Data Sync resource that this stack
+    // creates below (`fim-inventory-sync-<account>-<region>`).
+    const resourceDataSyncArn =
+      `arn:${this.partition}:ssm:${this.region}:${this.account}` +
+      `:resource-data-sync/fim-inventory-sync-${this.account}-${this.region}`;
     this.inventoryBucket.addToResourcePolicy(
       new iam.PolicyStatement({
         sid: 'SSMBucketPermissionsCheck',
         actions: ['s3:GetBucketAcl'],
         resources: [this.inventoryBucket.bucketArn],
         principals: [new iam.ServicePrincipal('ssm.amazonaws.com')],
+        conditions: {
+          StringEquals: {
+            'aws:SourceAccount': this.account,
+          },
+          ArnLike: {
+            'aws:SourceArn': resourceDataSyncArn,
+          },
+        },
       }),
     );
     this.inventoryBucket.addToResourcePolicy(
@@ -124,16 +142,26 @@ export class AutoFimStack extends ExtendedStack {
         resources: [`${this.inventoryBucket.bucketArn}/*`],
         principals: [new iam.ServicePrincipal('ssm.amazonaws.com')],
         conditions: {
-          StringEquals: {'s3:x-amz-acl': 'bucket-owner-full-control'},
+          StringEquals: {
+            's3:x-amz-acl': 'bucket-owner-full-control',
+            'aws:SourceAccount': this.account,
+          },
+          ArnLike: {
+            'aws:SourceArn': resourceDataSyncArn,
+          },
         },
       }),
     );
 
     // DLQ for the change-detector Lambda. 14-day retention per blog.
+    // Uses SQS-managed KMS encryption (`alias/aws/sqs`) to match the
+    // upstream aws-samples template, so DLQ'd async-invocation payloads
+    // are encrypted at rest.
     this.deadLetterQueue = new sqs.Queue(this, 'ChangeDetectorDLQ', {
       queueName: 'fim-change-detector-dlq',
       retentionPeriod: Duration.days(14),
       enforceSSL: true,
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
     // Change-detector Lambda. Python 3.12, reserved concurrency 10, DLQ
@@ -185,9 +213,18 @@ export class AutoFimStack extends ExtendedStack {
     );
 
     // S3 -> Lambda event notification.
+    //
+    // Scoped to the `AWS:File/` prefix so only File-inventory snapshots
+    // trigger the Lambda. The account-wide SSM Resource Data Sync writes
+    // every inventory type (`AWS:InstanceInformation/`, `AWS:Network/`,
+    // etc.) to this bucket; without this filter the handler is invoked
+    // for non-file payloads, parses them as empty file metadata, and can
+    // delete the previous object version. Matches the upstream
+    // aws-samples template's `S3Key.FilterRules[*].Value = AWS%3AFile/`.
     this.inventoryBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new LambdaDestination(this.changeDetector),
+      {prefix: 'AWS:File/'},
     );
 
     // SSM Resource Data Sync: streams inventory snapshots to S3 as JSONL.

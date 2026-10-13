@@ -40,6 +40,19 @@ upstream aes-siem template's `SecurityLakeRoleArn` / `SecurityLakeExternalId`
 / `SecurityLakeSubscriberSqs` parameters so es-loader starts polling the
 subscriber queue on first deploy.
 
+> **About the Security Lake queue visibility timeout.** Security Lake
+> auto-provisions the subscriber Main-Queue with a 300 s
+> `VisibilityTimeout`, which is **less than** aes-siem's default
+> 600 s es-loader Lambda timeout. Without a patch, aes-siem's
+> event-source-mapping creation is rejected and the `--all` deploy
+> fails on first run. `StandardSecurityLake` fixes this automatically:
+> `AutoSocStack` passes `sqsVisibilityTimeoutSeconds: 3600` on the
+> subscriber, so the construct emits an `AwsCustomResource` that calls
+> `sqs:SetQueueAttributes` to raise the timeout to 3600 s before
+> `AutoSocSiem` is created. The `--all` workflow above therefore works
+> on a cold account; no manual queue update is required. See §1 below
+> for the full backstory.
+
 ### Optional SIEM context flags
 
 Every realistic knob the upstream aes-siem template exposes is surfaced as
@@ -56,8 +69,10 @@ a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemEsLoaderReservedConcurrency` | `10` | Reserved concurrency for the es-loader Lambda. |
 | `siemTrustedProxyIpList` | `127.0.0.1/8 10.0.0.0/8 …` | Space-delimited list of trusted ELB/CDN/proxy IPs; enables X-Forwarded-For client-IP selection in es-loader. |
 | `siemLogBucketPolicyUpdate` | `update_and_override` | Set to `keep` after the first deploy if you manage the log-bucket policy yourself. |
-| `siemGeoLite2LicenseKey` | *(empty, no enrichment)* | MaxMind GeoLite2 license key for IP geo enrichment inside es-loader. |
-| `siemOtxApiKey` | *(empty)* | AlienVault OTX API key enabling IOC downloads. |
+| `siemGeoLite2LicenseKey` | *(empty, no enrichment)* | MaxMind GeoLite2 license key for IP geo enrichment inside es-loader. **Dev/sandbox only — the literal value is written to the synthesized parent template and `cdk.context.json`.** Use `siemGeoLite2LicenseKeyParameterName` in production. |
+| `siemGeoLite2LicenseKeyParameterName` | *(empty)* | Name of an SSM Parameter Store **SecureString** parameter containing the GeoLite2 license key. Resolved by CloudFormation at deploy-time via `{{resolve:ssm-secure:<name>:1}}` — the secret never lands in the synthesized template or shell history. Mutually exclusive with `siemGeoLite2LicenseKey`. |
+| `siemOtxApiKey` | *(empty)* | AlienVault OTX API key enabling IOC downloads. **Dev/sandbox only** — same caveat as `siemGeoLite2LicenseKey`. |
+| `siemOtxApiKeyParameterName` | *(empty)* | Name of an SSM Parameter Store **SecureString** parameter containing the OTX API key. Resolved by CloudFormation at deploy-time. Mutually exclusive with `siemOtxApiKey`. |
 | `siemEnableTor` | `false` | Download the Tor exit-node IOC feed. |
 | `siemEnableAbuseCh` | `false` | Download the abuse.ch Feodo blocklist IOC feed. |
 | `siemIocDownloadIntervalMinutes` | `720` | IOC refresh interval (30 – 10080 min). |
@@ -333,18 +348,54 @@ aws cloudformation delete-stack --stack-name AutoSocSiem --region "$REGION"
 aws cloudformation wait stack-delete-complete --stack-name AutoSocSiem \
   --region "$REGION" 2>/dev/null || true
 
-# 2. KMS alias + schedule orphan key for deletion
-aws kms delete-alias --alias-name alias/aes-siem-key --region "$REGION" 2>/dev/null || true
+# 2. KMS alias + schedule orphan key for deletion.
+#    IMPORTANT: resolve the alias target first; `delete-alias` removes
+#    the alias entry so `list-aliases` can no longer map back to the CMK.
+#    If the alias is deleted before the lookup, the key is leaked and
+#    only shows up as `arn:…:key/<uuid>` in `aws kms list-keys`.
 KEY_ID=$(aws kms list-aliases --region "$REGION" \
   --query "Aliases[?AliasName=='alias/aes-siem-key'].TargetKeyId" --output text)
+aws kms delete-alias --alias-name alias/aes-siem-key --region "$REGION" 2>/dev/null || true
 if [ -n "$KEY_ID" ]; then
   aws kms schedule-key-deletion --key-id "$KEY_ID" \
     --pending-window-in-days 7 --region "$REGION"
 fi
 
-# 3. S3 buckets (versioned, must --force)
+# 3. S3 buckets.
+#    `aws s3 rb --force` only deletes current-version objects; it does
+#    NOT purge noncurrent versions or delete markers from a versioned
+#    bucket. Versioning is on for aes-siem's log/geo/snapshot buckets,
+#    so without the explicit `delete-objects` loop the bucket stays
+#    non-empty, `rb` fails with "BucketNotEmpty", and the names remain
+#    occupied — the next deploy will immediately fail with
+#    "BucketAlreadyOwnedByYou". The loop below enumerates every
+#    version + delete marker (handles pagination via `--output text`
+#    streaming) and removes them before deleting the bucket.
 for b in log geo snapshot; do
-  aws s3 rb "s3://aes-siem-${ACCOUNT}-${b}" --force --region "$REGION" 2>/dev/null || true
+  bucket="aes-siem-${ACCOUNT}-${b}"
+  aws s3api head-bucket --bucket "$bucket" --region "$REGION" 2>/dev/null || continue
+  echo "Purging ${bucket}"
+  while :; do
+    objects=$(aws s3api list-object-versions --bucket "$bucket" --region "$REGION" \
+      --max-items 1000 \
+      --query '{Objects: (Versions || `[]`)[].{Key:Key,VersionId:VersionId}}' \
+      --output json 2>/dev/null)
+    markers=$(aws s3api list-object-versions --bucket "$bucket" --region "$REGION" \
+      --max-items 1000 \
+      --query '{Objects: (DeleteMarkers || `[]`)[].{Key:Key,VersionId:VersionId}}' \
+      --output json 2>/dev/null)
+    for payload in "$objects" "$markers"; do
+      count=$(echo "$payload" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["Objects"]))')
+      if [ "$count" -gt 0 ]; then
+        aws s3api delete-objects --bucket "$bucket" --region "$REGION" --delete "$payload" >/dev/null
+      fi
+    done
+    remaining=$(aws s3api list-object-versions --bucket "$bucket" --region "$REGION" \
+      --max-items 1 --query 'length((Versions || `[]`)[]) + length((DeleteMarkers || `[]`)[])' \
+      --output text)
+    [ "$remaining" = "0" ] && break
+  done
+  aws s3api delete-bucket --bucket "$bucket" --region "$REGION"
 done
 ```
 

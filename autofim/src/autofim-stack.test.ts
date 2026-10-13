@@ -136,6 +136,60 @@ describe('AutoFimStack', () => {
     });
   });
 
+  test('inventory bucket policy guards SSM against the confused-deputy problem', () => {
+    const template = synth();
+    const expectedSuffix = `:resource-data-sync/fim-inventory-sync-${TEST_ENV.account}-${TEST_ENV.region}`;
+    template.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Sid: 'SSMBucketPermissionsCheck',
+            Condition: Match.objectLike({
+              StringEquals: Match.objectLike({
+                'aws:SourceAccount': TEST_ENV.account,
+              }),
+              ArnLike: Match.objectLike({'aws:SourceArn': Match.anyValue()}),
+            }),
+          }),
+          Match.objectLike({
+            Sid: 'SSMBucketDelivery',
+            Condition: Match.objectLike({
+              StringEquals: Match.objectLike({
+                's3:x-amz-acl': 'bucket-owner-full-control',
+                'aws:SourceAccount': TEST_ENV.account,
+              }),
+              ArnLike: Match.objectLike({'aws:SourceArn': Match.anyValue()}),
+            }),
+          }),
+        ]),
+      }),
+    });
+    // Also verify the ARN suffix is correct (the account/region/partition
+    // tokens get expanded via Fn::Join when stringified by CDK).
+    const bucketPolicies = template.findResources('AWS::S3::BucketPolicy');
+    const serialized = JSON.stringify(Object.values(bucketPolicies));
+    expect(serialized).toContain(expectedSuffix);
+  });
+
+  test('DLQ uses SQS-managed KMS encryption', () => {
+    const template = synth();
+    template.hasResourceProperties('AWS::SQS::Queue', {
+      QueueName: 'fim-change-detector-dlq',
+      KmsMasterKeyId: 'alias/aws/sqs',
+    });
+  });
+
+  test('S3 -> Lambda notification is scoped to the AWS:File/ prefix', () => {
+    const template = synth();
+    // CDK models bucket notifications via the BucketNotifications custom
+    // resource; the filter prefix lands under Lambda configurations.
+    const notifs = template.findResources(
+      'Custom::S3BucketNotifications',
+    ) as Record<string, {Properties: {NotificationConfiguration: unknown}}>;
+    const serialized = JSON.stringify(Object.values(notifs));
+    expect(serialized).toContain('AWS:File/');
+  });
+
   test('grants Lambda securityhub:BatchImportFindings', () => {
     const template = synth();
     template.hasResourceProperties('AWS::IAM::Policy', {

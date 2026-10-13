@@ -110,9 +110,14 @@ def lambda_handler(event, context):
             .isoformat(timespec="milliseconds")
             .replace("+00:00", "Z")
         )
+        # Finding ID is deterministic from (instance, key, S3 versionId)
+        # so S3-notification / async-Lambda retries (both at-least-once)
+        # update the existing finding in Security Hub rather than creating
+        # a duplicate.
+        finding_id = f"fim-{instance_id}-{key}-{current_version}"
         finding = {
             "SchemaVersion": "2018-10-08",
-            "Id": f"fim-{instance_id}-{now}",
+            "Id": finding_id,
             "ProductArn": (
                 f"arn:aws:securityhub:{region}:{account_id}"
                 f":product/{account_id}/default"
@@ -132,7 +137,18 @@ def lambda_handler(event, context):
             ),
             "Resources": [{"Type": "AwsEc2Instance", "Id": instance_id}],
         }
-        securityhub.batch_import_findings(Findings=[finding])
+        # BatchImportFindings can return 200 OK with FailedCount > 0 when
+        # individual findings are rejected (schema violation, throttling,
+        # etc.). Discarding the response would make Lambda look successful
+        # and skip retries / the DLQ. Raise so the async-invocation
+        # retry policy engages and persistent failures land in the DLQ.
+        response = securityhub.batch_import_findings(Findings=[finding])
+        failed_count = response.get("FailedCount", 0)
+        if failed_count:
+            raise RuntimeError(
+                f"Security Hub rejected {failed_count} finding(s): "
+                f"{response.get('FailedFindings')}"
+            )
     else:
         if prev_version != current_version:
             try:
