@@ -14,3 +14,6 @@ coverage
 
 # Claude Code
 .claude
+
+# JetBrains IDE project state (local-only, not shared)
+.idea
