@@ -1,5 +1,6 @@
 packages:
   - 'autobackup'
+  - 'autofim'
   - 'autosoc'
   - 'blueprints/aws-workspaces'
   - 'cdk'

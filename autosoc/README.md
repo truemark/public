@@ -209,3 +209,252 @@ cdk deploy
   Security Lake as a contributing account can fail. Edit the `logSources`
   array in `src/autosoc-stack.ts` to match what your account is ready to
   ingest.
+
+## SIEM Deployment Gotchas (field notes)
+
+The upstream aes-siem template and the Security Lake subscriber APIs have
+a handful of sharp edges that are either undocumented or buried in the
+console. These are the ones that cost us real time on the first-ever
+end-to-end deployment; keep this section in mind on every new account.
+
+### Recommended first-deploy order of operations
+
+If you're bringing up `AutoSoc` + `AutoSocSiem` for the first time in a fresh
+account, following this order avoids ~90% of the rework described below:
+
+1. **Raise the Lambda concurrent-executions quota** (see §2). Sync but slow,
+   can run while you prep the rest.
+2. **Deploy `AutoSoc` with `-c createLakeFormationSlr=true` and the
+   subscriber context flags in the *same* first deploy** (see §4). The
+   service-linked role's retain policy is NOT retroactive.
+3. **Raise the subscriber Main-Queue visibility timeout** (see §1) as soon
+   as the queue exists but before you deploy the SIEM.
+4. **Deploy `AutoSocSiem`.**
+5. On the one-and-only successful create, immediately grab the `aesadmin`
+   password from CloudWatch logs (see §7) and store it in your password
+   manager, then shorten log retention so the plaintext ages out.
+6. Add your workstation's public IP to the OpenSearch access policy
+   allowlist (see §8) before trying Dashboards.
+
+### 1. SQS visibility timeout vs Lambda timeout mismatch
+
+- **Symptom:** aes-siem CFN rolls back; `CreateEventSourceMapping` rejects
+  with "The event source mapping's function timeout must be smaller than
+  or equal to the queue's visibility timeout."
+- **Root cause:** Security Lake *auto-provisions* the subscriber SQS queue
+  (`AmazonSecurityLake-<uuid>-Main-Queue`) with the default 300s visibility
+  timeout. aes-siem's es-loader has a 600s Lambda timeout. AWS requires
+  visibility ≥ function timeout.
+- **Fix:** Patch the queue once, before deploying the SIEM:
+  ```bash
+  QUEUE_URL=$(aws sqs list-queues --region "$AWS_REGION" \
+    --queue-name-prefix AmazonSecurityLake \
+    --query 'QueueUrls[?contains(@, `Main-Queue`)] | [0]' --output text)
+  aws sqs set-queue-attributes --region "$AWS_REGION" \
+    --queue-url "$QUEUE_URL" --attributes VisibilityTimeout=3600
+  ```
+- **Important:** the queue is externally managed by Security Lake, not by
+  our CFN, so this is **not** baked into CDK. If the subscriber is ever
+  deleted and recreated, re-run the patch.
+
+### 2. Lambda reserved-concurrency vs account quota
+
+- **Symptom:** CFN rolls back with "Specified ReservedConcurrentExecutions
+  for function decreases account's UnreservedConcurrentExecution below its
+  minimum value of [10]."
+- **Root cause:** The aes-siem template hardcodes
+  `ReservedConcurrentExecutions: 1` on **9 helper Lambdas** plus
+  `!Ref ReservedConcurrency` on es-loader. A fresh sandbox account's
+  Lambda concurrent-executions quota defaults to 10, which is less than
+  (9 helpers + es-loader reservation + AWS-enforced 10-floor).
+- **Fix:** Service Quotas request to raise `Concurrent executions` on
+  Lambda from 10 → 1000. Setting `-c siemEsLoaderReservedConcurrency=0`
+  does **not** save you — the 9 helper reservations still blow the budget.
+- **Rule of thumb:** aes-siem on a sandbox account needs quota ≥ ~20.
+
+### 3. Security Lake subscriber `description` regex is stricter than documented
+
+- **Symptom:** `CfnSubscriber` create fails: "description must match
+  pattern `^[\w\s\-_:/,.@=+]*$`".
+- **Reality:** The published charset includes `,` and `.`, but the API
+  still rejects both parentheses `()` and periods `.`. The API-side
+  pattern is stricter than the documented regex.
+- **Fix:** Stick to word chars + spaces + `-` + `_` + `:` + `/` only. The
+  working description string lives in `src/autosoc-stack.ts`.
+
+### 4. Service-linked role retain policy is NOT retroactive
+
+- **Symptom:** On a `cdk destroy` + redeploy of `AutoSoc`, the
+  `AWSServiceRoleForLakeFormationDataAccess` SLR gets torn down, breaking
+  subscriber reads on the next deploy.
+- **Root cause:** CDK's `RemovalPolicy.RETAIN` only applies to a resource
+  whose *current* template entry has it set. If the SLR was created on an
+  earlier deploy without retain, CFN still owns it with the default
+  `Delete`.
+- **Fix:** Two-stage deploy.
+  1. `cdk deploy AutoSoc -c createLakeFormationSlr=true` to flip the
+     `DeletionPolicy: Retain` on the SLR.
+  2. Redeploy with the subscriber. `cdk diff` should now show the SLR
+     going from `destroy` to `orphan`, not deleted.
+- **Rule:** any resource you ever want to retain must be marked retain
+  **before** the first destructive change, not during it.
+
+### 5. CDK bootstrap v27 blocks change-set error inspection
+
+- **Symptom:** When CFN rolls back, `cdk deploy` prints only `AccessDenied`
+  on `cloudformation:DescribeEvents` instead of the real failed resource.
+- **Root cause:** The CDK CLI tries `DescribeEvents` under the bootstrap
+  deploy role; the role on v27 bootstrap doesn't grant it. v30+ does.
+- **Fix:** `npx cdk bootstrap aws://$ACCOUNT/$REGION` to upgrade. Cosmetic
+  only — doesn't affect deploys — but makes failures debuggable without
+  needing the console.
+
+
+### 6. Failed aes-siem deploys leave orphans every retry
+
+Several aes-siem resources are created outside the CFN delete path and
+survive a stack rollback:
+
+- 3 S3 buckets: `aes-siem-<account>-log`, `aes-siem-<account>-geo`,
+  `aes-siem-<account>-snapshot`
+- KMS CMK plus alias `alias/aes-siem-key` (the CMK goes into 7-day
+  pending deletion, which blocks alias reuse)
+- A `REVIEW_IN_PROGRESS` or `ROLLBACK_COMPLETE` stub CFN stack
+
+The next retry immediately fails with "bucket already exists" / "alias
+already exists". Full cleanup sequence to run before each retry:
+
+```bash
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+REGION=${AWS_REGION:-us-east-1}
+
+# 1. Stub stack
+aws cloudformation delete-stack --stack-name AutoSocSiem --region "$REGION"
+aws cloudformation wait stack-delete-complete --stack-name AutoSocSiem \
+  --region "$REGION" 2>/dev/null || true
+
+# 2. KMS alias + schedule orphan key for deletion
+aws kms delete-alias --alias-name alias/aes-siem-key --region "$REGION" 2>/dev/null || true
+KEY_ID=$(aws kms list-aliases --region "$REGION" \
+  --query "Aliases[?AliasName=='alias/aes-siem-key'].TargetKeyId" --output text)
+if [ -n "$KEY_ID" ]; then
+  aws kms schedule-key-deletion --key-id "$KEY_ID" \
+    --pending-window-in-days 7 --region "$REGION"
+fi
+
+# 3. S3 buckets (versioned, must --force)
+for b in log geo snapshot; do
+  aws s3 rb "s3://aes-siem-${ACCOUNT}-${b}" --force --region "$REGION" 2>/dev/null || true
+done
+```
+
+### 7. `deploy_es` only generates the `aesadmin` password on *domain create*
+
+- **Symptom:** Nested stack output shows `DashboardsAdminID=NOT_CREATED`
+  and `DashboardsPassword=MASKED` even on a successful deploy.
+- **Root cause:** aes-siem's `deploy_es/index.py` only generates the FGAC
+  master-user password on the initial domain-create path. If a prior
+  rolled-back attempt left the `aes-siem` OpenSearch domain behind, the
+  custom resource short-circuits and never writes the password anywhere —
+  not Secrets Manager, not SSM. The password was logged to CloudWatch on
+  the single invocation that actually created the domain.
+- **Recovery (preferred):** Fish it out of CloudWatch:
+  ```bash
+  aws logs describe-log-groups --region "$AWS_REGION" \
+    --log-group-name-prefix /aws/lambda/aes-siem-deploy \
+    --query 'logGroups[].logGroupName' --output text
+  # Note the group name (recent versions: `/aws/lambda/aes-siem-deploy-aes`)
+
+  aws logs filter-log-events --region "$AWS_REGION" \
+    --log-group-name /aws/lambda/aes-siem-deploy-aes \
+    --filter-pattern 'PASSWORD' \
+    --query 'events[].message' --output text | tail -5
+  # Prints:  [INFO] ... ID: aesadmin, PASSWORD: <plaintext>
+  ```
+- **Hygiene immediately after recovery:**
+  ```bash
+  aws logs put-retention-policy --region "$AWS_REGION" \
+    --log-group-name /aws/lambda/aes-siem-deploy-aes --retention-in-days 1
+  ```
+  Then rotate the password in Dashboards: *Security → Internal users →
+  aesadmin → Edit*.
+- **Fallback (if logs are expired):** Reset the FGAC master directly:
+  ```bash
+  read -s NEW_PASS   # >=8 chars, upper, lower, digit, special
+  aws opensearch update-domain-config --region "$AWS_REGION" \
+    --domain-name aes-siem \
+    --advanced-security-options \
+      "MasterUserOptions={MasterUserName=aesadmin,MasterUserPassword=$NEW_PASS}"
+  ```
+  Takes ~1 min to propagate, no downtime.
+
+
+### 8. Dashboards IP allowlist defaults to RFC1918 only
+
+- **Symptom:** The Dashboards URL returns:
+  ```
+  {"Message":"User: anonymous is not authorized to perform: es:ESHttpGet
+   because no resource-based policy allows the es:ESHttpGet action"}
+  ```
+  — and you never see a login prompt.
+- **Root cause:** aes-siem's default OpenSearch access policy only allows
+  `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (intended for a
+  VPN/bastion workflow). FGAC login runs *after* the resource policy
+  allows the request, so you don't even get to type credentials.
+- **Rule:** "no resource-based policy allows" is **always** the IP
+  allowlist, not a credentials or user-DB problem.
+- **Fix:** Append your current public /32 to the allowlist:
+  ```bash
+  MY_IP=$(curl -s https://checkip.amazonaws.com)
+  ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+  aws opensearch update-domain-config --region "$AWS_REGION" \
+    --domain-name aes-siem \
+    --access-policies "{\"Version\":\"2012-10-17\",\"Statement\":[\
+  {\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::${ACCOUNT}:root\"},\
+  \"Action\":\"es:*\",\"Resource\":\"arn:aws:es:${AWS_REGION}:${ACCOUNT}:domain/aes-siem/*\"},\
+  {\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"es:*\",\
+  \"Resource\":\"arn:aws:es:${AWS_REGION}:${ACCOUNT}:domain/aes-siem/*\",\
+  \"Condition\":{\"IpAddress\":{\"aws:SourceIp\":[\
+  \"10.0.0.0/8\",\"172.16.0.0/12\",\"192.168.0.0/16\",\"${MY_IP}/32\"]}}}]}"
+  ```
+  Returns `Processing`; takes ~1-2 min to propagate.
+
+### 9. A fast deploy is NOT proof the SIEM works
+
+- **Observation:** First-time aes-siem creates normally take 15-25 min
+  (OpenSearch domain provisioning dominates). If `cdk deploy` returns in
+  under 5 min, either (a) the domain already existed from a prior
+  retained attempt and only the ESM + a few IAM policies were new, or
+  (b) a nested stack is still `CREATE_IN_PROGRESS` under a parent that
+  misleadingly shows `CREATE_COMPLETE`.
+- **Validation signals that actually prove it works** (run all of these,
+  don't trust just `CREATE_COMPLETE`):
+  ```bash
+  # Both outer and nested stacks truly complete
+  aws cloudformation describe-stacks --stack-name AutoSocSiem \
+    --region "$AWS_REGION" --query 'Stacks[0].StackStatus'
+  aws cloudformation list-stack-resources --stack-name AutoSocSiem \
+    --region "$AWS_REGION" \
+    --query 'StackResourceSummaries[?ResourceType==`AWS::CloudFormation::Stack`].[LogicalResourceId,ResourceStatus]' \
+    --output table
+
+  # Event-source-mapping on the subscriber SQS, state=Enabled
+  aws lambda list-event-source-mappings --function-name aes-siem-es-loader \
+    --region "$AWS_REGION" \
+    --query 'EventSourceMappings[].{Arn:EventSourceArn,State:State}' --output table
+
+  # es-loader env has the subscriber role + external id
+  aws lambda get-function-configuration --function-name aes-siem-es-loader \
+    --region "$AWS_REGION" \
+    --query 'Environment.Variables.{Role:SECURITY_LAKE_ROLE_ARN,Ext:SECURITY_LAKE_EXTERNAL_ID,Endpoint:ENDPOINT}'
+
+  # Real ingestion - look for OCSF Parquet keys being processed
+  aws logs tail /aws/lambda/aes-siem-es-loader --region "$AWS_REGION" \
+    --since 15m --filter-pattern '"logtype":"securitylake"' \
+    --format short | head -20
+  ```
+  The last command should show log lines like:
+  ```
+  Invoked es-loader s3_key=aws/S3_DATA/2.0/region=.../eventDay=.../*.gz.parquet
+  ```
+
