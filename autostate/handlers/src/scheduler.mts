@@ -1,6 +1,6 @@
 import * as arnparser from '@aws-sdk/util-arn-parser';
 import * as cron from 'cron-parser';
-import {CronExpression} from 'cron-parser/types';
+import type {CronExpression} from 'cron-parser';
 import {
   DescribeInstancesCommand,
   EC2Client,
@@ -31,10 +31,7 @@ const sfnClient = new SFNClient({});
 const ecsClient = new ECSClient({});
 
 type ResourceType =
-  | 'ec2-instance'
-  | 'rds-instance'
-  | 'rds-cluster'
-  | 'ecs-service';
+  'ec2-instance' | 'rds-instance' | 'rds-cluster' | 'ecs-service';
 type Action = 'start' | 'stop' | 'reboot' | 'terminate';
 type State = 'stopped' | 'running' | 'terminated' | 'other';
 
