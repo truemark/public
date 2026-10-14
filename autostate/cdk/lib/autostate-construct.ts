@@ -237,7 +237,9 @@ export class AutoState extends Construct {
     const deleteRdsClusterInstances = new SfnMap(this, 'DeleteRdsInstances', {
       itemsPath: '$.resource.instanceIds',
       resultPath: '$.result',
-    }).itemProcessor(deleteRdsClusterInstance.next(deleteRdsCluster));
+    })
+      .itemProcessor(deleteRdsClusterInstance)
+      .next(deleteRdsCluster);
 
     const doNothing = new Pass(this, 'DoNothing');
 
