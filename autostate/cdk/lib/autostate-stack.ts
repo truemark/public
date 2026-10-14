@@ -1,6 +1,6 @@
 import {Construct} from 'constructs';
 import {AutoState} from './autostate-construct';
-import * as p from '../../package.json';
+import * as p from '../package.json';
 import {ExtendedStack, ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 
 export class AutoStateStack extends ExtendedStack {

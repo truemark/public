@@ -7,7 +7,7 @@ const app = new ExtendedApp({
   standardTags: {
     automationTags: {
       id: 'autostate',
-      url: 'https://github.com/truemark/autostate',
+      url: 'https://github.com/truemark/public/tree/main/autostate',
     },
   },
 });
