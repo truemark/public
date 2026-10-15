@@ -1,0 +1,44 @@
+{
+  "name": "autostate-handlers",
+  "version": "1.2.1",
+  "private": true,
+  "description": "Lambda handlers for AutoState.",
+  "homepage": "https://github.com/truemark/public/tree/main/autostate",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "vitest run --coverage",
+    "clean": "find ./src -type f \\( -name \"*.mjs\" -o -name \"*.d.mts\" -o -name \"*.map\" \\) -exec rm -f {} \\;",
+    "fmt": "prettier --write ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-ec2": "catalog:",
+    "@aws-sdk/client-ecs": "catalog:",
+    "@aws-sdk/client-rds": "catalog:",
+    "@aws-sdk/client-sfn": "catalog:",
+    "@aws-sdk/util-arn-parser": "catalog:",
+    "@types/luxon": "catalog:",
+    "cron-parser": "catalog:",
+    "luxon": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/aws-lambda": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

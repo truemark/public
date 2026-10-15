@@ -1,0 +1,45 @@
+{
+  "name": "autostate-cdk",
+  "version": "1.2.1",
+  "private": true,
+  "description": "An AWS CDK project that automatically starts, stops, reboots and terminates resources through tags.",
+  "homepage": "https://github.com/truemark/public/tree/main/autostate",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "bin": {
+    "autostate": "bin/autostate.js"
+  },
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "vitest run",
+    "cdk": "cdk",
+    "fmt": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk": "catalog:",
+    "esbuild": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "ts-node": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:",
+    "autostate-handlers": "workspace:"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "source-map-support": "catalog:",
+    "truemark-cdk-lib": "workspace:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
