@@ -13,7 +13,7 @@ vite.config.ts.timestamp-*
 coverage
 
 # Claude Code
-.claude
+.claude/settings.local.json
 
 # JetBrains IDE project state (local-only, not shared)
 .idea
