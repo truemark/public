@@ -459,13 +459,10 @@ async function describeRdsInstances(
       });
     }
   } catch (e) {
-    // TODO Fix me
-    // @ts-ignore
-    if (e.errorType !== 'DBInstanceNotFoundFault') {
+    if (e instanceof Error && e.name === 'DBInstanceNotFoundFault') {
       return resources;
-    } else {
-      throw e;
     }
+    throw e;
   }
   return resources;
 }
@@ -515,13 +512,10 @@ async function describeRdsClusters(
       });
     }
   } catch (e) {
-    // TODO Fix me
-    // @ts-ignore
-    if (e.errorType !== 'DBClusterNotFoundFault') {
+    if (e instanceof Error && e.name === 'DBClusterNotFoundFault') {
       return resources;
-    } else {
-      throw e;
     }
+    throw e;
   }
   return resources;
 }
