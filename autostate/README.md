@@ -67,7 +67,7 @@ Start an instance every 30 minutes and shut it down 10 minutes after it starts o
     ```json
     {
       "autostate:start-schedule": "0:30 - - - 1-5", 
-      "autostate:max-runtime": "10"
+      "autostate:max-runtime": "15"
     }
     ```
 
