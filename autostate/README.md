@@ -71,7 +71,7 @@ Start an instance every 30 minutes and shut it down 10 minutes after it starts o
     }
     ```
 
- * The terminate-schedule and reboot-schedule tags are ignored for ECS services.
+ * The reboot-schedule and max-lifetime tags are ignored for ECS services.
 
  * RDS doesn't allow termination of RDS clusters when they are stopped
 
