@@ -1,7 +1,9 @@
-import {Duration} from 'aws-cdk-lib';
+import {Duration, Stack, Token} from 'aws-cdk-lib';
 import {Effect, PolicyStatement} from 'aws-cdk-lib/aws-iam';
+import type {ILogGroup} from 'aws-cdk-lib/aws-logs';
 import {AwsCustomResource, type AwsSdkCall} from 'aws-cdk-lib/custom-resources';
 import type {Construct} from 'constructs';
+import {configureLogGroupForCustomResource} from '../../aws-lambda/lib/function-log-options';
 
 /**
  * Properties for ParameterReader
@@ -30,10 +32,11 @@ export class ParameterReader extends AwsCustomResource {
     super(scope, id, {
       installLatestAwsSdk: false,
       onUpdate: call,
+      logGroup: ParameterReader.providerLogGroup(scope),
       policy: {
         statements: [
           new PolicyStatement({
-            resources: ['*'], // TODO This needs to be made more exact
+            resources: [ParameterReader.parameterArn(scope, props)],
             actions: ['ssm:GetParameter'],
             effect: Effect.ALLOW,
           }),
@@ -45,5 +48,35 @@ export class ParameterReader extends AwsCustomResource {
 
   getStringValue(): string {
     return this.getResponseField('Parameter.Value').toString();
+  }
+
+  private static parameterArn(
+    scope: Construct,
+    props: ParameterReaderProps,
+  ): string {
+    // A name with a leading slash drops it in the ARN (parameter/a/b), which
+    // cannot be decided for a token, so a token falls back to every parameter
+    // in the region.
+    const resourceName = Token.isUnresolved(props.parameterName)
+      ? '*'
+      : props.parameterName.replace(/^\//, '');
+    return Stack.of(scope).formatArn({
+      service: 'ssm',
+      region: props.region,
+      resource: 'parameter',
+      resourceName,
+    });
+  }
+
+  // Every AwsCustomResource in a stack runs on one singleton provider function
+  // that keeps the log group of the first one created, so one group per stack
+  // is enough.
+  private static providerLogGroup(scope: Construct): ILogGroup {
+    const stack = Stack.of(scope);
+    const id = 'ParameterReaderLogGroup';
+    return (
+      (stack.node.tryFindChild(id) as ILogGroup | undefined) ??
+      configureLogGroupForCustomResource(stack, id, {})
+    );
   }
 }

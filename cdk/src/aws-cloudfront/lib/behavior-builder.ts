@@ -241,7 +241,17 @@ export class BehaviorBuilder extends ExtendedConstruct {
     return this.originRequestPolicy(OriginRequestPolicy.CORS_S3_ORIGIN);
   }
 
-  apiDefaults(additionalHeaders?: string[]): BehaviorBuilder {
+  /**
+   * Applies the standard API cache and origin request policies.
+   *
+   * @param additionalHeaders headers added to the cache key and forwarded to the origin
+   * @param additionalOriginRequestHeaders headers forwarded to the origin only; use for
+   * headers a cache policy rejects, such as CloudFront-Viewer-Address
+   */
+  apiDefaults(
+    additionalHeaders?: string[],
+    additionalOriginRequestHeaders?: string[],
+  ): BehaviorBuilder {
     // TODO Need a way to re-use the cache policy and originRequestPolicy on subsequent calls to apiDefaults since they would be identical
     const cachePolicy = new StandardApiCachePolicy(
       this,
@@ -251,7 +261,7 @@ export class BehaviorBuilder extends ExtendedConstruct {
     const originRequestPolicy = new StandardApiOriginRequestPolicy(
       this,
       'ApiOriginRequestPolicy',
-      additionalHeaders,
+      [...(additionalHeaders ?? []), ...(additionalOriginRequestHeaders ?? [])],
     );
     return this.allowedMethods(AllowedMethods.ALLOW_ALL)
       .cachePolicy(cachePolicy)

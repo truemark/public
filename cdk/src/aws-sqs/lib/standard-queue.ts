@@ -4,7 +4,11 @@ import {
   type ResourceEnvironment,
   Stack,
 } from 'aws-cdk-lib';
-import type {Metric, MetricOptions} from 'aws-cdk-lib/aws-cloudwatch';
+import {
+  MathExpression,
+  type Metric,
+  type MetricOptions,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import type {
   AddToResourcePolicyResult,
   Grant,
@@ -152,6 +156,13 @@ export interface StandardQueueProps
    *  @default Duration.seconds(20)
    */
   readonly receiveMessageWaitTime?: Duration;
+
+  /**
+   * Enforce encryption of data in transit on the queue and its dead letter queue.
+   *
+   * @default - not enforced on the queue; enforced on the dead letter queue
+   */
+  readonly enforceSSL?: boolean;
 }
 
 export class StandardQueue extends ExtendedConstruct implements IQueue {
@@ -199,6 +210,7 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
               retentionPeriod:
                 props?.deadLetterQueueRetentionPeriod ?? Duration.days(14),
               fifo: props?.fifo,
+              enforceSSL: props?.enforceSSL,
             }),
             maxReceiveCount,
           };
@@ -271,6 +283,24 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
 
   metricApproximateNumberOfMessagesVisible(props?: MetricOptions): Metric {
     return this.queue.metricApproximateNumberOfMessagesVisible(props);
+  }
+
+  // Built here rather than delegated to this.queue: Queue gained this method
+  // after aws-cdk-lib 2.256, the version this library builds against.
+  metricApproximateNumberOfMessagesOutstanding(
+    props?: MetricOptions,
+  ): MathExpression {
+    return new MathExpression({
+      expression: 'visible + notVisible',
+      usingMetrics: {
+        visible: this.queue.metricApproximateNumberOfMessagesVisible(props),
+        notVisible:
+          this.queue.metricApproximateNumberOfMessagesNotVisible(props),
+      },
+      label: props?.label ?? 'Approximate number of messages outstanding',
+      color: props?.color,
+      period: props?.period,
+    });
   }
 
   metricNumberOfEmptyReceives(props?: MetricOptions): Metric {

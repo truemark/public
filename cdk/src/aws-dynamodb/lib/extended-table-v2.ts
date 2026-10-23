@@ -24,10 +24,14 @@ export class ExtendedTableV2 extends TableV2 {
     super(scope, id, props);
 
     if (props.createAlarms ?? true) {
-      new TableAlarms(this, 'Alarms', {
+      this.tableAlarms = new TableAlarms(this, 'Alarms', {
         table: this,
         ...props,
       });
+      // TableV2 adds these indexes inside super(), before tableAlarms exists.
+      for (const index of props.globalSecondaryIndexes ?? []) {
+        this.tableAlarms.addGlobalSecondaryIndexMonitoring(index.indexName);
+      }
     }
   }
 
