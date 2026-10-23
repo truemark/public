@@ -38,9 +38,7 @@ const CHINA_TEMPLATE_FILE_NAME =
 export enum AesSiemTemplateSource {
   /**
    * Reference the upstream public S3 template URL. This URL tracks the
-   * latest upstream version and is not reproducible. This is the default
-   * source — a plain `cdk deploy AutoSoc` with no `siemTemplateSource`
-   * flag always pulls the current AWS-published template.
+   * latest upstream version and is not reproducible.
    *
    * **Important:** the upstream public URL
    * `https://aes-siem-<region>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template`
@@ -49,19 +47,27 @@ export enum AesSiemTemplateSource {
    * aws-samples publishes a new release, the next CloudFormation
    * deployment will pick it up even if nothing changed in this repo.
    *
-   * Pass {@link AesSiemTemplateSource.VENDORED} to use the checked-in,
-   * pinned release template instead. Run `pnpm run vendor:aes-siem` to
-   * download the exact release tag and verify its header before packaging
-   * it as a CDK S3 asset.
+   * **Security note:** the raw upstream template does not mark its
+   * `GeoLite2LicenseKey` / `OtxApiKey` parameters `NoEcho`, so if you fill
+   * in either value at deploy time, it is visible in the nested stack's
+   * own parameters via `DescribeStacks`/console even though this
+   * construct's own parent parameters are `NoEcho`. Prefer
+   * {@link AesSiemTemplateSource.VENDORED} (the default) unless you have a
+   * specific reason to track AWS's live template.
    */
   UPSTREAM = 'upstream',
 
   /**
    * Package the versioned template at
    * `autosoc/vendor/aes-siem/<templateFileName>` as a CDK S3 asset. This
-   * is reproducible and is how you customize the template (add resources,
-   * tweak IAM, swap Lambda code, etc.) — pass
-   * `-c siemTemplateSource=vendored` to opt into it.
+   * is the default source — a plain `cdk deploy AutoSoc` with no
+   * `siemTemplateSource` flag uses this checked-in, pinned release
+   * template, which is reproducible and has `NoEcho: true` patched onto
+   * its `GeoLite2LicenseKey` / `OtxApiKey` parameters (see
+   * `scripts/vendor-aes-siem.sh`). It is also how you customize the
+   * template (add resources, tweak IAM, swap Lambda code, etc.). Run
+   * `pnpm run vendor:aes-siem` to refresh it from the exact pinned release
+   * tag.
    */
   VENDORED = 'vendored',
 }
@@ -90,7 +96,7 @@ export interface AutoSocSiemConstructProps {
   /**
    * How to load the aes-siem CloudFormation template.
    *
-   * @default AesSiemTemplateSource.UPSTREAM
+   * @default AesSiemTemplateSource.VENDORED
    */
   readonly templateSource?: AesSiemTemplateSource;
 
@@ -297,18 +303,18 @@ export class AutoSocSiemConstruct extends Construct {
     const parentStack = Stack.of(this);
     parentStack.addMetadata('AesSiemVersion', AES_SIEM_TEMPLATE_VERSION);
     this.templateSource =
-      props.templateSource ?? AesSiemTemplateSource.UPSTREAM;
+      props.templateSource ?? AesSiemTemplateSource.VENDORED;
     parentStack.addMetadata('AesSiemTemplateSource', this.templateSource);
     if (this.templateSource === AesSiemTemplateSource.UPSTREAM) {
       Annotations.of(this).addWarningV2(
         'AutoSocSiem:UpstreamTemplateNotPinned',
         `AutoSocSiemConstruct is pointing at the aes-siem upstream public ` +
-          `template URL (the default), which is a latest-tracking alias ` +
-          `and NOT pinned to AES_SIEM_TEMPLATE_VERSION ` +
-          `(${AES_SIEM_TEMPLATE_VERSION}). A fresh deployment may pull a ` +
-          `newer upstream release. Pass templateSource=VENDORED ` +
-          `(pnpm run vendor:aes-siem) for reproducible, version-locked ` +
-          `deployments or to customize the template.`,
+          `template URL, which is a latest-tracking alias and NOT pinned ` +
+          `to AES_SIEM_TEMPLATE_VERSION (${AES_SIEM_TEMPLATE_VERSION}). A ` +
+          `fresh deployment may pull a newer upstream release. Switch to ` +
+          `templateSource=VENDORED (the default; pnpm run vendor:aes-siem) ` +
+          `for reproducible, version-locked deployments or to customize ` +
+          `the template.`,
       );
       // The raw upstream template does not mark `GeoLite2LicenseKey` /
       // `OtxApiKey` as `NoEcho`, so even though this stack's own
@@ -318,18 +324,18 @@ export class AutoSocSiemConstruct extends Construct {
       // plaintext value whenever an operator fills them in at deploy
       // time. This can't be checked at synth time (the values are
       // deploy-time CloudFormation parameter inputs, not CDK props), so
-      // warn unconditionally whenever UPSTREAM is selected (the default).
-      // The VENDORED template source patches `NoEcho: true` onto both
+      // warn unconditionally whenever UPSTREAM is selected. The VENDORED
+      // template source (the default) patches `NoEcho: true` onto both
       // parameters — see `scripts/vendor-aes-siem.sh`.
       Annotations.of(this).addWarningV2(
         'AutoSocSiem:UpstreamTemplateSecretNotNoEcho',
-        `templateSource=UPSTREAM (the default): the raw upstream aes-siem ` +
-          `template does NOT mark its GeoLite2LicenseKey / OtxApiKey ` +
-          `parameters NoEcho. If you fill in either value at deploy time, ` +
-          `it will be visible in the nested stack's own parameters via ` +
-          `DescribeStacks/console even though this stack's parent ` +
-          `parameter is NoEcho. Pass templateSource=VENDORED to get the ` +
-          `NoEcho patch this repo applies to the vendored template.`,
+        `templateSource=UPSTREAM: the raw upstream aes-siem template does ` +
+          `NOT mark its GeoLite2LicenseKey / OtxApiKey parameters NoEcho. ` +
+          `If you fill in either value at deploy time, it will be visible ` +
+          `in the nested stack's own parameters via DescribeStacks/console ` +
+          `even though this stack's parent parameter is NoEcho. Switch to ` +
+          `templateSource=VENDORED (the default) to get the NoEcho patch ` +
+          `this repo applies to the vendored template.`,
       );
     }
 

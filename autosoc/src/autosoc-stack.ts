@@ -146,6 +146,18 @@ export class AutoSocStack extends ExtendedStack {
         securityLakeSubscriberExternalId: siemSubscriberExternalId,
         securityLakeSubscriberSqsArn: notification?.attrSubscriberEndpoint,
       });
+      // The ARN references above only make CloudFormation wait for the
+      // subscriber role/notification resources, not for
+      // StandardSecurityLake's post-creation queue-visibility-timeout patch
+      // (an AwsCustomResource that runs after the notification resource,
+      // see standard-security-lake.ts). That patch and the nested SIEM
+      // stack would otherwise be free to run concurrently, so the es-loader
+      // Lambda's event-source-mapping creation can race the patch and see
+      // the queue's original 300s visibility timeout - below es-loader's
+      // 600s timeout - causing deployment to fail intermittently. Force the
+      // whole `Siem` construct (including the nested stack) to wait for
+      // the whole `SecurityLake` construct (including the patch).
+      this.siem.node.addDependency(this.securityLake);
     }
   }
 }

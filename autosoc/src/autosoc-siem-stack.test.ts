@@ -243,31 +243,18 @@ describe('AutoSocSiemConstruct', () => {
     ).toThrow(/must be alphanumeric only/);
   });
 
-  test('uses the live upstream template by default', () => {
+  test('uses the pinned vendored template by default', () => {
     // A plain `cdk deploy AutoSoc` with no `siemTemplateSource` flag must
-    // pull AWS's current published template, not the checked-in vendored
-    // copy. Customizing/pinning the template is opt-in via
-    // `-c siemTemplateSource=vendored`.
+    // use the checked-in, NoEcho-patched vendored copy, not AWS's live
+    // mutable upstream template. Tracking the live upstream template is
+    // opt-in via `-c siemTemplateSource=upstream`.
     const template = synthSiem();
-    const json = JSON.stringify(template.toJSON());
     // AesSiemVersion/AesSiemTemplateSource are written onto the parent
     // Stack's template Metadata by AutoSocSiemConstruct. The `URL`/`Name`/
     // `Version` automation-tag metadata keys asserted in
     // autosoc-stack.test.ts come from AutoSocStack itself, not this
     // construct, so they aren't present when the construct is exercised
     // standalone under a bare test Stack (as done here).
-    expect(template.toJSON().Metadata).toMatchObject({
-      AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
-      AesSiemTemplateSource: AesSiemTemplateSource.UPSTREAM,
-    });
-    expect(json).toContain('AWS::Partition');
-    expect(json).toContain('Fn::If');
-  });
-
-  test('uses the pinned vendored template when explicitly requested', () => {
-    const template = synthSiem({
-      templateSource: AesSiemTemplateSource.VENDORED,
-    });
     expect(template.toJSON().Metadata).toMatchObject({
       AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
       AesSiemTemplateSource: AesSiemTemplateSource.VENDORED,
@@ -278,6 +265,19 @@ describe('AutoSocSiemConstruct', () => {
     expect(JSON.stringify(nested.Properties.TemplateURL)).toContain(
       'cdk-hnb659fds-assets',
     );
+  });
+
+  test('uses the live upstream template when explicitly requested', () => {
+    const template = synthSiem({
+      templateSource: AesSiemTemplateSource.UPSTREAM,
+    });
+    const json = JSON.stringify(template.toJSON());
+    expect(template.toJSON().Metadata).toMatchObject({
+      AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
+      AesSiemTemplateSource: AesSiemTemplateSource.UPSTREAM,
+    });
+    expect(json).toContain('AWS::Partition');
+    expect(json).toContain('Fn::If');
   });
 
   test('propagates enrichment, Control Tower, and VPC-endpoint overrides', () => {

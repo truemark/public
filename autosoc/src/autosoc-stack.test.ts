@@ -210,4 +210,33 @@ describe('AutoSocStack', () => {
     const json = JSON.stringify(withBoth.toJSON());
     expect(json).not.toContain('Fn::ImportValue');
   });
+
+  test('nested SIEM stack waits for the Security Lake subscriber queue-visibility-timeout patch', () => {
+    // The subscriber's SQS queue-visibility-timeout patch is an
+    // AwsCustomResource applied by StandardSecurityLake after the
+    // subscriber/notification resources. Threading only the subscriber's
+    // role/external-id/queue ARNs into the nested SIEM parameters (via
+    // Fn::GetAtt / direct value) makes CloudFormation wait for those
+    // specific resources, but NOT for the separate patch custom resource,
+    // which could otherwise still be in flight when the nested stack
+    // creates its es-loader event-source-mapping. `AutoSocStack` must add
+    // an explicit `this.siem.node.addDependency(this.securityLake)` so the
+    // whole nested stack construct-level DependsOn includes every
+    // resource under `SecurityLake`, including the patch.
+    const withBoth = synth(
+      {
+        siemSubscriberAccountId: '222222222222',
+        siemSubscriberExternalId: 'supersecretexternalid',
+      },
+      {snsEmail: 'ops@example.com'},
+    );
+    const [nested] = Object.values(
+      withBoth.findResources('AWS::CloudFormation::Stack'),
+    );
+    const dependsOn = (nested.DependsOn ?? []) as string[];
+    const patchDep = dependsOn.find((id) =>
+      id.includes('SubscriberQueueVisibilityPatch'),
+    );
+    expect(patchDep).toBeDefined();
+  });
 });
