@@ -1,33 +1,49 @@
+import {Stack} from 'aws-cdk-lib';
 import {Annotations, Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {describe, expect, test} from 'vitest';
 import {
   AES_SIEM_TEMPLATE_VERSION,
   AesSiemTemplateSource,
-  AutoSocSiemStack,
-  type AutoSocSiemStackProps,
+  AutoSocSiemConstruct,
+  type AutoSocSiemConstructProps,
 } from './autosoc-siem-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
 function synthSiem(
-  overrides: Partial<Omit<AutoSocSiemStackProps, 'snsEmail'>> & {
-    snsEmail?: string;
-  } = {},
+  overrides: Partial<AutoSocSiemConstructProps> = {},
 ): Template {
   const app = new ExtendedApp({
     account: TEST_ENV.account,
     region: TEST_ENV.region,
   });
-  const stack = new AutoSocSiemStack(app, 'AutoSocSiem', {
-    env: TEST_ENV,
+  const stack = new Stack(app, 'TestStack', {env: TEST_ENV});
+  new AutoSocSiemConstruct(stack, 'Siem', {
     snsEmail: 'ops@example.com',
     ...overrides,
   });
   return Template.fromStack(stack);
 }
 
-describe('AutoSocSiemStack', () => {
+describe('AutoSocSiemConstruct', () => {
+  test('snsEmail is optional; omitting it disables SNS alerting (matches upstream default)', () => {
+    // The upstream aes-siem template's own SnsEmail parameter is optional
+    // (default ''), gated by a HasSnsEmail condition that only creates the
+    // SNS topic/subscription when non-empty. Omitting snsEmail here must
+    // thread '' through so no SNS alerting is provisioned at all.
+    const app = new ExtendedApp({
+      account: TEST_ENV.account,
+      region: TEST_ENV.region,
+    });
+    const stack = new Stack(app, 'TestStack', {env: TEST_ENV});
+    new AutoSocSiemConstruct(stack, 'Siem', {});
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::CloudFormation::Stack', {
+      Parameters: Match.objectLike({SnsEmail: ''}),
+    });
+  });
+
   test('nests the aes-siem CloudFormation template with required parameters', () => {
     const template = synthSiem();
     template.resourceCountIs('AWS::CloudFormation::Stack', 1);
@@ -69,8 +85,8 @@ describe('AutoSocSiemStack', () => {
       account: TEST_ENV.account,
       region: TEST_ENV.region,
     });
-    const stack = new AutoSocSiemStack(app, 'AutoSocSiem', {
-      env: TEST_ENV,
+    const stack = new Stack(app, 'TestStack', {env: TEST_ENV});
+    new AutoSocSiemConstruct(stack, 'Siem', {
       snsEmail: 'ops@example.com',
       templateSource: AesSiemTemplateSource.UPSTREAM,
     });
@@ -175,19 +191,31 @@ describe('AutoSocSiemStack', () => {
   test('passes secret values through NoEcho parent parameters', () => {
     const template = synthSiem();
     const json = template.toJSON();
-    expect(json.Parameters).toMatchObject({
-      GeoLite2LicenseKey: {Type: 'String', Default: '', NoEcho: true},
-      OtxApiKey: {Type: 'String', Default: '', NoEcho: true},
-    });
+    // Parameter logical ids are prefixed by the `Siem` construct id (CDK's
+    // standard uniqueness-hashing scheme) now that AutoSocSiemConstruct is
+    // nested one level deeper than when it was its own top-level Stack, so
+    // match by content rather than a fixed logical id.
+    const paramEntries = Object.entries(
+      json.Parameters as Record<string, unknown>,
+    );
+    const geoLite2 = paramEntries.find(([k]) =>
+      k.startsWith('SiemGeoLite2LicenseKey'),
+    )?.[1];
+    const otx = paramEntries.find(([k]) => k.startsWith('SiemOtxApiKey'))?.[1];
+    expect(geoLite2).toMatchObject({Type: 'String', Default: '', NoEcho: true});
+    expect(otx).toMatchObject({Type: 'String', Default: '', NoEcho: true});
+
     const [nested] = Object.values(
       template.findResources('AWS::CloudFormation::Stack'),
     );
-    expect(nested.Properties.Parameters.GeoLite2LicenseKey).toEqual({
-      Ref: 'GeoLite2LicenseKey',
-    });
-    expect(nested.Properties.Parameters.OtxApiKey).toEqual({
-      Ref: 'OtxApiKey',
-    });
+    const nestedParams = nested.Properties.Parameters as Record<
+      string,
+      {Ref: string}
+    >;
+    expect(nestedParams.GeoLite2LicenseKey.Ref).toMatch(
+      /^SiemGeoLite2LicenseKey/,
+    );
+    expect(nestedParams.OtxApiKey.Ref).toMatch(/^SiemOtxApiKey/);
   });
 
   test('threads Security Lake subscriber ARNs into aes-siem parameters', () => {
@@ -215,16 +243,41 @@ describe('AutoSocSiemStack', () => {
     ).toThrow(/must be alphanumeric only/);
   });
 
-  test('uses the pinned vendored template by default', () => {
+  test('uses the live upstream template by default', () => {
+    // A plain `cdk deploy AutoSoc` with no `siemTemplateSource` flag must
+    // pull AWS's current published template, not the checked-in vendored
+    // copy. Customizing/pinning the template is opt-in via
+    // `-c siemTemplateSource=vendored`.
     const template = synthSiem();
     const json = JSON.stringify(template.toJSON());
+    // AesSiemVersion/AesSiemTemplateSource are written onto the parent
+    // Stack's template Metadata by AutoSocSiemConstruct. The `URL`/`Name`/
+    // `Version` automation-tag metadata keys asserted in
+    // autosoc-stack.test.ts come from AutoSocStack itself, not this
+    // construct, so they aren't present when the construct is exercised
+    // standalone under a bare test Stack (as done here).
     expect(template.toJSON().Metadata).toMatchObject({
       AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
-      AesSiemTemplateSource: AesSiemTemplateSource.VENDORED,
-      URL: 'https://github.com/truemark/public/tree/main/autosoc',
+      AesSiemTemplateSource: AesSiemTemplateSource.UPSTREAM,
     });
     expect(json).toContain('AWS::Partition');
     expect(json).toContain('Fn::If');
+  });
+
+  test('uses the pinned vendored template when explicitly requested', () => {
+    const template = synthSiem({
+      templateSource: AesSiemTemplateSource.VENDORED,
+    });
+    expect(template.toJSON().Metadata).toMatchObject({
+      AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
+      AesSiemTemplateSource: AesSiemTemplateSource.VENDORED,
+    });
+    const [nested] = Object.values(
+      template.findResources('AWS::CloudFormation::Stack'),
+    );
+    expect(JSON.stringify(nested.Properties.TemplateURL)).toContain(
+      'cdk-hnb659fds-assets',
+    );
   });
 
   test('propagates enrichment, Control Tower, and VPC-endpoint overrides', () => {
