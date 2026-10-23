@@ -213,4 +213,4 @@ fi
 echo ""
 echo "Done. To use the vendored template, pass"
 echo "  -c siemTemplateSource=vendored"
-echo "to CDK (the vendored source is the default)."
+echo "to CDK (upstream is the default; vendored is opt-in)."

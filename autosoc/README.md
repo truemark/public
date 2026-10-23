@@ -147,43 +147,44 @@ cdk synth AutoSoc --json | \
 
 ## Customizing the SIEM template itself
 
-By default `AutoSocSiemConstruct` packages the checked-in aes-siem
-v2.10.6 template as a CDK S3 asset (`AesSiemTemplateSource.VENDORED`).
-The template is fetched from the exact upstream release tag by the
-vendor script and has `NoEcho: true` patched onto its
-`GeoLite2LicenseKey` / `OtxApiKey` parameters. This keeps fresh
-deployments pinned (and secret-masked) even if aws-samples changes its
-public latest-template S3 object.
+By default (`AesSiemTemplateSource.UPSTREAM`, the default when
+`siemTemplateSource` is unset) `AutoSocSiemConstruct` points the nested
+stack directly at AWS's live, mutable `aes-siem-<region>.s3.amazonaws.com`
+template URL — a plain `cdk deploy AutoSoc` always deploys whatever AWS
+currently publishes, with no local file involved and nothing to vendor
+ahead of time. Note this also means a later redeploy can pick up a newer
+upstream release even if nothing in this repo changed, and that the raw
+upstream template does **not** mark `GeoLite2LicenseKey`/`OtxApiKey`
+`NoEcho`, so either value is visible via `DescribeStacks`/console on the
+nested stack if you supply it at deploy time (see the warnings
+`AutoSocSiemConstruct` emits when this source is selected).
 
-If you need to patch the template further (add resources, tweak IAM, swap
-Lambda code, add a new log source, change a dashboard, etc.), vendor the
-template into this repo and edit it in place — it's already the default
-source:
+If you need to patch the template (add resources, tweak IAM, swap Lambda
+code, add a new log source, change a dashboard, etc.), or you want a
+reproducible/pinned/secret-masked deployment instead of tracking AWS's
+latest release, vendor the template into this repo and switch to the
+`VENDORED` source:
 
 ```
-# Refresh the pinned v2.10.6 template from its exact upstream release tag
+# Fetch the pinned v2.10.6 template from its exact upstream release tag
 pnpm run vendor:aes-siem
 
 # Make your edits in autosoc/vendor/aes-siem/
 
-# Deploy using the vendored copy as a CDK S3 asset (the default source)
-cdk deploy AutoSoc
+# Deploy using the vendored copy as a CDK S3 asset instead of the live
+# upstream URL
+cdk deploy AutoSoc -c siemTemplateSource=vendored
 ```
 
 The vendor script writes a per-template `.UPSTREAM.md` record with the
 exact release URL, fetch timestamp, and template header; it keeps the
 previous copy beside the template with a `.previous` suffix for diffing.
 To upgrade, change `AES_SIEM_TEMPLATE_VERSION`, rerun the script for each
-partition template, and inspect the delta against your patches.
-
-`siemTemplateSource=upstream` points the nested stack directly at AWS's
-live, mutable `aes-siem-<region>.s3.amazonaws.com` template URL instead
-— useful for quickly testing against AWS's latest publish, but **not**
-recommended for normal deployments: it is not reproducible, is not
-pinned to `AES_SIEM_TEMPLATE_VERSION`, and does not mask
-`GeoLite2LicenseKey`/`OtxApiKey` with `NoEcho` if you supply either value
-at deploy time (see the warnings `AutoSocSiemConstruct` emits when this
-source is selected).
+partition template, and inspect the delta against your patches. The
+vendored template also has `NoEcho: true` patched onto its
+`GeoLite2LicenseKey` / `OtxApiKey` parameters (see
+`scripts/vendor-aes-siem.sh`), so switching to `VENDORED` is the
+recommended path if you plan to actually set either value.
 
 Anything you *add alongside* the nested stack (new SNS targets, extra
 CloudWatch dashboards, Lambdas that watch an OpenSearch index, etc.) can
