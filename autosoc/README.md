@@ -446,10 +446,10 @@ aws cloudformation wait stack-delete-complete --stack-name AutoSoc --region "$RE
 
 Only *after* that parent-stack deletion (and the manual S3/KMS cleanup
 below) should you retry `pnpm cdk deploy AutoSoc`. If instead `AutoSoc`
-was already successfully deployed once and a later *update* (e.g.
-changing SIEM parameters) fails, the parent lands in
-`UPDATE_ROLLBACK_COMPLETE` and can simply be redeployed without deleting
-it first — only the S3/KMS orphan cleanup below is needed in that case.
+was already successfully deployed and a later update fails, wait for
+`UPDATE_ROLLBACK_COMPLETE`, inspect and fix the failure, and redeploy without
+deleting the stack. Do not run the cleanup below on resources restored by rollback;
+only remove resources verified to be orphaned and no longer in use.
 
 ```bash
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
