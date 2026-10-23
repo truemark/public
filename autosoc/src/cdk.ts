@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
-import {AesSiemTemplateSource, AutoSocSiemStack} from './autosoc-siem-stack.js';
-import {AutoSocStack} from './autosoc-stack.js';
+import {AesSiemTemplateSource} from './autosoc-siem-stack.js';
+import {type AutoSocSiemProps, AutoSocStack} from './autosoc-stack.js';
 
 function ctxBool(app: ExtendedApp, key: string): boolean | undefined {
   const raw = app.node.tryGetContext(key);
@@ -42,25 +42,23 @@ const app = new ExtendedApp({
   },
 });
 
-const autoSoc = new AutoSocStack(app, 'AutoSoc', {});
-
-// Opt-in SIEM stack. Deploys the upstream aes-siem CloudFormation template
-// nested inside a CDK stack. Both AutoSocStack and AutoSocSiemStack can be
-// deployed in parallel: aes-siem keeps its native S3-ingest path for logs
-// delivered directly to its own log bucket, and additionally polls the
-// Security Lake subscriber SQS queue (if `siemSubscriberAccountId` +
-// `siemSubscriberExternalId` context were supplied).
+// SIEM is deployed by default. Nests the upstream aes-siem CloudFormation
+// template inside the same AutoSoc stack as the Security Lake data lake:
+// aes-siem keeps its native S3-ingest path for logs delivered directly to
+// its own log bucket, and additionally polls the Security Lake subscriber
+// SQS queue (if `siemSubscriberAccountId` + `siemSubscriberExternalId`
+// context were supplied). Opt out entirely with `-c deploySiem=false`.
 const deploySiem =
-  app.node.tryGetContext('deploySiem') === true ||
-  app.node.tryGetContext('deploySiem') === 'true';
+  app.node.tryGetContext('deploySiem') !== false &&
+  app.node.tryGetContext('deploySiem') !== 'false';
+
+let siem: AutoSocSiemProps | undefined;
 if (deploySiem) {
+  // `siemEmail` is optional, matching the upstream aes-siem template's own
+  // optional `SnsEmail` parameter: omit it to skip SNS alerting entirely
+  // (no topic/subscription is created, so there is nothing to receive or
+  // unsubscribe from).
   const siemEmail = app.node.tryGetContext('siemEmail') as string | undefined;
-  if (!siemEmail) {
-    throw new Error(
-      'AutoSocSiemStack requires `-c siemEmail=<address>` so OpenSearch ' +
-        'alerts have a destination.',
-    );
-  }
   const siemTemplateSource = ctxString(app, 'siemTemplateSource');
   if (
     siemTemplateSource !== undefined &&
@@ -68,7 +66,7 @@ if (deploySiem) {
     siemTemplateSource !== AesSiemTemplateSource.VENDORED
   ) {
     throw new Error(
-      `AutoSocSiemStack: unknown siemTemplateSource "${siemTemplateSource}". ` +
+      `AutoSoc SIEM: unknown siemTemplateSource "${siemTemplateSource}". ` +
         `Expected "${AesSiemTemplateSource.UPSTREAM}" or "${AesSiemTemplateSource.VENDORED}".`,
     );
   }
@@ -79,7 +77,7 @@ if (deploySiem) {
     siemDeploymentTarget !== 'opensearch_serverless'
   ) {
     throw new Error(
-      `AutoSocSiemStack: unknown siemDeploymentTarget "${siemDeploymentTarget}". ` +
+      `AutoSoc SIEM: unknown siemDeploymentTarget "${siemDeploymentTarget}". ` +
         'Expected "opensearch_managed_cluster" or "opensearch_serverless".',
     );
   }
@@ -90,12 +88,12 @@ if (deploySiem) {
     siemLogBucketPolicyUpdate !== 'keep'
   ) {
     throw new Error(
-      `AutoSocSiemStack: unknown siemLogBucketPolicyUpdate "${siemLogBucketPolicyUpdate}". ` +
+      `AutoSoc SIEM: unknown siemLogBucketPolicyUpdate "${siemLogBucketPolicyUpdate}". ` +
         'Expected "update_and_override" or "keep".',
     );
   }
 
-  const siem = new AutoSocSiemStack(app, 'AutoSocSiem', {
+  siem = {
     snsEmail: siemEmail,
     templateSource: siemTemplateSource as AesSiemTemplateSource | undefined,
     upstreamTemplateFileName: ctxString(app, 'siemUpstreamTemplateFileName'),
@@ -121,7 +119,7 @@ if (deploySiem) {
       | undefined,
 
     // Secret enrichment values are supplied through NoEcho CloudFormation
-    // parameters declared by AutoSocSiemStack, never through CDK context.
+    // parameters declared by AutoSocSiemConstruct, never through CDK context.
     enableTor: ctxBool(app, 'siemEnableTor'),
     enableAbuseCh: ctxBool(app, 'siemEnableAbuseCh'),
     iocDownloadIntervalMinutes: ctxNumber(
@@ -148,20 +146,7 @@ if (deploySiem) {
     createSsmVpcEndpoint: ctxBool(app, 'siemCreateSsmVpcEndpoint'),
     createStsVpcEndpoint: ctxBool(app, 'siemCreateStsVpcEndpoint'),
     createS3VpcEndpoint: ctxBool(app, 'siemCreateS3VpcEndpoint'),
-
-    // Wire Security Lake subscriber (if AutoSocStack created one) so
-    // es-loader can ingest OCSF Parquet alongside its native log sources.
-    securityLakeSubscriberRoleArn: autoSoc.securityLake.subscribers[0]
-      ? autoSoc.securityLake.subscribers[0].attrSubscriberRoleArn
-      : undefined,
-    securityLakeSubscriberExternalId: ctxString(
-      app,
-      'siemSubscriberExternalId',
-    ),
-    securityLakeSubscriberSqsArn: autoSoc.securityLake
-      .subscriberNotifications[0]
-      ? autoSoc.securityLake.subscriberNotifications[0].attrSubscriberEndpoint
-      : undefined,
-  });
-  siem.addDependency(autoSoc);
+  };
 }
+
+new AutoSocStack(app, 'AutoSoc', {siem});

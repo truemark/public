@@ -6,7 +6,35 @@ import {
   type SecurityLakeSubscriberProps,
   StandardSecurityLake,
 } from 'truemark-cdk-lib/aws-securitylake';
+import {
+  AutoSocSiemConstruct,
+  type AutoSocSiemConstructProps,
+} from './autosoc-siem-stack.js';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
+
+/**
+ * Props for the opt-in SIEM sub-construct, minus the Security Lake
+ * subscriber wiring fields that `AutoSocStack` always derives itself from
+ * its own `StandardSecurityLake` subscriber (when one was created).
+ */
+export type AutoSocSiemProps = Omit<
+  AutoSocSiemConstructProps,
+  | 'securityLakeSubscriberRoleArn'
+  | 'securityLakeSubscriberExternalId'
+  | 'securityLakeSubscriberSqsArn'
+>;
+
+export interface AutoSocStackProps extends ExtendedStackProps {
+  /**
+   * Opt-in SIEM configuration. When supplied, `AutoSocStack` nests the
+   * upstream aes-siem CloudFormation template (via `AutoSocSiemConstruct`)
+   * inside this same stack, alongside the Security Lake data lake. Omit
+   * entirely to deploy Security Lake only.
+   *
+   * @default - SIEM is not deployed
+   */
+  readonly siem?: AutoSocSiemProps;
+}
 
 /**
  * The full set of AWS native log sources this stack enables on the data
@@ -27,7 +55,10 @@ const DEFAULT_LOG_SOURCES = [
 export class AutoSocStack extends ExtendedStack {
   readonly securityLake: StandardSecurityLake;
 
-  constructor(scope: Construct, id: string, props: ExtendedStackProps) {
+  /** Present only when `props.siem` was supplied. */
+  readonly siem?: AutoSocSiemConstruct;
+
+  constructor(scope: Construct, id: string, props: AutoSocStackProps = {}) {
     super(scope, id, props);
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
@@ -40,9 +71,9 @@ export class AutoSocStack extends ExtendedStack {
       this.node.tryGetContext('createLakeFormationSlr') === 'true';
 
     // Optional Security Lake subscriber. When `siemSubscriberAccountId` and
-    // `siemSubscriberExternalId` are supplied (typically via the sibling
-    // `AutoSocSiemStack` wiring), add a subscriber so the SIEM es-loader
-    // can read OCSF Parquet files produced by Security Lake.
+    // `siemSubscriberExternalId` are supplied, add a subscriber so the SIEM
+    // es-loader (below, when `props.siem` is set) can read OCSF Parquet
+    // files produced by Security Lake.
     const siemSubscriberAccountId = this.node.tryGetContext(
       'siemSubscriberAccountId',
     ) as string | undefined;
@@ -75,8 +106,10 @@ export class AutoSocStack extends ExtendedStack {
       subscribers,
     });
 
-    // Export subscriber details so AutoSocSiemStack (or operators) can feed
-    // them into the aes-siem CloudFormation parameters.
+    // Export subscriber details as CfnOutputs for operator visibility, even
+    // though AutoSocSiemConstruct (below) now consumes them directly as
+    // construct references rather than via CloudFormation cross-stack
+    // exports/Fn::ImportValue.
     if (this.securityLake.subscribers.length > 0) {
       const [subscriber] = this.securityLake.subscribers;
       const [notification] = this.securityLake.subscriberNotifications;
@@ -97,6 +130,21 @@ export class AutoSocStack extends ExtendedStack {
         description:
           'SQS queue ARN Security Lake writes new-object notifications to.',
         exportName: 'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
+      });
+    }
+
+    // Opt-in SIEM. Nested inside this same stack (as a CDK construct, not a
+    // sibling CDK Stack) so the Security Lake subscriber role/external-id/
+    // queue ARN can be wired in as direct construct references below,
+    // instead of through CloudFormation cross-stack exports/Fn::ImportValue.
+    if (props.siem) {
+      const [subscriber] = this.securityLake.subscribers;
+      const [notification] = this.securityLake.subscriberNotifications;
+      this.siem = new AutoSocSiemConstruct(this, 'Siem', {
+        ...props.siem,
+        securityLakeSubscriberRoleArn: subscriber?.attrSubscriberRoleArn,
+        securityLakeSubscriberExternalId: siemSubscriberExternalId,
+        securityLakeSubscriberSqsArn: notification?.attrSubscriberEndpoint,
       });
     }
   }

@@ -1,11 +1,14 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {beforeEach, describe, expect, test} from 'vitest';
-import {AutoSocStack} from './autosoc-stack.js';
+import {type AutoSocSiemProps, AutoSocStack} from './autosoc-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
-function synth(context: Record<string, unknown> = {}): Template {
+function synth(
+  context: Record<string, unknown> = {},
+  siem?: AutoSocSiemProps,
+): Template {
   const app = new ExtendedApp({
     account: TEST_ENV.account,
     region: TEST_ENV.region,
@@ -17,7 +20,7 @@ function synth(context: Record<string, unknown> = {}): Template {
       },
     },
   });
-  const stack = new AutoSocStack(app, 'AutoSoc', {env: TEST_ENV});
+  const stack = new AutoSocStack(app, 'AutoSoc', {env: TEST_ENV, siem});
   return Template.fromStack(stack);
 }
 
@@ -139,8 +142,10 @@ describe('AutoSocStack', () => {
     withSub.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
       NotificationConfiguration: {SqsNotificationConfiguration: {}},
     });
-    // Subscriber role / external-id / queue ARN should be exported so the
-    // sibling AutoSocSiemStack (or operators) can wire them into aes-siem.
+    // Subscriber role / external-id / queue ARN are still exported as
+    // CfnOutputs for operator visibility, even though AutoSocSiemConstruct
+    // (when `props.siem` is supplied) now consumes them as direct
+    // construct references rather than via these exports.
     const outputs = withSub.toJSON().Outputs ?? {};
     const exportNames = Object.values(outputs).map(
       (o) => (o as {Export?: {Name: string}}).Export?.Name,
@@ -161,5 +166,48 @@ describe('AutoSocStack', () => {
         siemSubscriberExternalId: 'external-id-with-hyphens',
       }),
     ).toThrow(/must be alphanumeric only/);
+  });
+
+  test('does not nest the aes-siem template when `siem` prop is omitted', () => {
+    template.resourceCountIs('AWS::CloudFormation::Stack', 0);
+  });
+
+  test('nests the aes-siem template in the same stack when `siem` prop is supplied', () => {
+    const withSiem = synth(undefined, {snsEmail: 'ops@example.com'});
+    withSiem.resourceCountIs('AWS::SecurityLake::DataLake', 1);
+    withSiem.resourceCountIs('AWS::CloudFormation::Stack', 1);
+    withSiem.hasResourceProperties('AWS::CloudFormation::Stack', {
+      Parameters: Match.objectLike({
+        SnsEmail: 'ops@example.com',
+        // No subscriber was created (no siemSubscriberAccountId /
+        // siemSubscriberExternalId context), so these are blank.
+        SecurityLakeRoleArn: '',
+        SecurityLakeExternalId: '',
+        SecurityLakeSubscriberSqs: '',
+      }),
+    });
+  });
+
+  test('wires the Security Lake subscriber directly into the nested SIEM template as construct references, not stack exports', () => {
+    const withBoth = synth(
+      {
+        siemSubscriberAccountId: '222222222222',
+        siemSubscriberExternalId: 'supersecretexternalid',
+      },
+      {snsEmail: 'ops@example.com'},
+    );
+    withBoth.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
+    withBoth.hasResourceProperties('AWS::CloudFormation::Stack', {
+      Parameters: Match.objectLike({
+        SecurityLakeExternalId: 'supersecretexternalid',
+        SecurityLakeRoleArn: Match.anyValue(),
+        SecurityLakeSubscriberSqs: Match.anyValue(),
+      }),
+    });
+    // Being in the same stack, the role ARN threaded through is a direct
+    // `Fn::GetAtt` on the in-stack subscriber resource, not an
+    // `Fn::ImportValue` cross-stack reference.
+    const json = JSON.stringify(withBoth.toJSON());
+    expect(json).not.toContain('Fn::ImportValue');
   });
 });
