@@ -124,9 +124,6 @@ export class StandardTableV2 extends ExtendedTableV2 {
             }),
       ...props,
     });
-    if (this.tableAlarms) {
-      this.tableAlarms.addGlobalSecondaryIndexMonitoring(indexName);
-    }
   }
 }
 
