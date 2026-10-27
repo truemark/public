@@ -7,10 +7,10 @@ import {
   CfnParameter,
   CfnStack,
   Fn,
-  Stack,
 } from 'aws-cdk-lib';
 import {Asset} from 'aws-cdk-lib/aws-s3-assets';
-import {Construct} from 'constructs';
+import type {Construct} from 'constructs';
+import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
 /**
@@ -63,7 +63,7 @@ export enum AesSiemTemplateSource {
 
   /**
    * Package the versioned template at
-   * `autosoc/vendor/aes-siem/<templateFileName>` as a CDK S3 asset. This
+   * `autosiem/vendor/aes-siem/<templateFileName>` as a CDK S3 asset. This
    * is reproducible, has `NoEcho: true` patched onto its
    * `GeoLite2LicenseKey` / `OtxApiKey` parameters (see
    * `scripts/vendor-aes-siem.sh`), and is how you customize the template
@@ -74,13 +74,13 @@ export enum AesSiemTemplateSource {
 }
 
 /**
- * Properties for AutoSocSiemConstruct.
+ * Properties for AutoSiemStack.
  *
  * The upstream aes-siem template exposes ~22 CloudFormation parameters;
  * every one that is realistic to tweak from CDK is surfaced here. Unset
  * props fall through to the upstream template defaults.
  */
-export interface AutoSocSiemConstructProps {
+export interface AutoSiemStackProps extends ExtendedStackProps {
   /**
    * Email address that will receive SNS alerts raised by OpenSearch /
    * aes-siem. Optional, matching the upstream template's own `SnsEmail`
@@ -225,11 +225,21 @@ export interface AutoSocSiemConstructProps {
   readonly controlTowerSqsForLogBuckets?: string;
 
   // ─── Multi-account: Amazon Security Lake subscriber ────────────────────
+  //
+  // These three values are produced by the separate `autosoc` package
+  // (typically deployed in the log-archive account) as `CfnOutput`s named
+  // `SecurityLakeSubscriberRoleArn` / `SecurityLakeSubscriberExternalId` /
+  // `SecurityLakeSubscriberNotificationQueueArn`. Since `autosoc` and
+  // `autosiem` are independent CDK apps/stacks — typically in different
+  // accounts (log-archive vs. security-audit) — there is no CloudFormation
+  // cross-stack export/`Fn::ImportValue` link between them. Copy the
+  // output values from the `autosoc` deploy and pass them here (or via the
+  // matching `-c siemSecurityLake*` context flags in `src/cdk.ts`).
 
   /**
    * ARN of the Security Lake subscriber IAM role es-loader should assume
-   * to read OCSF Parquet from the Security Lake buckets. Populated by
-   * `AutoSocStack` when a subscriber was provisioned.
+   * to read OCSF Parquet from the Security Lake buckets. Copy this from
+   * `autosoc`'s `SecurityLakeSubscriberRoleArn` CfnOutput.
    *
    * @default - no Security Lake ingestion
    */
@@ -264,31 +274,33 @@ export interface AutoSocSiemConstructProps {
 }
 
 /**
- * AutoSoc SIEM construct. Nests the upstream aes-siem CloudFormation
- * template (MIT-0, aws-samples/siem-on-amazon-opensearch-service) as a
- * child `AWS::CloudFormation::Stack` of whatever parent stack this
- * construct is placed in, so AutoSoc users get OpenSearch, dashboards,
- * es-loader, GeoIP enrichment, and the supporting
+ * AutoSiem stack. Nests the upstream aes-siem CloudFormation template
+ * (MIT-0, aws-samples/siem-on-amazon-opensearch-service) as a child
+ * `AWS::CloudFormation::Stack`, so AutoSiem users get OpenSearch,
+ * dashboards, es-loader, GeoIP enrichment, and the supporting
  * KMS/SQS/EventBridge/SNS infrastructure without rewriting any of the
  * Python Lambda source.
  *
- * When placed inside `AutoSocStack` with Security Lake subscriber props
- * set, aes-siem additionally ingests OCSF Parquet objects from Security
- * Lake via the subscriber SQS queue. Being a construct (not a separate
- * top-level CDK `Stack`) rather than a sibling stack means the Security
- * Lake subscriber role/external-id/queue ARN can be threaded in directly
- * as construct references instead of through CloudFormation cross-stack
- * exports/`Fn::ImportValue`.
+ * `AutoSiemStack` is deployed as its own independent top-level CDK stack
+ * (and typically its own AWS account — e.g. a security-audit account) so
+ * it can be versioned, deployed, and rolled back independently of the
+ * `autosoc` Security Lake stack. When the Security Lake subscriber props
+ * (`securityLakeSubscriberRoleArn` / `securityLakeSubscriberExternalId` /
+ * `securityLakeSubscriberSqsArn`) are supplied, aes-siem additionally
+ * ingests OCSF Parquet objects from Security Lake via the subscriber SQS
+ * queue. There is no CloudFormation cross-stack export/`Fn::ImportValue`
+ * dependency on `autosoc` — copy those three values from `autosoc`'s
+ * `CfnOutput`s (see `autosiem/README.md`) and pass them in here.
  *
  * To customize the aes-siem template itself (patch IAM, swap Lambda code,
  * add resources inside the nested stack, etc.), run
  * `pnpm run vendor:aes-siem` to drop a local copy under
- * `autosoc/vendor/aes-siem/`, edit it, then set
+ * `autosiem/vendor/aes-siem/`, edit it, then set
  * `templateSource: AesSiemTemplateSource.VENDORED`.
  *
  * @see https://github.com/aws-samples/siem-on-amazon-opensearch-service
  */
-export class AutoSocSiemConstruct extends Construct {
+export class AutoSiemStack extends ExtendedStack {
   /** The nested CloudFormation stack running the aes-siem template. */
   readonly siemNestedStack: CfnStack;
 
@@ -297,19 +309,18 @@ export class AutoSocSiemConstruct extends Construct {
 
   private readonly templateFileNameOverride?: string;
 
-  constructor(scope: Construct, id: string, props: AutoSocSiemConstructProps) {
-    super(scope, id);
+  constructor(scope: Construct, id: string, props: AutoSiemStackProps = {}) {
+    super(scope, id, props);
     validateSecurityLakeExternalId(props.securityLakeSubscriberExternalId);
     this.templateFileNameOverride = props.upstreamTemplateFileName;
-    const parentStack = Stack.of(this);
-    parentStack.addMetadata('AesSiemVersion', AES_SIEM_TEMPLATE_VERSION);
+    this.addMetadata('AesSiemVersion', AES_SIEM_TEMPLATE_VERSION);
     this.templateSource =
       props.templateSource ?? AesSiemTemplateSource.UPSTREAM;
-    parentStack.addMetadata('AesSiemTemplateSource', this.templateSource);
+    this.addMetadata('AesSiemTemplateSource', this.templateSource);
     if (this.templateSource === AesSiemTemplateSource.UPSTREAM) {
       Annotations.of(this).addWarningV2(
-        'AutoSocSiem:UpstreamTemplateNotPinned',
-        `AutoSocSiemConstruct is pointing at the aes-siem upstream public ` +
+        'AutoSiem:UpstreamTemplateNotPinned',
+        `AutoSiemStack is pointing at the aes-siem upstream public ` +
           `template URL (the default), which is a latest-tracking alias ` +
           `and NOT pinned to AES_SIEM_TEMPLATE_VERSION ` +
           `(${AES_SIEM_TEMPLATE_VERSION}). A fresh deployment may pull a ` +
@@ -329,7 +340,7 @@ export class AutoSocSiemConstruct extends Construct {
       // The VENDORED template source patches `NoEcho: true` onto both
       // parameters — see `scripts/vendor-aes-siem.sh`.
       Annotations.of(this).addWarningV2(
-        'AutoSocSiem:UpstreamTemplateSecretNotNoEcho',
+        'AutoSiem:UpstreamTemplateSecretNotNoEcho',
         `templateSource=UPSTREAM (the default): the raw upstream aes-siem ` +
           `template does NOT mark its GeoLite2LicenseKey / OtxApiKey ` +
           `parameters NoEcho. If you fill in either value at deploy time, ` +
@@ -363,7 +374,7 @@ export class AutoSocSiemConstruct extends Construct {
   }
 
   /**
-   * Resolve the template URL based on {@link AutoSocSiemConstructProps.templateSource}.
+   * Resolve the template URL based on {@link AutoSiemStackProps.templateSource}.
    * For `UPSTREAM`, builds a per-Region public bucket URL via Fn::Sub. For
    * `VENDORED`, packages the on-disk template as a CDK S3 asset.
    */
@@ -416,7 +427,7 @@ export class AutoSocSiemConstruct extends Construct {
     );
     if (!fs.existsSync(vendored)) {
       throw new Error(
-        `AutoSocSiemConstruct: templateSource is VENDORED but ${vendored} ` +
+        `AutoSiemStack: templateSource is VENDORED but ${vendored} ` +
           'does not exist. Run `pnpm run vendor:aes-siem` with ' +
           '`AES_SIEM_TEMPLATE_FILE_NAME` set to this file.',
       );
@@ -426,7 +437,7 @@ export class AutoSocSiemConstruct extends Construct {
 
   private chinaPartitionCondition(): CfnCondition {
     return new CfnCondition(this, 'IsChinaPartition', {
-      expression: Fn.conditionEquals(Stack.of(this).partition, 'aws-cn'),
+      expression: Fn.conditionEquals(this.partition, 'aws-cn'),
     });
   }
 
@@ -445,7 +456,7 @@ export class AutoSocSiemConstruct extends Construct {
  * `CfnStack.parameters` only accepts `{[k: string]: string}`.
  */
 function buildAesSiemParameters(
-  props: AutoSocSiemConstructProps,
+  props: AutoSiemStackProps,
   secrets: {geoLite2LicenseKey: string; otxApiKey: string},
 ): Record<string, string> {
   const bool = (v: boolean | undefined, def: boolean) =>

@@ -6,35 +6,9 @@ import {
   type SecurityLakeSubscriberProps,
   StandardSecurityLake,
 } from 'truemark-cdk-lib/aws-securitylake';
-import {
-  AutoSocSiemConstruct,
-  type AutoSocSiemConstructProps,
-} from './autosoc-siem-stack.js';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
-/**
- * Props for the opt-in SIEM sub-construct, minus the Security Lake
- * subscriber wiring fields that `AutoSocStack` always derives itself from
- * its own `StandardSecurityLake` subscriber (when one was created).
- */
-export type AutoSocSiemProps = Omit<
-  AutoSocSiemConstructProps,
-  | 'securityLakeSubscriberRoleArn'
-  | 'securityLakeSubscriberExternalId'
-  | 'securityLakeSubscriberSqsArn'
->;
-
-export interface AutoSocStackProps extends ExtendedStackProps {
-  /**
-   * Opt-in SIEM configuration. When supplied, `AutoSocStack` nests the
-   * upstream aes-siem CloudFormation template (via `AutoSocSiemConstruct`)
-   * inside this same stack, alongside the Security Lake data lake. Omit
-   * entirely to deploy Security Lake only.
-   *
-   * @default - SIEM is not deployed
-   */
-  readonly siem?: AutoSocSiemProps;
-}
+export type AutoSocStackProps = ExtendedStackProps;
 
 /**
  * The full set of AWS native log sources this stack enables on the data
@@ -55,9 +29,6 @@ const DEFAULT_LOG_SOURCES = [
 export class AutoSocStack extends ExtendedStack {
   readonly securityLake: StandardSecurityLake;
 
-  /** Present only when `props.siem` was supplied. */
-  readonly siem?: AutoSocSiemConstruct;
-
   constructor(scope: Construct, id: string, props: AutoSocStackProps = {}) {
     super(scope, id, props);
     this.addMetadata('Version', process.env.npm_package_version);
@@ -71,9 +42,12 @@ export class AutoSocStack extends ExtendedStack {
       this.node.tryGetContext('createLakeFormationSlr') === 'true';
 
     // Optional Security Lake subscriber. When `siemSubscriberAccountId` and
-    // `siemSubscriberExternalId` are supplied, add a subscriber so the SIEM
-    // es-loader (below, when `props.siem` is set) can read OCSF Parquet
-    // files produced by Security Lake.
+    // `siemSubscriberExternalId` are supplied, add a subscriber so the
+    // separate `autosiem` package's es-loader (typically deployed in a
+    // different account, e.g. security-audit) can read OCSF Parquet files
+    // produced by Security Lake. The subscriber role ARN / external id /
+    // notification queue ARN are published below as CfnOutputs for the
+    // operator to copy into the `autosiem` deploy.
     const siemSubscriberAccountId = this.node.tryGetContext(
       'siemSubscriberAccountId',
     ) as string | undefined;
@@ -84,18 +58,18 @@ export class AutoSocStack extends ExtendedStack {
     const subscribers: SecurityLakeSubscriberProps[] = [];
     if (siemSubscriberAccountId && siemSubscriberExternalId) {
       subscribers.push({
-        subscriberName: 'autosoc-siem',
+        subscriberName: 'autosiem',
         principal: siemSubscriberAccountId,
         externalId: siemSubscriberExternalId,
         description:
-          'AutoSoc SIEM OpenSearch subscriber - consumes Security Lake OCSF Parquet via SQS notifications',
+          'autosiem OpenSearch subscriber - consumes Security Lake OCSF Parquet via SQS notifications',
         sources: DEFAULT_LOG_SOURCES.map((sourceName) => ({sourceName})),
         // aes-siem's es-loader Lambda has a 600s timeout. Security Lake
         // auto-provisions the subscriber Main-Queue with 300s, which is
         // less than the Lambda timeout and causes the es-loader event-
         // source-mapping to be rejected. The StandardSecurityLake
         // construct patches the queue via an AwsCustomResource so the
-        // first SIEM deploy succeeds. See autosoc/README.md §1.
+        // first `autosiem` deploy succeeds. See autosoc/README.md §1.
         sqsVisibilityTimeoutSeconds: 3600,
       });
     }
@@ -106,58 +80,43 @@ export class AutoSocStack extends ExtendedStack {
       subscribers,
     });
 
-    // Export subscriber details as CfnOutputs for operator visibility, even
-    // though AutoSocSiemConstruct (below) now consumes them directly as
-    // construct references rather than via CloudFormation cross-stack
-    // exports/Fn::ImportValue.
+    // Export subscriber details as CfnOutputs. Since `autosoc` and
+    // `autosiem` are independent CDK apps/stacks (typically deployed into
+    // different accounts, e.g. log-archive vs. security-audit), there is
+    // no CloudFormation cross-stack export/Fn::ImportValue link between
+    // them — copy these three values into the `autosiem` deploy's
+    // `-c siemSecurityLake*` context flags (see autosiem/README.md).
+    //
+    // IMPORTANT: StandardSecurityLake's post-creation queue-visibility-
+    // timeout patch (an AwsCustomResource that runs after the notification
+    // resource is created, see standard-security-lake.ts) may still be in
+    // flight when `AutoSoc`'s deploy reaches CREATE_COMPLETE and these
+    // outputs become readable. If you deploy `autosiem` immediately after
+    // (e.g. scripted end-to-end), confirm `AutoSoc` itself reached
+    // CREATE_COMPLETE/UPDATE_COMPLETE before copying these values —
+    // CloudFormation only reports the stack complete once every resource,
+    // including the patch, has finished.
     if (this.securityLake.subscribers.length > 0) {
       const [subscriber] = this.securityLake.subscribers;
       const [notification] = this.securityLake.subscriberNotifications;
       new CfnOutput(this, 'SecurityLakeSubscriberRoleArn', {
         value: subscriber.attrSubscriberRoleArn,
         description:
-          'IAM role ARN that the SIEM es-loader assumes to read Security Lake objects.',
+          'IAM role ARN that the autosiem es-loader assumes to read Security Lake objects. Copy into autosiem -c siemSecurityLakeSubscriberRoleArn.',
         exportName: 'AutoSoc-SecurityLakeSubscriberRoleArn',
       });
       new CfnOutput(this, 'SecurityLakeSubscriberExternalId', {
         value: siemSubscriberExternalId ?? '',
         description:
-          'External id the SIEM es-loader must present when assuming the subscriber role.',
+          'External id the autosiem es-loader must present when assuming the subscriber role. Copy into autosiem -c siemSecurityLakeSubscriberExternalId.',
         exportName: 'AutoSoc-SecurityLakeSubscriberExternalId',
       });
       new CfnOutput(this, 'SecurityLakeSubscriberNotificationQueueArn', {
         value: notification.attrSubscriberEndpoint,
         description:
-          'SQS queue ARN Security Lake writes new-object notifications to.',
+          'SQS queue ARN Security Lake writes new-object notifications to. Copy into autosiem -c siemSecurityLakeSubscriberSqsArn.',
         exportName: 'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
       });
-    }
-
-    // Opt-in SIEM. Nested inside this same stack (as a CDK construct, not a
-    // sibling CDK Stack) so the Security Lake subscriber role/external-id/
-    // queue ARN can be wired in as direct construct references below,
-    // instead of through CloudFormation cross-stack exports/Fn::ImportValue.
-    if (props.siem) {
-      const [subscriber] = this.securityLake.subscribers;
-      const [notification] = this.securityLake.subscriberNotifications;
-      this.siem = new AutoSocSiemConstruct(this, 'Siem', {
-        ...props.siem,
-        securityLakeSubscriberRoleArn: subscriber?.attrSubscriberRoleArn,
-        securityLakeSubscriberExternalId: siemSubscriberExternalId,
-        securityLakeSubscriberSqsArn: notification?.attrSubscriberEndpoint,
-      });
-      // The ARN references above only make CloudFormation wait for the
-      // subscriber role/notification resources, not for
-      // StandardSecurityLake's post-creation queue-visibility-timeout patch
-      // (an AwsCustomResource that runs after the notification resource,
-      // see standard-security-lake.ts). That patch and the nested SIEM
-      // stack would otherwise be free to run concurrently, so the es-loader
-      // Lambda's event-source-mapping creation can race the patch and see
-      // the queue's original 300s visibility timeout - below es-loader's
-      // 600s timeout - causing deployment to fail intermittently. Force the
-      // whole `Siem` construct (including the nested stack) to wait for
-      // the whole `SecurityLake` construct (including the patch).
-      this.siem.node.addDependency(this.securityLake);
     }
   }
 }

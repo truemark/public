@@ -3,6 +3,7 @@ packages:
   - 'autoalarm/handlers'
   - 'autobackup'
   - 'autofim'
+  - 'autosiem'
   - 'autosoc'
   - 'blueprints/aws-workspaces'
   - 'cdk'

@@ -1,32 +1,29 @@
-import {Stack} from 'aws-cdk-lib';
 import {Annotations, Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {describe, expect, test} from 'vitest';
 import {
   AES_SIEM_TEMPLATE_VERSION,
   AesSiemTemplateSource,
-  AutoSocSiemConstruct,
-  type AutoSocSiemConstructProps,
-} from './autosoc-siem-stack.js';
+  AutoSiemStack,
+  type AutoSiemStackProps,
+} from './autosiem-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
-function synthSiem(
-  overrides: Partial<AutoSocSiemConstructProps> = {},
-): Template {
+function synthSiem(overrides: Partial<AutoSiemStackProps> = {}): Template {
   const app = new ExtendedApp({
     account: TEST_ENV.account,
     region: TEST_ENV.region,
   });
-  const stack = new Stack(app, 'TestStack', {env: TEST_ENV});
-  new AutoSocSiemConstruct(stack, 'Siem', {
+  const stack = new AutoSiemStack(app, 'AutoSiem', {
+    env: TEST_ENV,
     snsEmail: 'ops@example.com',
     ...overrides,
   });
   return Template.fromStack(stack);
 }
 
-describe('AutoSocSiemConstruct', () => {
+describe('AutoSiemStack', () => {
   test('snsEmail is optional; omitting it disables SNS alerting (matches upstream default)', () => {
     // The upstream aes-siem template's own SnsEmail parameter is optional
     // (default ''), gated by a HasSnsEmail condition that only creates the
@@ -36,8 +33,7 @@ describe('AutoSocSiemConstruct', () => {
       account: TEST_ENV.account,
       region: TEST_ENV.region,
     });
-    const stack = new Stack(app, 'TestStack', {env: TEST_ENV});
-    new AutoSocSiemConstruct(stack, 'Siem', {});
+    const stack = new AutoSiemStack(app, 'AutoSiem', {env: TEST_ENV});
     const template = Template.fromStack(stack);
     template.hasResourceProperties('AWS::CloudFormation::Stack', {
       Parameters: Match.objectLike({SnsEmail: ''}),
@@ -67,13 +63,13 @@ describe('AutoSocSiemConstruct', () => {
     const template = synthSiem({
       allowedSourceIpAddresses: '203.0.113.0/24',
       deploymentTarget: 'opensearch_serverless',
-      domainOrCollectionName: 'autosoc-siem',
+      domainOrCollectionName: 'autosiem',
       esLoaderReservedConcurrency: 25,
     });
     template.hasResourceProperties('AWS::CloudFormation::Stack', {
       Parameters: Match.objectLike({
         DeploymentTarget: 'opensearch_serverless',
-        DomainOrCollectionName: 'autosoc-siem',
+        DomainOrCollectionName: 'autosiem',
         AllowedSourceIpAddresses: '203.0.113.0/24',
         ReservedConcurrency: '25',
       }),
@@ -85,8 +81,8 @@ describe('AutoSocSiemConstruct', () => {
       account: TEST_ENV.account,
       region: TEST_ENV.region,
     });
-    const stack = new Stack(app, 'TestStack', {env: TEST_ENV});
-    new AutoSocSiemConstruct(stack, 'Siem', {
+    const stack = new AutoSiemStack(app, 'AutoSiem', {
+      env: TEST_ENV,
       snsEmail: 'ops@example.com',
       templateSource: AesSiemTemplateSource.UPSTREAM,
     });
@@ -191,19 +187,21 @@ describe('AutoSocSiemConstruct', () => {
   test('passes secret values through NoEcho parent parameters', () => {
     const template = synthSiem();
     const json = template.toJSON();
-    // Parameter logical ids are prefixed by the `Siem` construct id (CDK's
-    // standard uniqueness-hashing scheme) now that AutoSocSiemConstruct is
-    // nested one level deeper than when it was its own top-level Stack, so
-    // match by content rather than a fixed logical id.
-    const paramEntries = Object.entries(
-      json.Parameters as Record<string, unknown>,
-    );
-    const geoLite2 = paramEntries.find(([k]) =>
-      k.startsWith('SiemGeoLite2LicenseKey'),
-    )?.[1];
-    const otx = paramEntries.find(([k]) => k.startsWith('SiemOtxApiKey'))?.[1];
-    expect(geoLite2).toMatchObject({Type: 'String', Default: '', NoEcho: true});
-    expect(otx).toMatchObject({Type: 'String', Default: '', NoEcho: true});
+    // AutoSiemStack declares GeoLite2LicenseKey/OtxApiKey directly as its
+    // own top-level parameters (unlike the earlier nested-construct
+    // layout, there is no enclosing construct id to prefix these logical
+    // ids), so they should synth with exactly these names.
+    const params = json.Parameters as Record<string, unknown>;
+    expect(params.GeoLite2LicenseKey).toMatchObject({
+      Type: 'String',
+      Default: '',
+      NoEcho: true,
+    });
+    expect(params.OtxApiKey).toMatchObject({
+      Type: 'String',
+      Default: '',
+      NoEcho: true,
+    });
 
     const [nested] = Object.values(
       template.findResources('AWS::CloudFormation::Stack'),
@@ -212,10 +210,8 @@ describe('AutoSocSiemConstruct', () => {
       string,
       {Ref: string}
     >;
-    expect(nestedParams.GeoLite2LicenseKey.Ref).toMatch(
-      /^SiemGeoLite2LicenseKey/,
-    );
-    expect(nestedParams.OtxApiKey.Ref).toMatch(/^SiemOtxApiKey/);
+    expect(nestedParams.GeoLite2LicenseKey.Ref).toBe('GeoLite2LicenseKey');
+    expect(nestedParams.OtxApiKey.Ref).toBe('OtxApiKey');
   });
 
   test('threads Security Lake subscriber ARNs into aes-siem parameters', () => {
@@ -244,18 +240,14 @@ describe('AutoSocSiemConstruct', () => {
   });
 
   test('uses the live upstream template by default', () => {
-    // A plain `cdk deploy AutoSoc` with no `siemTemplateSource` flag must
+    // A plain `cdk deploy AutoSiem` with no `siemTemplateSource` flag must
     // pull AWS's current published template, not the checked-in vendored
     // copy. Customizing/pinning the template is opt-in via
     // `-c siemTemplateSource=vendored`.
     const template = synthSiem();
     const json = JSON.stringify(template.toJSON());
-    // AesSiemVersion/AesSiemTemplateSource are written onto the parent
-    // Stack's template Metadata by AutoSocSiemConstruct. The `URL`/`Name`/
-    // `Version` automation-tag metadata keys asserted in
-    // autosoc-stack.test.ts come from AutoSocStack itself, not this
-    // construct, so they aren't present when the construct is exercised
-    // standalone under a bare test Stack (as done here).
+    // AesSiemVersion/AesSiemTemplateSource are written onto this stack's
+    // own template Metadata by AutoSiemStack's constructor.
     expect(template.toJSON().Metadata).toMatchObject({
       AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
       AesSiemTemplateSource: AesSiemTemplateSource.UPSTREAM,

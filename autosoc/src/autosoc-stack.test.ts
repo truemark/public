@@ -1,14 +1,11 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {beforeEach, describe, expect, test} from 'vitest';
-import {type AutoSocSiemProps, AutoSocStack} from './autosoc-stack.js';
+import {AutoSocStack} from './autosoc-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
-function synth(
-  context: Record<string, unknown> = {},
-  siem?: AutoSocSiemProps,
-): Template {
+function synth(context: Record<string, unknown> = {}): Template {
   const app = new ExtendedApp({
     account: TEST_ENV.account,
     region: TEST_ENV.region,
@@ -20,7 +17,7 @@ function synth(
       },
     },
   });
-  const stack = new AutoSocStack(app, 'AutoSoc', {env: TEST_ENV, siem});
+  const stack = new AutoSocStack(app, 'AutoSoc', {env: TEST_ENV});
   return Template.fromStack(stack);
 }
 
@@ -132,7 +129,7 @@ describe('AutoSocStack', () => {
     withSub.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
     withSub.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 1);
     withSub.hasResourceProperties('AWS::SecurityLake::Subscriber', {
-      SubscriberName: 'autosoc-siem',
+      SubscriberName: 'autosiem',
       AccessTypes: ['S3'],
       SubscriberIdentity: {
         ExternalId: 'supersecretexternalid',
@@ -142,10 +139,10 @@ describe('AutoSocStack', () => {
     withSub.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
       NotificationConfiguration: {SqsNotificationConfiguration: {}},
     });
-    // Subscriber role / external-id / queue ARN are still exported as
-    // CfnOutputs for operator visibility, even though AutoSocSiemConstruct
-    // (when `props.siem` is supplied) now consumes them as direct
-    // construct references rather than via these exports.
+    // Subscriber role / external-id / queue ARN are exported as CfnOutputs
+    // for the operator to copy into the separate `autosiem` package's
+    // deploy (there is no CloudFormation cross-stack link between the two
+    // independent apps/stacks).
     const outputs = withSub.toJSON().Outputs ?? {};
     const exportNames = Object.values(outputs).map(
       (o) => (o as {Export?: {Name: string}}).Export?.Name,
@@ -168,75 +165,7 @@ describe('AutoSocStack', () => {
     ).toThrow(/must be alphanumeric only/);
   });
 
-  test('does not nest the aes-siem template when `siem` prop is omitted', () => {
+  test('does not create any nested CloudFormation stacks (SIEM lives in the separate autosiem package)', () => {
     template.resourceCountIs('AWS::CloudFormation::Stack', 0);
-  });
-
-  test('nests the aes-siem template in the same stack when `siem` prop is supplied', () => {
-    const withSiem = synth(undefined, {snsEmail: 'ops@example.com'});
-    withSiem.resourceCountIs('AWS::SecurityLake::DataLake', 1);
-    withSiem.resourceCountIs('AWS::CloudFormation::Stack', 1);
-    withSiem.hasResourceProperties('AWS::CloudFormation::Stack', {
-      Parameters: Match.objectLike({
-        SnsEmail: 'ops@example.com',
-        // No subscriber was created (no siemSubscriberAccountId /
-        // siemSubscriberExternalId context), so these are blank.
-        SecurityLakeRoleArn: '',
-        SecurityLakeExternalId: '',
-        SecurityLakeSubscriberSqs: '',
-      }),
-    });
-  });
-
-  test('wires the Security Lake subscriber directly into the nested SIEM template as construct references, not stack exports', () => {
-    const withBoth = synth(
-      {
-        siemSubscriberAccountId: '222222222222',
-        siemSubscriberExternalId: 'supersecretexternalid',
-      },
-      {snsEmail: 'ops@example.com'},
-    );
-    withBoth.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
-    withBoth.hasResourceProperties('AWS::CloudFormation::Stack', {
-      Parameters: Match.objectLike({
-        SecurityLakeExternalId: 'supersecretexternalid',
-        SecurityLakeRoleArn: Match.anyValue(),
-        SecurityLakeSubscriberSqs: Match.anyValue(),
-      }),
-    });
-    // Being in the same stack, the role ARN threaded through is a direct
-    // `Fn::GetAtt` on the in-stack subscriber resource, not an
-    // `Fn::ImportValue` cross-stack reference.
-    const json = JSON.stringify(withBoth.toJSON());
-    expect(json).not.toContain('Fn::ImportValue');
-  });
-
-  test('nested SIEM stack waits for the Security Lake subscriber queue-visibility-timeout patch', () => {
-    // The subscriber's SQS queue-visibility-timeout patch is an
-    // AwsCustomResource applied by StandardSecurityLake after the
-    // subscriber/notification resources. Threading only the subscriber's
-    // role/external-id/queue ARNs into the nested SIEM parameters (via
-    // Fn::GetAtt / direct value) makes CloudFormation wait for those
-    // specific resources, but NOT for the separate patch custom resource,
-    // which could otherwise still be in flight when the nested stack
-    // creates its es-loader event-source-mapping. `AutoSocStack` must add
-    // an explicit `this.siem.node.addDependency(this.securityLake)` so the
-    // whole nested stack construct-level DependsOn includes every
-    // resource under `SecurityLake`, including the patch.
-    const withBoth = synth(
-      {
-        siemSubscriberAccountId: '222222222222',
-        siemSubscriberExternalId: 'supersecretexternalid',
-      },
-      {snsEmail: 'ops@example.com'},
-    );
-    const [nested] = Object.values(
-      withBoth.findResources('AWS::CloudFormation::Stack'),
-    );
-    const dependsOn = (nested.DependsOn ?? []) as string[];
-    const patchDep = dependsOn.find((id) =>
-      id.includes('SubscriberQueueVisibilityPatch'),
-    );
-    expect(patchDep).toBeDefined();
   });
 });

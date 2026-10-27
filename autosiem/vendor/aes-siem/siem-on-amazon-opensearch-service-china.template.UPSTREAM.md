@@ -14,6 +14,6 @@
 **Do not edit `siem-on-amazon-opensearch-service-china.template` by hand without recording the diff here** so
 future refreshes can be reconciled against upstream.
 
-To refresh, run `pnpm run vendor:aes-siem` from `autosoc/`; it fetches
+To refresh, run `pnpm run vendor:aes-siem` from `autosiem/`; it fetches
 the exact tag recorded above. Previous copies are kept beside the template
 with a `.previous` suffix for diffing.

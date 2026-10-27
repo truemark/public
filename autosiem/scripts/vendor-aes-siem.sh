@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Download the pinned upstream aes-siem CloudFormation template into
-# autosoc/vendor/aes-siem/ so AutoSocSiemStack can package it as a CDK
+# autosiem/vendor/aes-siem/ so AutoSiemStack can package it as a CDK
 # S3 asset instead of referencing a floating upstream URL.
 #
 # Once vendored, you can edit the template and deploy with
@@ -8,12 +8,12 @@
 # this script and diff.
 #
 # Pin is sourced from AES_SIEM_TEMPLATE_VERSION in
-# autosoc/src/autosoc-siem-stack.ts.
+# autosiem/src/autosiem-stack.ts.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AUTOSOC_ROOT="$(cd "${HERE}/.." && pwd)"
-VENDOR_DIR="${AUTOSOC_ROOT}/vendor/aes-siem"
+AUTOSIEM_ROOT="$(cd "${HERE}/.." && pwd)"
+VENDOR_DIR="${AUTOSIEM_ROOT}/vendor/aes-siem"
 TEMPLATE_FILE_NAME="${AES_SIEM_TEMPLATE_FILE_NAME:-siem-on-amazon-opensearch-service.template}"
 case "${TEMPLATE_FILE_NAME}" in
   siem-on-amazon-opensearch-service.template|siem-on-amazon-opensearch-service-china.template|siem-on-amazon-opensearch-service-usgov.template)
@@ -28,11 +28,11 @@ METADATA="${TARGET}.UPSTREAM.md"
 # Extract the version pinned in TypeScript source so this script never
 # drifts from the AES_SIEM_TEMPLATE_VERSION constant.
 EXPECTED_VERSION="$(grep -E "AES_SIEM_TEMPLATE_VERSION = '[0-9.]+'" \
-  "${AUTOSOC_ROOT}/src/autosoc-siem-stack.ts" \
+  "${AUTOSIEM_ROOT}/src/autosiem-stack.ts" \
   | sed -E "s/.*AES_SIEM_TEMPLATE_VERSION = '([0-9.]+)'.*/\1/" \
   | head -1)"
 if [[ -z "${EXPECTED_VERSION}" ]]; then
-  echo "error: could not locate AES_SIEM_TEMPLATE_VERSION in autosoc-siem-stack.ts" >&2
+  echo "error: could not locate AES_SIEM_TEMPLATE_VERSION in autosiem-stack.ts" >&2
   exit 1
 fi
 
@@ -63,10 +63,10 @@ echo "Downloaded: ${TEMPLATE_VERSION#Description: }"
 if ! echo "${TEMPLATE_VERSION}" | grep -q "v${EXPECTED_VERSION}"; then
   echo "" >&2
   echo "error: downloaded template header does not contain pinned version v${EXPECTED_VERSION}" >&2
-  echo "  expected: v${EXPECTED_VERSION} (from AES_SIEM_TEMPLATE_VERSION in autosoc-siem-stack.ts)" >&2
+  echo "  expected: v${EXPECTED_VERSION} (from AES_SIEM_TEMPLATE_VERSION in autosiem-stack.ts)" >&2
   echo "  got:      ${TEMPLATE_VERSION#Description: }" >&2
   echo "" >&2
-  echo "Bump AES_SIEM_TEMPLATE_VERSION in autosoc/src/autosoc-siem-stack.ts" >&2
+  echo "Bump AES_SIEM_TEMPLATE_VERSION in autosiem/src/autosiem-stack.ts" >&2
   echo "to a release tag that contains this template, then re-run the script." >&2
   rm -f "${TARGET}"
   [[ -f "${TARGET}.previous" ]] && mv "${TARGET}.previous" "${TARGET}"
@@ -199,7 +199,7 @@ done
   echo "**Do not edit \`${TEMPLATE_FILE_NAME}\` by hand without recording the diff here** so"
   echo "future refreshes can be reconciled against upstream."
   echo ""
-  echo "To refresh, run \`pnpm run vendor:aes-siem\` from \`autosoc/\`; it fetches"
+  echo "To refresh, run \`pnpm run vendor:aes-siem\` from \`autosiem/\`; it fetches"
   echo "the exact tag recorded above. Previous copies are kept beside the template"
   echo "with a \`.previous\` suffix for diffing."
 } > "${METADATA}"
