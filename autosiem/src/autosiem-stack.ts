@@ -39,7 +39,7 @@ export enum AesSiemTemplateSource {
   /**
    * Reference the upstream public S3 template URL. This URL tracks the
    * latest upstream version and is not reproducible. This is the default
-   * source — a plain `cdk deploy AutoSoc` with no `siemTemplateSource`
+   * source — a plain `cdk deploy AutoSocSiem` with no `siemTemplateSource`
    * flag always pulls the current AWS-published template.
    *
    * **Important:** the upstream public URL
@@ -74,13 +74,13 @@ export enum AesSiemTemplateSource {
 }
 
 /**
- * Properties for AutoSiemStack.
+ * Properties for AutoSocSiemStack.
  *
  * The upstream aes-siem template exposes ~22 CloudFormation parameters;
  * every one that is realistic to tweak from CDK is surfaced here. Unset
  * props fall through to the upstream template defaults.
  */
-export interface AutoSiemStackProps extends ExtendedStackProps {
+export interface AutoSocSiemStackProps extends ExtendedStackProps {
   /**
    * Email address that will receive SNS alerts raised by OpenSearch /
    * aes-siem. Optional, matching the upstream template's own `SnsEmail`
@@ -274,14 +274,14 @@ export interface AutoSiemStackProps extends ExtendedStackProps {
 }
 
 /**
- * AutoSiem stack. Nests the upstream aes-siem CloudFormation template
+ * AutoSocSiem stack. Nests the upstream aes-siem CloudFormation template
  * (MIT-0, aws-samples/siem-on-amazon-opensearch-service) as a child
- * `AWS::CloudFormation::Stack`, so AutoSiem users get OpenSearch,
+ * `AWS::CloudFormation::Stack`, so AutoSocSiem users get OpenSearch,
  * dashboards, es-loader, GeoIP enrichment, and the supporting
  * KMS/SQS/EventBridge/SNS infrastructure without rewriting any of the
  * Python Lambda source.
  *
- * `AutoSiemStack` is deployed as its own independent top-level CDK stack
+ * `AutoSocSiemStack` is deployed as its own independent top-level CDK stack
  * (and typically its own AWS account — e.g. a security-audit account) so
  * it can be versioned, deployed, and rolled back independently of the
  * `autosoc` Security Lake stack. When the Security Lake subscriber props
@@ -300,7 +300,7 @@ export interface AutoSiemStackProps extends ExtendedStackProps {
  *
  * @see https://github.com/aws-samples/siem-on-amazon-opensearch-service
  */
-export class AutoSiemStack extends ExtendedStack {
+export class AutoSocSiemStack extends ExtendedStack {
   /** The nested CloudFormation stack running the aes-siem template. */
   readonly siemNestedStack: CfnStack;
 
@@ -309,7 +309,11 @@ export class AutoSiemStack extends ExtendedStack {
 
   private readonly templateFileNameOverride?: string;
 
-  constructor(scope: Construct, id: string, props: AutoSiemStackProps = {}) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: AutoSocSiemStackProps = {},
+  ) {
     super(scope, id, props);
     validateSecurityLakeExternalId(props.securityLakeSubscriberExternalId);
     this.templateFileNameOverride = props.upstreamTemplateFileName;
@@ -319,8 +323,8 @@ export class AutoSiemStack extends ExtendedStack {
     this.addMetadata('AesSiemTemplateSource', this.templateSource);
     if (this.templateSource === AesSiemTemplateSource.UPSTREAM) {
       Annotations.of(this).addWarningV2(
-        'AutoSiem:UpstreamTemplateNotPinned',
-        `AutoSiemStack is pointing at the aes-siem upstream public ` +
+        'AutoSocSiem:UpstreamTemplateNotPinned',
+        `AutoSocSiemStack is pointing at the aes-siem upstream public ` +
           `template URL (the default), which is a latest-tracking alias ` +
           `and NOT pinned to AES_SIEM_TEMPLATE_VERSION ` +
           `(${AES_SIEM_TEMPLATE_VERSION}). A fresh deployment may pull a ` +
@@ -340,7 +344,7 @@ export class AutoSiemStack extends ExtendedStack {
       // The VENDORED template source patches `NoEcho: true` onto both
       // parameters — see `scripts/vendor-aes-siem.sh`.
       Annotations.of(this).addWarningV2(
-        'AutoSiem:UpstreamTemplateSecretNotNoEcho',
+        'AutoSocSiem:UpstreamTemplateSecretNotNoEcho',
         `templateSource=UPSTREAM (the default): the raw upstream aes-siem ` +
           `template does NOT mark its GeoLite2LicenseKey / OtxApiKey ` +
           `parameters NoEcho. If you fill in either value at deploy time, ` +
@@ -374,7 +378,7 @@ export class AutoSiemStack extends ExtendedStack {
   }
 
   /**
-   * Resolve the template URL based on {@link AutoSiemStackProps.templateSource}.
+   * Resolve the template URL based on {@link AutoSocSiemStackProps.templateSource}.
    * For `UPSTREAM`, builds a per-Region public bucket URL via Fn::Sub. For
    * `VENDORED`, packages the on-disk template as a CDK S3 asset.
    */
@@ -427,7 +431,7 @@ export class AutoSiemStack extends ExtendedStack {
     );
     if (!fs.existsSync(vendored)) {
       throw new Error(
-        `AutoSiemStack: templateSource is VENDORED but ${vendored} ` +
+        `AutoSocSiemStack: templateSource is VENDORED but ${vendored} ` +
           'does not exist. Run `pnpm run vendor:aes-siem` with ' +
           '`AES_SIEM_TEMPLATE_FILE_NAME` set to this file.',
       );
@@ -456,7 +460,7 @@ export class AutoSiemStack extends ExtendedStack {
  * `CfnStack.parameters` only accepts `{[k: string]: string}`.
  */
 function buildAesSiemParameters(
-  props: AutoSiemStackProps,
+  props: AutoSocSiemStackProps,
   secrets: {geoLite2LicenseKey: string; otxApiKey: string},
 ): Record<string, string> {
   const bool = (v: boolean | undefined, def: boolean) =>

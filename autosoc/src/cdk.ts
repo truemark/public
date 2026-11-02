@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
-import {AutoSocStack} from './autosoc-stack.js';
+import {AutoSocSecurityLakeStack} from './autosoc-stack.js';
 
 const app = new ExtendedApp({
   standardTags: {
@@ -11,4 +11,4 @@ const app = new ExtendedApp({
   },
 });
 
-new AutoSocStack(app, 'AutoSoc');
+new AutoSocSecurityLakeStack(app, 'AutoSocSecurityLake');

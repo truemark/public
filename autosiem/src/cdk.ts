@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
-import {AesSiemTemplateSource, AutoSiemStack} from './autosiem-stack.js';
+import {AesSiemTemplateSource, AutoSocSiemStack} from './autosiem-stack.js';
 
 function ctxBool(app: ExtendedApp, key: string): boolean | undefined {
   const raw = app.node.tryGetContext(key);
@@ -53,7 +53,7 @@ if (
   siemTemplateSource !== AesSiemTemplateSource.VENDORED
 ) {
   throw new Error(
-    `AutoSiem: unknown siemTemplateSource "${siemTemplateSource}". ` +
+    `AutoSocSiem: unknown siemTemplateSource "${siemTemplateSource}". ` +
       `Expected "${AesSiemTemplateSource.UPSTREAM}" or "${AesSiemTemplateSource.VENDORED}".`,
   );
 }
@@ -64,7 +64,7 @@ if (
   siemDeploymentTarget !== 'opensearch_serverless'
 ) {
   throw new Error(
-    `AutoSiem: unknown siemDeploymentTarget "${siemDeploymentTarget}". ` +
+    `AutoSocSiem: unknown siemDeploymentTarget "${siemDeploymentTarget}". ` +
       'Expected "opensearch_managed_cluster" or "opensearch_serverless".',
   );
 }
@@ -75,12 +75,12 @@ if (
   siemLogBucketPolicyUpdate !== 'keep'
 ) {
   throw new Error(
-    `AutoSiem: unknown siemLogBucketPolicyUpdate "${siemLogBucketPolicyUpdate}". ` +
+    `AutoSocSiem: unknown siemLogBucketPolicyUpdate "${siemLogBucketPolicyUpdate}". ` +
       'Expected "update_and_override" or "keep".',
   );
 }
 
-new AutoSiemStack(app, 'AutoSiem', {
+new AutoSocSiemStack(app, 'AutoSocSiem', {
   snsEmail: siemEmail,
   templateSource: siemTemplateSource as AesSiemTemplateSource | undefined,
   upstreamTemplateFileName: ctxString(app, 'siemUpstreamTemplateFileName'),
@@ -106,7 +106,7 @@ new AutoSiemStack(app, 'AutoSiem', {
     | undefined,
 
   // Secret enrichment values are supplied through NoEcho CloudFormation
-  // parameters declared by AutoSiemStack, never through CDK context.
+  // parameters declared by AutoSocSiemStack, never through CDK context.
   enableTor: ctxBool(app, 'siemEnableTor'),
   enableAbuseCh: ctxBool(app, 'siemEnableAbuseCh'),
   iocDownloadIntervalMinutes: ctxNumber(app, 'siemIocDownloadIntervalMinutes'),

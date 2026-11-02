@@ -19,7 +19,7 @@ the hand-off works.
 
 ## Deploying standalone (no Security Lake ingestion)
 
-`AutoSiem` is a single top-level CDK stack that nests the upstream
+`AutoSocSiem` is a single top-level CDK stack that nests the upstream
 aes-siem template as a `AWS::CloudFormation::Stack` child resource. It
 deploys an OpenSearch managed cluster (or Serverless), es-loader Lambda,
 dashboards, SNS alerting (if `siemEmail` is set — see below), GeoIP
@@ -28,7 +28,7 @@ documented in the upstream project — all on its own, with no dependency
 on Security Lake or `autosoc` at all:
 
 ```
-cdk deploy AutoSiem -c siemEmail=soc@example.com
+cdk deploy AutoSocSiem -c siemEmail=soc@example.com
 ```
 
 ## Wiring up the Security Lake subscriber
@@ -40,7 +40,7 @@ account:
 
 ```
 # In the autosoc package, deployed in the log-archive account
-cdk deploy AutoSoc \
+cdk deploy AutoSocSecurityLake \
   -c siemSubscriberAccountId=$(aws sts get-caller-identity --query Account --output text) \
   -c siemSubscriberExternalId=$(openssl rand -hex 16)
 ```
@@ -50,11 +50,11 @@ you'll deploy `autosiem` into — it needs to resolve to the account that
 will assume the subscriber role, not the log-archive account running the
 command.)
 
-Once `AutoSoc` reaches `CREATE_COMPLETE`/`UPDATE_COMPLETE`, read its three
+Once `AutoSocSecurityLake` reaches `CREATE_COMPLETE`/`UPDATE_COMPLETE`, read its three
 `CfnOutput`s:
 
 ```bash
-aws cloudformation describe-stacks --stack-name AutoSoc --region "$REGION" \
+aws cloudformation describe-stacks --stack-name AutoSocSecurityLake --region "$REGION" \
   --query 'Stacks[0].Outputs[?OutputKey==`SecurityLakeSubscriberRoleArn` || OutputKey==`SecurityLakeSubscriberExternalId` || OutputKey==`SecurityLakeSubscriberNotificationQueueArn`]'
 ```
 
@@ -63,14 +63,14 @@ security-audit account) as context flags:
 
 ```
 # In the autosiem package, deployed in the security-audit account
-cdk deploy AutoSiem \
+cdk deploy AutoSocSiem \
   -c siemEmail=soc@example.com \
   -c siemSecurityLakeSubscriberRoleArn=arn:aws:iam::<log-archive-acct>:role/AmazonSecurityLake-... \
   -c siemSecurityLakeSubscriberExternalId=<the same external id used above> \
   -c siemSecurityLakeSubscriberSqsArn=arn:aws:sqs:<region>:<log-archive-acct>:AmazonSecurityLake-...-Main-Queue
 ```
 
-`AutoSiemStack` threads these three values into the nested aes-siem
+`AutoSocSiemStack` threads these three values into the nested aes-siem
 template's `SecurityLakeRoleArn` / `SecurityLakeExternalId` /
 `SecurityLakeSubscriberSqs` parameters, so es-loader starts polling the
 subscriber queue on first deploy. The subscriber role in the log-archive
@@ -84,7 +84,8 @@ this automatically based on the `principal` you passed to `autosoc`).
 > 600 s es-loader Lambda timeout. Without a patch, aes-siem's
 > event-source-mapping creation is rejected and the deploy fails on
 > first run. `autosoc`'s `StandardSecurityLake` construct fixes this
-> automatically: `AutoSocStack` passes `sqsVisibilityTimeoutSeconds: 3600`
+> automatically: `AutoSocSecurityLakeStack` passes
+> `sqsVisibilityTimeoutSeconds: 3600`
 > on the subscriber, so the construct emits an `AwsCustomResource` that
 > calls `sqs:SetQueueAttributes` to raise the timeout to 3600 s as part
 > of the `autosoc` deploy, before you ever copy the queue ARN into
@@ -97,20 +98,24 @@ This package has gone through two prior architectures:
 
 1. **Original:** SIEM deployed as a separate, sibling top-level
    `AutoSocSiemStack` alongside `AutoSocStack`, wired together via
-   CloudFormation cross-stack exports/`Fn::ImportValue`.
+   CloudFormation cross-stack exports/`Fn::ImportValue`. (This design and
+   its stack are long gone — the class name is coincidentally identical to
+   today's `AutoSocSiemStack` below after the `AutoSiem` → `AutoSocSiem`
+   rename; the two are otherwise unrelated.)
 2. **Interim:** SIEM nested *inside* the single `AutoSoc` stack as a CDK
    construct (`AutoSocSiemConstruct`), to fix a Security Lake
    queue-visibility-timeout race that cross-stack exports couldn't solve
    reliably.
-3. **Current:** SIEM lives in this separate `autosiem` package/stack,
-   typically in its own AWS account, wired to `autosoc`'s Security Lake
-   subscriber via manually-copied `CfnOutput` values (see above) rather
-   than CDK construct references or CloudFormation exports.
+3. **Current:** SIEM lives in this separate `autosiem` package, deployed
+   as the standalone `AutoSocSiem` stack, typically in its own AWS
+   account, wired to `autosoc`'s Security Lake subscriber via
+   manually-copied `CfnOutput` values (see above) rather than CDK
+   construct references or CloudFormation exports.
 
 Switching between any of these layouts is a **new top-level stack name**
-as far as CloudFormation is concerned (`AutoSocSiemStack` → nested `Siem`
-construct inside `AutoSoc` → standalone `AutoSiem`), so none of these
-migrations are automatic:
+as far as CloudFormation is concerned (the original sibling
+`AutoSocSiemStack` → nested `Siem` construct inside `AutoSoc` →
+standalone `AutoSocSiem`), so none of these migrations are automatic:
 
 1. The upstream aes-siem template hard-codes ~22 physical resource names
    (e.g. `aes-siem-resource-validator`, `aes-siem-es-loader` — see
@@ -123,7 +128,7 @@ migrations are automatic:
    it first (`cdk destroy AutoSocSiemStack`, or remove the nested `Siem`
    construct from `AutoSoc` and redeploy) — this deletes the OpenSearch
    domain/data, so back it up or snapshot it first if you need to
-   preserve it — and then deploy the new `AutoSiem` stack.
+   preserve it — and then deploy the new `AutoSocSiem` stack.
 3. There is no automated data-migration path between layouts; OpenSearch
    indices, dashboards, and IOC state are not carried over automatically.
 
@@ -138,7 +143,7 @@ as a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemSecurityLakeSubscriberRoleArn` | *(empty — no Security Lake ingestion)* | IAM role ARN from `autosoc`'s `SecurityLakeSubscriberRoleArn` CfnOutput. |
 | `siemSecurityLakeSubscriberExternalId` | *(empty)* | External id from `autosoc`'s `SecurityLakeSubscriberExternalId` CfnOutput. |
 | `siemSecurityLakeSubscriberSqsArn` | *(empty)* | SQS queue ARN from `autosoc`'s `SecurityLakeSubscriberNotificationQueueArn` CfnOutput. |
-| `siemTemplateSource` | `upstream` | `upstream` (default) pulls AWS's live, mutable latest-template URL — a plain `cdk deploy AutoSiem` always uses the current AWS-published template with no local file needed. Pass `vendored` to package the checked-in, pinned v2.10.6 template as a CDK S3 asset instead — this is how you customize the template or get reproducible deploys. |
+| `siemTemplateSource` | `upstream` | `upstream` (default) pulls AWS's live, mutable latest-template URL — a plain `cdk deploy AutoSocSiem` always uses the current AWS-published template with no local file needed. Pass `vendored` to package the checked-in, pinned v2.10.6 template as a CDK S3 asset instead — this is how you customize the template or get reproducible deploys. |
 | `siemUpstreamTemplateFileName` | partition-specific | Optional filename override in either source mode. Commercial and China templates are selected automatically. For GovCloud, run `AES_SIEM_TEMPLATE_FILE_NAME=siem-on-amazon-opensearch-service-usgov.template pnpm run vendor:aes-siem` and set this flag to the same filename. |
 | `siemDeploymentTarget` | `opensearch_managed_cluster` | Set to `opensearch_serverless` for the (experimental) Serverless path. |
 | `siemDomainOrCollectionName` | `aes-siem` | OpenSearch domain or Serverless collection name. |
@@ -156,15 +161,15 @@ as a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemCreateSqsVpcEndpoint` / `siemCreateSsmVpcEndpoint` / `siemCreateStsVpcEndpoint` / `siemCreateS3VpcEndpoint` | `true` | When `siemVpcEndpointId` is set, create new VPC endpoints for the named service. Set `false` if the VPC already has one. |
 
 The optional GeoLite2 license key and OTX API key are **not** CDK context
-flags. `AutoSiemStack` declares them directly as its own top-level
+flags. `AutoSocSiemStack` declares them directly as its own top-level
 `NoEcho` CloudFormation parameters named `GeoLite2LicenseKey` and
 `OtxApiKey` (unlike the earlier nested-construct layout, there is no
 enclosing construct id to prefix these logical ids with); provide them
 through your deployment system's protected parameter input, e.g.:
 
 ```bash
-aws cloudformation deploy --stack-name AutoSiem \
-  --template-file cdk.out/AutoSiem.template.json \
+aws cloudformation deploy --stack-name AutoSocSiem \
+  --template-file cdk.out/AutoSocSiem.template.json \
   --parameter-overrides GeoLite2LicenseKey="$GEOLITE2_KEY" OtxApiKey="$OTX_KEY" \
   --capabilities CAPABILITY_IAM
 ```
@@ -177,16 +182,16 @@ may be retained in shell history.
 ## Customizing the SIEM template itself
 
 By default (`AesSiemTemplateSource.UPSTREAM`, the default when
-`siemTemplateSource` is unset) `AutoSiemStack` points the nested
+`siemTemplateSource` is unset) `AutoSocSiemStack` points the nested
 stack directly at AWS's live, mutable `aes-siem-<region>.s3.amazonaws.com`
-template URL — a plain `cdk deploy AutoSiem` always deploys whatever AWS
+template URL — a plain `cdk deploy AutoSocSiem` always deploys whatever AWS
 currently publishes, with no local file involved and nothing to vendor
 ahead of time. Note this also means a later redeploy can pick up a newer
 upstream release even if nothing in this repo changed, and that the raw
 upstream template does **not** mark `GeoLite2LicenseKey`/`OtxApiKey`
 `NoEcho`, so either value is visible via `DescribeStacks`/console on the
 nested stack if you supply it at deploy time (see the warnings
-`AutoSiemStack` emits when this source is selected).
+`AutoSocSiemStack` emits when this source is selected).
 
 If you need to patch the template (add resources, tweak IAM, swap Lambda
 code, add a new log source, change a dashboard, etc.), or you want a
@@ -202,7 +207,7 @@ pnpm run vendor:aes-siem
 
 # Deploy using the vendored copy as a CDK S3 asset instead of the live
 # upstream URL
-cdk deploy AutoSiem -c siemTemplateSource=vendored
+cdk deploy AutoSocSiem -c siemTemplateSource=vendored
 ```
 
 The vendor script writes a per-template `.UPSTREAM.md` record with the
@@ -217,7 +222,7 @@ recommended path if you plan to actually set either value.
 
 Anything you *add alongside* the nested stack (new SNS targets, extra
 CloudWatch dashboards, Lambdas that watch an OpenSearch index, etc.) can
-go straight into `AutoSiemStack` (or `AutoSiemStack`, which it embeds)
+go straight into `AutoSocSiemStack` (or `AutoSocSiemStack`, which it embeds)
 as additional CDK constructs — no vendoring required.
 
 ## What gets deployed
@@ -248,14 +253,14 @@ cdk bootstrap \
 Deploy standalone:
 
 ```
-cdk deploy AutoSiem -c siemEmail=soc@example.com
+cdk deploy AutoSocSiem -c siemEmail=soc@example.com
 ```
 
 Or with Security Lake ingestion wired up (see above for how to obtain
 the three `siemSecurityLake*` values from an `autosoc` deploy):
 
 ```
-cdk deploy AutoSiem \
+cdk deploy AutoSocSiem \
   -c siemEmail=soc@example.com \
   -c siemSecurityLakeSubscriberRoleArn=... \
   -c siemSecurityLakeSubscriberExternalId=... \
@@ -271,7 +276,7 @@ end-to-end deployment; keep this section in mind on every new account.
 
 ### Recommended first-deploy order of operations
 
-If you're bringing up `AutoSiem` with Security Lake ingestion for the
+If you're bringing up `AutoSocSiem` with Security Lake ingestion for the
 first time in a fresh account pair, following this order avoids ~90% of
 the rework described below:
 
@@ -281,11 +286,11 @@ the rework described below:
    needed) and the subscriber context flags, in the log-archive account.
    The subscriber Main-Queue visibility timeout is patched automatically
    by the `AwsCustomResource` emitted by `StandardSecurityLake` (see §1)
-   as part of that deploy — confirm `AutoSoc` reaches
+   as part of that deploy — confirm `AutoSocSecurityLake` reaches
    `CREATE_COMPLETE`/`UPDATE_COMPLETE` before moving on.
-3. **Copy the three `SecurityLakeSubscriber*` CfnOutputs** from `AutoSoc`
+3. **Copy the three `SecurityLakeSubscriber*` CfnOutputs** from `AutoSocSecurityLake`
    into the `autosiem` deploy's `-c siemSecurityLake*` flags, then deploy
-   `AutoSiem` in the security-audit account.
+   `AutoSocSiem` in the security-audit account.
 4. On the one-and-only successful create, immediately grab the `aesadmin`
    password from CloudWatch logs (see §7) and store it in your password
    manager, then shorten log retention so the plaintext ages out.
@@ -301,7 +306,7 @@ the rework described below:
   (`AmazonSecurityLake-<uuid>-Main-Queue`) with the default 300s visibility
   timeout. aes-siem's es-loader has a 600s Lambda timeout. AWS requires
   visibility ≥ function timeout.
-- **Current status: fixed in `autosoc`.** `AutoSocStack` passes
+- **Current status: fixed in `autosoc`.** `AutoSocSecurityLakeStack` passes
   `sqsVisibilityTimeoutSeconds: 3600` on the subscriber, and
   `StandardSecurityLake` responds by emitting an `AwsCustomResource` that
   calls `sqs:SetQueueAttributes` on the Security-Lake-managed Main-Queue
@@ -309,7 +314,7 @@ the rework described below:
   `${AWS::URLSuffix}` so it works in `aws-cn` / GovCloud) and runs as
   part of the `autosoc` deploy, before you ever copy the queue ARN into
   `autosiem`. No manual `aws sqs set-queue-attributes` call is required
-  as long as you wait for `AutoSoc` to reach
+  as long as you wait for `AutoSocSecurityLake` to reach
   `CREATE_COMPLETE`/`UPDATE_COMPLETE` before deploying `autosiem`.
 - **Manual fallback** (only needed for one-off recovery scenarios where
   the subscriber is recreated out of band from CFN):
@@ -377,9 +382,9 @@ survive a stack rollback:
 - KMS CMK plus alias `alias/aes-siem-key` (the CMK goes into 7-day
   pending deletion, which blocks alias reuse)
 
-Since `AutoSiem` is `aes-siem`'s own nested stack's *parent* (aes-siem
-runs as a child `AWS::CloudFormation::Stack` of `AutoSiem` itself), a
-failed aes-siem create rolls `AutoSiem` back to
+Since `AutoSocSiem` is `aes-siem`'s own nested stack's *parent* (aes-siem
+runs as a child `AWS::CloudFormation::Stack` of `AutoSocSiem` itself), a
+failed aes-siem create rolls `AutoSocSiem` back to
 `UPDATE_ROLLBACK_COMPLETE` / `ROLLBACK_COMPLETE` rather than leaving a
 separate orphaned stub stack — there is no extra `delete-stack` step to
 run for the nested resource. The leaked S3 buckets and KMS alias/key are
@@ -387,20 +392,20 @@ unaffected by nesting (they're created by aes-siem's own custom
 resources, outside the CFN delete path either way) and still need manual
 cleanup before each retry.
 
-**If the failure was `AutoSiem`'s very first (create) deployment**,
+**If the failure was `AutoSocSiem`'s very first (create) deployment**,
 CloudFormation leaves the stack itself in `ROLLBACK_COMPLETE`, which —
 unlike `UPDATE_ROLLBACK_COMPLETE` on an existing stack — cannot be
 updated in place; CloudFormation rejects any `UpdateStack`/`cdk deploy`
 call against a stack in `ROLLBACK_COMPLETE`. You must delete the failed
-`AutoSiem` stack first, then redeploy:
+`AutoSocSiem` stack first, then redeploy:
 
 ```bash
-aws cloudformation delete-stack --stack-name AutoSiem --region "$REGION"
-aws cloudformation wait stack-delete-complete --stack-name AutoSiem --region "$REGION"
+aws cloudformation delete-stack --stack-name AutoSocSiem --region "$REGION"
+aws cloudformation wait stack-delete-complete --stack-name AutoSocSiem --region "$REGION"
 ```
 
 Only *after* that stack deletion (and the manual S3/KMS cleanup below)
-should you retry `pnpm cdk deploy AutoSiem`. If instead `AutoSiem` was
+should you retry `pnpm cdk deploy AutoSocSiem`. If instead `AutoSocSiem` was
 already successfully deployed and a later update fails, wait for
 `UPDATE_ROLLBACK_COMPLETE`, inspect and fix the failure, and redeploy without
 deleting the stack. Do not run the cleanup below on resources restored by rollback;
@@ -543,10 +548,10 @@ done
 - **Validation signals that actually prove it works** (run all of these,
   don't trust just `CREATE_COMPLETE`):
   ```bash
-  # Both outer (AutoSiem) and nested (aes-siem) stacks truly complete
-  aws cloudformation describe-stacks --stack-name AutoSiem \
+  # Both outer (AutoSocSiem) and nested (aes-siem) stacks truly complete
+  aws cloudformation describe-stacks --stack-name AutoSocSiem \
     --region "$AWS_REGION" --query 'Stacks[0].StackStatus'
-  aws cloudformation list-stack-resources --stack-name AutoSiem \
+  aws cloudformation list-stack-resources --stack-name AutoSocSiem \
     --region "$AWS_REGION" \
     --query 'StackResourceSummaries[?ResourceType==`AWS::CloudFormation::Stack`].[LogicalResourceId,ResourceStatus]' \
     --output table

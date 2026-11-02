@@ -1,7 +1,7 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {beforeEach, describe, expect, test} from 'vitest';
-import {AutoSocStack} from './autosoc-stack.js';
+import {AutoSocSecurityLakeStack} from './autosoc-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
@@ -17,11 +17,13 @@ function synth(context: Record<string, unknown> = {}): Template {
       },
     },
   });
-  const stack = new AutoSocStack(app, 'AutoSoc', {env: TEST_ENV});
+  const stack = new AutoSocSecurityLakeStack(app, 'AutoSocSecurityLake', {
+    env: TEST_ENV,
+  });
   return Template.fromStack(stack);
 }
 
-describe('AutoSocStack', () => {
+describe('AutoSocSecurityLakeStack', () => {
   let template: Template;
 
   beforeEach(() => {
@@ -149,9 +151,9 @@ describe('AutoSocStack', () => {
     );
     expect(exportNames).toEqual(
       expect.arrayContaining([
-        'AutoSoc-SecurityLakeSubscriberRoleArn',
-        'AutoSoc-SecurityLakeSubscriberExternalId',
-        'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
+        'AutoSocSecurityLake-SecurityLakeSubscriberRoleArn',
+        'AutoSocSecurityLake-SecurityLakeSubscriberExternalId',
+        'AutoSocSecurityLake-SecurityLakeSubscriberNotificationQueueArn',
       ]),
     );
   });

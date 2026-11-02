@@ -4,18 +4,18 @@ import {describe, expect, test} from 'vitest';
 import {
   AES_SIEM_TEMPLATE_VERSION,
   AesSiemTemplateSource,
-  AutoSiemStack,
-  type AutoSiemStackProps,
+  AutoSocSiemStack,
+  type AutoSocSiemStackProps,
 } from './autosiem-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
-function synthSiem(overrides: Partial<AutoSiemStackProps> = {}): Template {
+function synthSiem(overrides: Partial<AutoSocSiemStackProps> = {}): Template {
   const app = new ExtendedApp({
     account: TEST_ENV.account,
     region: TEST_ENV.region,
   });
-  const stack = new AutoSiemStack(app, 'AutoSiem', {
+  const stack = new AutoSocSiemStack(app, 'AutoSocSiem', {
     env: TEST_ENV,
     snsEmail: 'ops@example.com',
     ...overrides,
@@ -23,7 +23,7 @@ function synthSiem(overrides: Partial<AutoSiemStackProps> = {}): Template {
   return Template.fromStack(stack);
 }
 
-describe('AutoSiemStack', () => {
+describe('AutoSocSiemStack', () => {
   test('snsEmail is optional; omitting it disables SNS alerting (matches upstream default)', () => {
     // The upstream aes-siem template's own SnsEmail parameter is optional
     // (default ''), gated by a HasSnsEmail condition that only creates the
@@ -33,7 +33,7 @@ describe('AutoSiemStack', () => {
       account: TEST_ENV.account,
       region: TEST_ENV.region,
     });
-    const stack = new AutoSiemStack(app, 'AutoSiem', {env: TEST_ENV});
+    const stack = new AutoSocSiemStack(app, 'AutoSocSiem', {env: TEST_ENV});
     const template = Template.fromStack(stack);
     template.hasResourceProperties('AWS::CloudFormation::Stack', {
       Parameters: Match.objectLike({SnsEmail: ''}),
@@ -81,7 +81,7 @@ describe('AutoSiemStack', () => {
       account: TEST_ENV.account,
       region: TEST_ENV.region,
     });
-    const stack = new AutoSiemStack(app, 'AutoSiem', {
+    const stack = new AutoSocSiemStack(app, 'AutoSocSiem', {
       env: TEST_ENV,
       snsEmail: 'ops@example.com',
       templateSource: AesSiemTemplateSource.UPSTREAM,
@@ -187,7 +187,7 @@ describe('AutoSiemStack', () => {
   test('passes secret values through NoEcho parent parameters', () => {
     const template = synthSiem();
     const json = template.toJSON();
-    // AutoSiemStack declares GeoLite2LicenseKey/OtxApiKey directly as its
+    // AutoSocSiemStack declares GeoLite2LicenseKey/OtxApiKey directly as its
     // own top-level parameters (unlike the earlier nested-construct
     // layout, there is no enclosing construct id to prefix these logical
     // ids), so they should synth with exactly these names.
@@ -240,14 +240,14 @@ describe('AutoSiemStack', () => {
   });
 
   test('uses the live upstream template by default', () => {
-    // A plain `cdk deploy AutoSiem` with no `siemTemplateSource` flag must
+    // A plain `cdk deploy AutoSocSiem` with no `siemTemplateSource` flag must
     // pull AWS's current published template, not the checked-in vendored
     // copy. Customizing/pinning the template is opt-in via
     // `-c siemTemplateSource=vendored`.
     const template = synthSiem();
     const json = JSON.stringify(template.toJSON());
     // AesSiemVersion/AesSiemTemplateSource are written onto this stack's
-    // own template Metadata by AutoSiemStack's constructor.
+    // own template Metadata by AutoSocSiemStack's constructor.
     expect(template.toJSON().Metadata).toMatchObject({
       AesSiemVersion: AES_SIEM_TEMPLATE_VERSION,
       AesSiemTemplateSource: AesSiemTemplateSource.UPSTREAM,

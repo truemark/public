@@ -12,7 +12,7 @@ by the data lake.
 ## Deploying
 
 ```
-cdk deploy AutoSoc
+cdk deploy AutoSocSecurityLake
 ```
 
 This always provisions the Security Lake data lake and its log sources.
@@ -30,12 +30,12 @@ lake, deploy with the subscriber context flags set to the **consuming**
 account (e.g. the security-audit account running `autosiem`):
 
 ```
-cdk deploy AutoSoc \
+cdk deploy AutoSocSecurityLake \
   -c siemSubscriberAccountId=<security-audit-account-id> \
   -c siemSubscriberExternalId=$(openssl rand -hex 16)
 ```
 
-Supplying both flags causes `AutoSocStack` to create a
+Supplying both flags causes `AutoSocSecurityLakeStack` to create a
 `AWS::SecurityLake::Subscriber` + `SubscriberNotification` for that
 principal, and publish three values as `CfnOutput`s:
 
@@ -56,11 +56,12 @@ hand-off is this manual (or scripted) copy step.
 > es-loader Lambda timeout. Without a patch, aes-siem's
 > event-source-mapping creation is rejected once you deploy `autosiem`
 > against this subscriber. `StandardSecurityLake` fixes this
-> automatically: `AutoSocStack` passes `sqsVisibilityTimeoutSeconds: 3600`
+> automatically: `AutoSocSecurityLakeStack` passes
+> `sqsVisibilityTimeoutSeconds: 3600`
 > on the subscriber, so the construct emits an `AwsCustomResource` that
 > calls `sqs:SetQueueAttributes` to raise the timeout to 3600 s as part
 > of this `autosoc` deploy — before you ever copy the queue ARN into
-> `autosiem`. Confirm `AutoSoc` reaches `CREATE_COMPLETE`/
+> `autosiem`. Confirm `AutoSocSecurityLake` reaches `CREATE_COMPLETE`/
 > `UPDATE_COMPLETE` before deploying `autosiem` against it. See §1 in
 > `autosiem/README.md`'s gotchas section for the full backstory and a
 > manual fallback.

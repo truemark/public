@@ -8,7 +8,7 @@ import {
 } from 'truemark-cdk-lib/aws-securitylake';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
-export type AutoSocStackProps = ExtendedStackProps;
+export type AutoSocSecurityLakeStackProps = ExtendedStackProps;
 
 /**
  * The full set of AWS native log sources this stack enables on the data
@@ -26,10 +26,14 @@ const DEFAULT_LOG_SOURCES = [
   AwsLogSourceName.WAF,
 ] as const;
 
-export class AutoSocStack extends ExtendedStack {
+export class AutoSocSecurityLakeStack extends ExtendedStack {
   readonly securityLake: StandardSecurityLake;
 
-  constructor(scope: Construct, id: string, props: AutoSocStackProps = {}) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: AutoSocSecurityLakeStackProps = {},
+  ) {
     super(scope, id, props);
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
@@ -90,9 +94,9 @@ export class AutoSocStack extends ExtendedStack {
     // IMPORTANT: StandardSecurityLake's post-creation queue-visibility-
     // timeout patch (an AwsCustomResource that runs after the notification
     // resource is created, see standard-security-lake.ts) may still be in
-    // flight when `AutoSoc`'s deploy reaches CREATE_COMPLETE and these
-    // outputs become readable. If you deploy `autosiem` immediately after
-    // (e.g. scripted end-to-end), confirm `AutoSoc` itself reached
+    // flight when `AutoSocSecurityLake`'s deploy reaches CREATE_COMPLETE and
+    // these outputs become readable. If you deploy `autosiem` immediately
+    // after (e.g. scripted end-to-end), confirm `AutoSocSecurityLake` itself reached
     // CREATE_COMPLETE/UPDATE_COMPLETE before copying these values —
     // CloudFormation only reports the stack complete once every resource,
     // including the patch, has finished.
@@ -103,19 +107,20 @@ export class AutoSocStack extends ExtendedStack {
         value: subscriber.attrSubscriberRoleArn,
         description:
           'IAM role ARN that the autosiem es-loader assumes to read Security Lake objects. Copy into autosiem -c siemSecurityLakeSubscriberRoleArn.',
-        exportName: 'AutoSoc-SecurityLakeSubscriberRoleArn',
+        exportName: 'AutoSocSecurityLake-SecurityLakeSubscriberRoleArn',
       });
       new CfnOutput(this, 'SecurityLakeSubscriberExternalId', {
         value: siemSubscriberExternalId ?? '',
         description:
           'External id the autosiem es-loader must present when assuming the subscriber role. Copy into autosiem -c siemSecurityLakeSubscriberExternalId.',
-        exportName: 'AutoSoc-SecurityLakeSubscriberExternalId',
+        exportName: 'AutoSocSecurityLake-SecurityLakeSubscriberExternalId',
       });
       new CfnOutput(this, 'SecurityLakeSubscriberNotificationQueueArn', {
         value: notification.attrSubscriberEndpoint,
         description:
           'SQS queue ARN Security Lake writes new-object notifications to. Copy into autosiem -c siemSecurityLakeSubscriberSqsArn.',
-        exportName: 'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
+        exportName:
+          'AutoSocSecurityLake-SecurityLakeSubscriberNotificationQueueArn',
       });
     }
   }
