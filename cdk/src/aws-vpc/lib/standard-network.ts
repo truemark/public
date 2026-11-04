@@ -633,10 +633,13 @@ export class StandardNetwork extends ExtendedConstruct {
     }
 
     if ((props.createDynamoDbEndpoint ?? true) && endpointSubnets.length > 0) {
-      const dynamoDbEndpoint = this.vpc.addGatewayEndpoint('DynamoDbGatewayEndpoint', {
-        service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
-        subnets: endpointSubnets,
-      });
+      const dynamoDbEndpoint = this.vpc.addGatewayEndpoint(
+        'DynamoDbGatewayEndpoint',
+        {
+          service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+          subnets: endpointSubnets,
+        },
+      );
       Tags.of(dynamoDbEndpoint).add('Name', `${props.name}-dynamodb`);
     }
 
