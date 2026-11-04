@@ -15,8 +15,9 @@ Add NAT instance and IPv6 support to `aws-vpc` (#483).
 - **New `enableIpv6` prop on `StandardNetwork`** — associates an Amazon-provided IPv6 CIDR and
   configures the VPC for dual-stack (`ec2.IpProtocol.DUAL_STACK`). IPv6-only mode is not yet
   supported.
-- **BREAKING (default change): `StandardNetwork`'s `azCount` default moves from 2 to 3**, to
-  align with AWS high-availability guidance. `StandardNetwork` shipped in 1.24.0, so existing
-  consumers who do not set `azCount` explicitly will see a third set of subnets and per-AZ
-  resources (NAT gateways, route tables) created on the next deploy. Pin `azCount: 2` to keep
-  the previous topology.
+- **Migration note for older versions:** `StandardNetwork` defaults to 3 availability zones
+  (already the default in `1.29.0`). Consumers upgrading from a version that defaulted to 2
+  may get new per-AZ resources **and replacements of existing subnets**: adding a third private
+  subnet shifts sequential CIDR allocations in the public and later subnet groups.
+  Set `azCount: 2` before upgrading to retain the two-AZ setting; otherwise review `cdk diff`
+  and plan the subnet/resource migration.
