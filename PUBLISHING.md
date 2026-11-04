@@ -201,8 +201,8 @@ releases. This creates a changeset with no version bumps that lets the PR pass w
 a version with no functional difference.
 
 **My package did not get published.**
-Check for `"private": true` in its `package.json`. `autobackup` and `aws-workspaces` are private
-by design and will version but never publish.
+Check for `"private": true` in its `package.json`. `autobackup`, `autosoc`, and `aws-workspaces`
+are private by design and are excluded from versioning and publishing by default.
 
 **The release came out at the wrong level.**
 `changesets version` takes the highest bump requested **per package**. Another queued changeset
