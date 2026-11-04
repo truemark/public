@@ -27,9 +27,9 @@ This is a pnpm workspace. The packages are declared in `pnpm-workspace.yaml`:
 | `autobackup` | `autobackup/` | No — `"private": true` |
 | `aws-workspaces` | `blueprints/aws-workspaces/` | No — `"private": true` |
 
-Only `truemark-cdk-lib` reaches the registry. The private packages still take version bumps and
-still get `CHANGELOG.md` entries if you name them in a changeset, which is useful for history —
-changesets simply skips publishing them.
+Only `truemark-cdk-lib` reaches the registry. With Changesets 3 (currently resolved by CI's
+unpinned command), private packages are excluded from versioning and changelog generation by
+default. Set `"privatePackages": {"version": true}` in `.changeset/config.json` to opt in.
 
 ## The short version
 
