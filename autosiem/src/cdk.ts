@@ -92,6 +92,7 @@ new AutoSocSiemStack(app, 'AutoSocSiem', {
     | undefined,
   domainOrCollectionName: ctxString(app, 'siemDomainOrCollectionName'),
   vpcEndpointId: ctxString(app, 'siemVpcEndpointId'),
+  vpcSubnetIds: ctxStringList(app, 'siemVpcSubnetIds'),
   allowedSourceIpAddresses: ctxString(app, 'siemAllowedSourceIpAddresses'),
 
   // es-loader runtime

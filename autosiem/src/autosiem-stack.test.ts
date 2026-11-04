@@ -55,6 +55,13 @@ describe('AutoSocSiemStack', () => {
         SecurityLakeRoleArn: '',
         SecurityLakeExternalId: '',
         SecurityLakeSubscriberSqs: '',
+        // VPC endpoints default to NOT being created: deployments typically
+        // place vpcEndpointId in a VPC whose SQS/SSM/STS/S3 endpoints are
+        // already managed by separate networking automation.
+        CreateSqsVpcEndpoint: 'false',
+        CreateSsmVpcEndpoint: 'false',
+        CreateStsVpcEndpoint: 'false',
+        CreateS3VpcEndpoint: 'false',
       }),
     });
   });
@@ -152,6 +159,39 @@ describe('AutoSocSiemStack', () => {
     }
   });
 
+  test('vendored templates patch AosSubnetIds VPC placement support', async () => {
+    // Regression guard for the VPC-isolation-without-an-existing-domain
+    // fix: scripts/vendor-aes-siem.sh adds an AosSubnetIds parameter (and
+    // HasAosSubnetIds condition, OR'd into IsInVpc) and wires
+    // AOS_SUBNET_IDS/AOS_SECURITY_GROUP_ID into the resource-validator and
+    // domain-deployment Lambdas, reproducing upstream's own native-CDK
+    // vpc_type=import behavior on the vendored template.
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const {fileURLToPath} = await import('node:url');
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const file of [
+      'siem-on-amazon-opensearch-service.template',
+      'siem-on-amazon-opensearch-service-china.template',
+    ]) {
+      const vendored = path.resolve(here, '../vendor/aes-siem', file);
+      if (!fs.existsSync(vendored)) continue; // fresh checkout, skip
+      const contents = fs.readFileSync(vendored, 'utf-8');
+      expect(contents).toContain('  AosSubnetIds:');
+      expect(contents).toContain('  HasAosSubnetIds: !Not');
+      expect(contents).toContain("- !Condition 'HasAosSubnetIds'");
+      expect(contents).toContain("AOS_SUBNET_IDS: !Ref 'AosSubnetIds'");
+      expect(contents).toContain(
+        "AOS_SECURITY_GROUP_ID: !If\n            - IsInVpc\n            - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'",
+      );
+      // AOS_SUBNET_IDS is referenced twice (resource-validator and
+      // domain-deployment Lambdas) — confirm the hardcoded '' literal on
+      // the resource-validator Lambda is gone, not just that a reference
+      // exists somewhere.
+      expect(contents).not.toContain("AOS_SUBNET_IDS: ''");
+    }
+  });
+
   test('vendored template .UPSTREAM.md documents the patches the script applies', async () => {
     // Regression guard for "Generate patch metadata to preserve vendored
     // template provenance": the generated .UPSTREAM.md must list every
@@ -181,6 +221,7 @@ describe('AutoSocSiemStack', () => {
       expect(contents).toContain(
         'Resolves the Lambda code bucket and solution/version build placeholders',
       );
+      expect(contents).toContain('Adds an `AosSubnetIds` parameter');
     }
   });
 
@@ -239,6 +280,55 @@ describe('AutoSocSiemStack', () => {
     ).toThrow(/must be alphanumeric only/);
   });
 
+  test('rejects invalid VPC subnet ids', () => {
+    expect(() =>
+      synthSiem({
+        templateSource: AesSiemTemplateSource.VENDORED,
+        vpcSubnetIds: ['subnet-abc'],
+      }),
+    ).toThrow(/invalid VPC subnet id/);
+  });
+
+  test('rejects vpcSubnetIds without templateSource: VENDORED', () => {
+    // AosSubnetIds is a truemark patch present only on the vendored
+    // template (scripts/vendor-aes-siem.sh); the raw UPSTREAM template has
+    // no such parameter, so this combination must fail fast at synth
+    // rather than surface as an opaque CloudFormation deploy-time error.
+    expect(() =>
+      synthSiem({vpcSubnetIds: ['subnet-061fbe29801849435']}),
+    ).toThrow(/vpcSubnetIds requires templateSource: VENDORED/);
+  });
+
+  test('threads vpcSubnetIds into the AosSubnetIds parameter when VENDORED', () => {
+    const template = synthSiem({
+      templateSource: AesSiemTemplateSource.VENDORED,
+      vpcSubnetIds: [
+        'subnet-061fbe29801849435',
+        'subnet-0b9272980f5188f80',
+        'subnet-05bd8c88e94973c8c',
+      ],
+    });
+    template.hasResourceProperties('AWS::CloudFormation::Stack', {
+      Parameters: Match.objectLike({
+        AosSubnetIds:
+          'subnet-061fbe29801849435,subnet-0b9272980f5188f80,subnet-05bd8c88e94973c8c',
+      }),
+    });
+  });
+
+  test('omits the AosSubnetIds parameter entirely in UPSTREAM mode', () => {
+    // The raw upstream template has no AosSubnetIds parameter at all;
+    // including it (even as an empty string) would make CloudFormation
+    // reject the deploy with "Parameters: [AosSubnetIds] do not exist in
+    // the template".
+    const template = synthSiem();
+    const [nested] = Object.values(
+      template.findResources('AWS::CloudFormation::Stack'),
+    );
+    const params = nested.Properties.Parameters as Record<string, unknown>;
+    expect(params).not.toHaveProperty('AosSubnetIds');
+  });
+
   test('uses the live upstream template by default', () => {
     // A plain `cdk deploy AutoSocSiem` with no `siemTemplateSource` flag must
     // pull AWS's current published template, not the checked-in vendored
@@ -280,10 +370,12 @@ describe('AutoSocSiemStack', () => {
       trustedProxyIpList: '10.42.0.0/16',
       logBucketPolicyUpdate: 'keep',
       vpcEndpointId: 'vpce-0123456789abcdef0',
-      createSqsVpcEndpoint: false,
-      createSsmVpcEndpoint: false,
-      createStsVpcEndpoint: false,
-      createS3VpcEndpoint: false,
+      // Opt in to this stack creating the VPC endpoints, overriding the
+      // false default (used when the target VPC has no existing ones).
+      createSqsVpcEndpoint: true,
+      createSsmVpcEndpoint: true,
+      createStsVpcEndpoint: true,
+      createS3VpcEndpoint: true,
       controlTowerLogBucketNames: [
         'aws-controltower-logs-123456789012-us-east-1',
         'aws-controltower-s3-access-logs-123456789012-us-east-1',
@@ -301,10 +393,10 @@ describe('AutoSocSiemStack', () => {
         TrustedProxyIpList: '10.42.0.0/16',
         LogBucketPolicyUpdate: 'keep',
         VpcEndpointId: 'vpce-0123456789abcdef0',
-        CreateSqsVpcEndpoint: 'false',
-        CreateSsmVpcEndpoint: 'false',
-        CreateStsVpcEndpoint: 'false',
-        CreateS3VpcEndpoint: 'false',
+        CreateSqsVpcEndpoint: 'true',
+        CreateSsmVpcEndpoint: 'true',
+        CreateStsVpcEndpoint: 'true',
+        CreateS3VpcEndpoint: 'true',
         ControlTowerLogBucketNameList:
           'aws-controltower-logs-123456789012-us-east-1,aws-controltower-s3-access-logs-123456789012-us-east-1',
         ControlTowerRoleArnForEsLoader:

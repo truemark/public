@@ -147,7 +147,8 @@ as a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemUpstreamTemplateFileName` | partition-specific | Optional filename override in either source mode. Commercial and China templates are selected automatically. For GovCloud, run `AES_SIEM_TEMPLATE_FILE_NAME=siem-on-amazon-opensearch-service-usgov.template pnpm run vendor:aes-siem` and set this flag to the same filename. |
 | `siemDeploymentTarget` | `opensearch_managed_cluster` | Set to `opensearch_serverless` for the (experimental) Serverless path. |
 | `siemDomainOrCollectionName` | `aes-siem` | OpenSearch domain or Serverless collection name. |
-| `siemVpcEndpointId` | *(none, public endpoint)* | Interface VPC endpoint id (`vpce-…` / `aos-…`) that fronts OpenSearch. Setting it places es-loader into the VPC. |
+| `siemVpcEndpointId` | *(none, public endpoint)* | Interface VPC endpoint id (`vpce-…` / `aos-…`) that fronts OpenSearch. Setting it places es-loader into the VPC. Requires an **existing** OpenSearch domain to anchor the endpoint against — see gotcha #12 below if you don't have one. |
+| `siemVpcSubnetIds` | *(none)* | Comma-separated subnet ids to place the OpenSearch domain and es-loader into directly, bypassing `siemVpcEndpointId`'s existing-domain requirement. **Requires `siemTemplateSource=vendored`** — see gotcha #12. |
 | `siemAllowedSourceIpAddresses` | `10.0.0.0/8 172.16.0.0/12 192.168.0.0/16` | Space-delimited CIDR list allowed to reach OpenSearch Dashboards (initial deployment only). |
 | `siemEsLoaderReservedConcurrency` | `10` | Reserved concurrency for the es-loader Lambda. |
 | `siemTrustedProxyIpList` | `127.0.0.1/8 10.0.0.0/8 …` | Space-delimited list of trusted ELB/CDN/proxy IPs; enables X-Forwarded-For client-IP selection in es-loader. |
@@ -158,7 +159,7 @@ as a `-c` context flag. Unset flags fall through to the upstream default.
 | `siemControlTowerLogBucketNames` | *(empty)* | Comma-separated S3 bucket names in the Control Tower Log Archive account. |
 | `siemControlTowerRoleArnForEsLoader` | *(empty)* | IAM role ARN that es-loader assumes in the Log Archive account. |
 | `siemControlTowerSqsForLogBuckets` | *(empty)* | SQS ARN in the Log Archive account that fans out S3 notifications to es-loader. |
-| `siemCreateSqsVpcEndpoint` / `siemCreateSsmVpcEndpoint` / `siemCreateStsVpcEndpoint` / `siemCreateS3VpcEndpoint` | `true` | When `siemVpcEndpointId` is set, create new VPC endpoints for the named service. Set `false` if the VPC already has one. |
+| `siemCreateSqsVpcEndpoint` / `siemCreateSsmVpcEndpoint` / `siemCreateStsVpcEndpoint` / `siemCreateS3VpcEndpoint` | `false` | When `siemVpcEndpointId` is set, assumes the target VPC already has SQS/SSM/STS/S3 interface endpoints (e.g. provisioned by separate networking automation) and does not create new ones. Set `true` per-service only if this stack's VPC genuinely has none yet — AWS rejects a second interface endpoint with `PrivateDnsEnabled` for a service already present in the VPC, so leaving this `true` against a VPC that already has the endpoint fails the deploy. |
 
 The optional GeoLite2 license key and OTX API key are **not** CDK context
 flags. `AutoSocSiemStack` declares them directly as its own top-level
@@ -611,3 +612,51 @@ done
   generated `.UPSTREAM.md`, so the file is always in sync with the
   script's actual behavior. Nothing to do on your end — this is automatic
   on every `pnpm run vendor:aes-siem`.
+
+### 12. `VpcEndpointId` requires a pre-existing OpenSearch domain — use `siemVpcSubnetIds` instead
+
+- **Symptom:** you want OpenSearch and es-loader placed in an existing VPC,
+  but you have no existing OpenSearch domain anywhere in the account and
+  don't want to create one just to unlock VPC placement.
+- **Root cause:** `VpcEndpointId` is not a generic PrivateLink interface
+  endpoint you pick from the EC2 console's "AWS services" list — it's an
+  id from AWS's "VPC endpoints for Amazon OpenSearch Service domains"
+  feature (`aws opensearch create-vpc-endpoint --domain-arn <existing> ...`),
+  which requires an *already-existing* domain's ARN to anchor against.
+  Confirmed by reading the shipped Lambda source
+  (`resource_validator_handler` in `deploy_es.zip`): it calls
+  `opensearch_client.describe_vpc_endpoints(VpcEndpointIds=[VPCE_ID])` — an
+  OpenSearch-specific API, not `ec2:DescribeVpcEndpoints` — purely to read
+  back the `VpcId`/`SubnetIds` of whatever existing domain the endpoint was
+  created against, then reuses those same subnets for the *new* domain this
+  stack creates. No existing domain means no way to mint that endpoint.
+- **Fix:** `siemVpcSubnetIds` reproduces upstream's own alternative
+  mechanism — their separate native CDK app
+  (`source/cdk/mysiem/aos_deployment.py`, `vpc_type=import`) injects subnet
+  ids directly as Lambda environment variables
+  (`AOS_SUBNET_IDS`/`AOS_SECURITY_GROUP_ID`) at synth time, completely
+  bypassing the `describe_vpc_endpoints` lookup and its existing-domain
+  requirement. `scripts/vendor-aes-siem.sh` patches the same mechanism onto
+  the vendored template (new `AosSubnetIds` parameter, `HasAosSubnetIds`
+  condition OR'd into `IsInVpc`, and the two env vars wired into the
+  resource-validator and domain-deployment Lambdas) rather than forking any
+  of upstream's Python application code. The domain's security group reuses
+  the template's existing `AesSiemVpcSecurityGroup2nd` (already scoped to
+  `tcp/443` from the VPC's own CIDR blocks, today only wired to the
+  SQS/SSM/STS VPC endpoints) — no separate security group id to supply.
+- **Requires `siemTemplateSource=vendored`** — `AosSubnetIds` is a
+  `truemark` patch, not present in the raw upstream template;
+  `AutoSocSiemStack` throws at synth if `vpcSubnetIds` is set without it,
+  rather than surfacing as an opaque CloudFormation deploy-time error.
+- **`siemVpcEndpointId` and `siemVpcSubnetIds` are independent** — use
+  whichever fits: `siemVpcEndpointId` if you already have a domain (any
+  domain, not necessarily this one) to anchor an endpoint against;
+  `siemVpcSubnetIds` if you don't.
+- **Known limitation:** `aes_domain_handler` (the Lambda that actually
+  creates the domain) only ever uses the first subnet
+  (`AOS_SUBNET_IDS.split(',')[0]`) for the domain's own `VPCOptions` —
+  this is upstream's own hardcoded behavior, not something this patch
+  changes. The domain itself is effectively single-AZ regardless of how
+  many subnet ids you pass; the other subnets only matter for the
+  VPC-placed Lambdas (`es-loader`, `configure-aes`, `index-metrics-exporter`),
+  which do get placed across all of them.

@@ -12,6 +12,7 @@ import {Asset} from 'aws-cdk-lib/aws-s3-assets';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
+import {validateVpcSubnetIds} from './vpc-subnet-ids.js';
 
 /**
  * Version of the upstream aes-siem CloudFormation template nested by this
@@ -134,9 +135,31 @@ export interface AutoSocSiemStackProps extends ExtendedStackProps {
    * that fronts OpenSearch. When set, several es-loader resources are
    * placed in the owning VPC. Create the endpoint manually before deploy.
    *
+   * Requires an **existing** OpenSearch domain to anchor the endpoint
+   * against (`aws opensearch create-vpc-endpoint --domain-arn <existing>`),
+   * since that's how the resource-validator Lambda resolves VPC/subnet
+   * placement at deploy time. If no such domain exists, use
+   * {@link vpcSubnetIds} instead — it achieves the same VPC-isolated
+   * placement without that dependency.
+   *
    * @default - OpenSearch has a public endpoint
    */
   readonly vpcEndpointId?: string;
+
+  /**
+   * Subnet ids to place the OpenSearch domain and es-loader directly into,
+   * bypassing {@link vpcEndpointId}'s existing-domain requirement. Requires
+   * `templateSource: VENDORED` — the `AosSubnetIds` parameter this relies
+   * on is a `truemark` patch applied by `scripts/vendor-aes-siem.sh`, not
+   * present in the raw upstream template. Reuses the template's existing
+   * `AesSiemVpcSecurityGroup2nd` (already scoped to `tcp/443` from the
+   * VPC's own CIDR blocks) as the domain's security group — no separate
+   * security group id to supply.
+   *
+   * @default - no direct VPC subnet placement (use vpcEndpointId instead,
+   * or neither for a public endpoint)
+   */
+  readonly vpcSubnetIds?: string[];
 
   /**
    * Space-delimited list of CIDR blocks allowed to reach OpenSearch
@@ -262,14 +285,22 @@ export interface AutoSocSiemStackProps extends ExtendedStackProps {
   readonly securityLakeSubscriberSqsArn?: string;
 
   // ─── VPC endpoint provisioning (only when `vpcEndpointId` is set) ──────
+  //
+  // Default to NOT creating these: most deployments place `vpcEndpointId`
+  // in a VPC whose SQS/SSM/STS/S3 interface endpoints are already managed
+  // by separate networking automation. AWS rejects a second interface
+  // endpoint with PrivateDnsEnabled for a service already present in the
+  // VPC, so creating one here by default would conflict with that externally
+  // managed endpoint rather than coexist with it. Opt in per-service only
+  // when this stack's VPC genuinely has no such endpoint yet.
 
-  /** Create a new SQS VPC endpoint alongside the SIEM. @default true */
+  /** Create a new SQS VPC endpoint alongside the SIEM. @default false */
   readonly createSqsVpcEndpoint?: boolean;
-  /** Create a new Systems Manager VPC endpoint. @default true */
+  /** Create a new Systems Manager VPC endpoint. @default false */
   readonly createSsmVpcEndpoint?: boolean;
-  /** Create a new STS VPC endpoint. @default true */
+  /** Create a new STS VPC endpoint. @default false */
   readonly createStsVpcEndpoint?: boolean;
-  /** Create a new S3 VPC endpoint. @default true */
+  /** Create a new S3 VPC endpoint. @default false */
   readonly createS3VpcEndpoint?: boolean;
 }
 
@@ -309,18 +340,26 @@ export class AutoSocSiemStack extends ExtendedStack {
 
   private readonly templateFileNameOverride?: string;
 
-  constructor(
-    scope: Construct,
-    id: string,
-    props: AutoSocSiemStackProps = {},
-  ) {
+  constructor(scope: Construct, id: string, props: AutoSocSiemStackProps = {}) {
     super(scope, id, props);
     validateSecurityLakeExternalId(props.securityLakeSubscriberExternalId);
+    validateVpcSubnetIds(props.vpcSubnetIds);
     this.templateFileNameOverride = props.upstreamTemplateFileName;
     this.addMetadata('AesSiemVersion', AES_SIEM_TEMPLATE_VERSION);
     this.templateSource =
       props.templateSource ?? AesSiemTemplateSource.UPSTREAM;
     this.addMetadata('AesSiemTemplateSource', this.templateSource);
+    if (
+      props.vpcSubnetIds !== undefined &&
+      this.templateSource !== AesSiemTemplateSource.VENDORED
+    ) {
+      throw new Error(
+        'AutoSocSiem: vpcSubnetIds requires templateSource: VENDORED — ' +
+          'the AosSubnetIds parameter it relies on is a truemark patch ' +
+          'applied by `pnpm run vendor:aes-siem`, not present in the raw ' +
+          'upstream template. Pass templateSource=vendored.',
+      );
+    }
     if (this.templateSource === AesSiemTemplateSource.UPSTREAM) {
       Annotations.of(this).addWarningV2(
         'AutoSocSiem:UpstreamTemplateNotPinned',
@@ -370,10 +409,14 @@ export class AutoSocSiemStack extends ExtendedStack {
 
     this.siemNestedStack = new CfnStack(this, 'AesSiemNestedStack', {
       templateUrl: this.resolveTemplateUrl(),
-      parameters: buildAesSiemParameters(props, {
-        geoLite2LicenseKey: geoLite2LicenseKey.valueAsString,
-        otxApiKey: otxApiKey.valueAsString,
-      }),
+      parameters: buildAesSiemParameters(
+        props,
+        {
+          geoLite2LicenseKey: geoLite2LicenseKey.valueAsString,
+          otxApiKey: otxApiKey.valueAsString,
+        },
+        this.templateSource,
+      ),
     });
   }
 
@@ -462,6 +505,7 @@ export class AutoSocSiemStack extends ExtendedStack {
 function buildAesSiemParameters(
   props: AutoSocSiemStackProps,
   secrets: {geoLite2LicenseKey: string; otxApiKey: string},
+  templateSource: AesSiemTemplateSource,
 ): Record<string, string> {
   const bool = (v: boolean | undefined, def: boolean) =>
     (v ?? def) ? 'true' : 'false';
@@ -470,6 +514,12 @@ function buildAesSiemParameters(
     DeploymentTarget: props.deploymentTarget ?? 'opensearch_managed_cluster',
     DomainOrCollectionName: props.domainOrCollectionName ?? 'aes-siem',
     VpcEndpointId: props.vpcEndpointId ?? '',
+    // AosSubnetIds is a truemark patch present only on the VENDORED
+    // template (see scripts/vendor-aes-siem.sh) — the raw UPSTREAM template
+    // has no such parameter, so CloudFormation rejects it if included.
+    ...(templateSource === AesSiemTemplateSource.VENDORED
+      ? {AosSubnetIds: (props.vpcSubnetIds ?? []).join(',')}
+      : {}),
     AllowedSourceIpAddresses:
       props.allowedSourceIpAddresses ??
       '10.0.0.0/8 172.16.0.0/12 192.168.0.0/16',
@@ -503,10 +553,13 @@ function buildAesSiemParameters(
     SecurityLakeExternalId: props.securityLakeSubscriberExternalId ?? '',
     SecurityLakeSubscriberSqs: props.securityLakeSubscriberSqsArn ?? '',
 
-    // VPC endpoint provisioning (consumed only when vpcEndpointId is set)
-    CreateSqsVpcEndpoint: bool(props.createSqsVpcEndpoint, true),
-    CreateSsmVpcEndpoint: bool(props.createSsmVpcEndpoint, true),
-    CreateStsVpcEndpoint: bool(props.createStsVpcEndpoint, true),
-    CreateS3VpcEndpoint: bool(props.createS3VpcEndpoint, true),
+    // VPC endpoint provisioning (consumed only when vpcEndpointId is set).
+    // Default false: assume SQS/SSM/STS/S3 interface endpoints already
+    // exist in the target VPC (e.g. provisioned by separate networking
+    // automation). Opt in per-service only when this stack's VPC has none.
+    CreateSqsVpcEndpoint: bool(props.createSqsVpcEndpoint, false),
+    CreateSsmVpcEndpoint: bool(props.createSsmVpcEndpoint, false),
+    CreateStsVpcEndpoint: bool(props.createStsVpcEndpoint, false),
+    CreateS3VpcEndpoint: bool(props.createS3VpcEndpoint, false),
   };
 }
