@@ -25,6 +25,7 @@ This is a pnpm workspace. The packages are declared in `pnpm-workspace.yaml`:
 |---|---|---|
 | `truemark-cdk-lib` | `cdk/` | **Yes** — public |
 | `autobackup` | `autobackup/` | No — `"private": true` |
+| `autosoc` | `autosoc/` | No — `"private": true` |
 | `aws-workspaces` | `blueprints/aws-workspaces/` | No — `"private": true` |
 
 Only `truemark-cdk-lib` reaches the registry. With Changesets 3 (currently resolved by CI's
@@ -194,10 +195,10 @@ The PR has no changeset. `changesets version --snapshot snapshot` exits `1` when
 contains nothing but `config.json` and `README.md`. Node 20 and 22 pass because they never reach
 that step. Add a changeset and push.
 
-This bites PRs that genuinely change no package — a workflow tweak, a `CODEOWNERS` edit. The
-current workaround is a `patch` changeset against the package nearest the change, which does mean
-publishing a version with no functional difference. Worth knowing before you wonder why a
-one-line `CODEOWNERS` PR is red.
+This bites PRs that genuinely change no package — a workflow tweak, a `CODEOWNERS` edit. Use
+`pnpm changeset --empty` to satisfy CI's changeset-presence check without requesting any package
+releases. This creates a changeset with no version bumps that lets the PR pass without publishing
+a version with no functional difference.
 
 **My package did not get published.**
 Check for `"private": true` in its `package.json`. `autobackup` and `aws-workspaces` are private
