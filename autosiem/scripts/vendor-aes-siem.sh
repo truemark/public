@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Download the pinned upstream aes-siem CloudFormation template into
-# autosoc/vendor/aes-siem/ so AutoSocSiemStack can package it as a CDK
+# autosiem/vendor/aes-siem/ so AutoSiemStack can package it as a CDK
 # S3 asset instead of referencing a floating upstream URL.
 #
 # Once vendored, you can edit the template and deploy with
@@ -8,12 +8,12 @@
 # this script and diff.
 #
 # Pin is sourced from AES_SIEM_TEMPLATE_VERSION in
-# autosoc/src/autosoc-siem-stack.ts.
+# autosiem/src/autosiem-stack.ts.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-AUTOSOC_ROOT="$(cd "${HERE}/.." && pwd)"
-VENDOR_DIR="${AUTOSOC_ROOT}/vendor/aes-siem"
+AUTOSIEM_ROOT="$(cd "${HERE}/.." && pwd)"
+VENDOR_DIR="${AUTOSIEM_ROOT}/vendor/aes-siem"
 TEMPLATE_FILE_NAME="${AES_SIEM_TEMPLATE_FILE_NAME:-siem-on-amazon-opensearch-service.template}"
 case "${TEMPLATE_FILE_NAME}" in
   siem-on-amazon-opensearch-service.template|siem-on-amazon-opensearch-service-china.template|siem-on-amazon-opensearch-service-usgov.template)
@@ -28,11 +28,11 @@ METADATA="${TARGET}.UPSTREAM.md"
 # Extract the version pinned in TypeScript source so this script never
 # drifts from the AES_SIEM_TEMPLATE_VERSION constant.
 EXPECTED_VERSION="$(grep -E "AES_SIEM_TEMPLATE_VERSION = '[0-9.]+'" \
-  "${AUTOSOC_ROOT}/src/autosoc-siem-stack.ts" \
+  "${AUTOSIEM_ROOT}/src/autosiem-stack.ts" \
   | sed -E "s/.*AES_SIEM_TEMPLATE_VERSION = '([0-9.]+)'.*/\1/" \
   | head -1)"
 if [[ -z "${EXPECTED_VERSION}" ]]; then
-  echo "error: could not locate AES_SIEM_TEMPLATE_VERSION in autosoc-siem-stack.ts" >&2
+  echo "error: could not locate AES_SIEM_TEMPLATE_VERSION in autosiem-stack.ts" >&2
   exit 1
 fi
 
@@ -63,10 +63,10 @@ echo "Downloaded: ${TEMPLATE_VERSION#Description: }"
 if ! echo "${TEMPLATE_VERSION}" | grep -q "v${EXPECTED_VERSION}"; then
   echo "" >&2
   echo "error: downloaded template header does not contain pinned version v${EXPECTED_VERSION}" >&2
-  echo "  expected: v${EXPECTED_VERSION} (from AES_SIEM_TEMPLATE_VERSION in autosoc-siem-stack.ts)" >&2
+  echo "  expected: v${EXPECTED_VERSION} (from AES_SIEM_TEMPLATE_VERSION in autosiem-stack.ts)" >&2
   echo "  got:      ${TEMPLATE_VERSION#Description: }" >&2
   echo "" >&2
-  echo "Bump AES_SIEM_TEMPLATE_VERSION in autosoc/src/autosoc-siem-stack.ts" >&2
+  echo "Bump AES_SIEM_TEMPLATE_VERSION in autosiem/src/autosiem-stack.ts" >&2
   echo "to a release tag that contains this template, then re-run the script." >&2
   rm -f "${TARGET}"
   [[ -f "${TARGET}.previous" ]] && mv "${TARGET}.previous" "${TARGET}"
@@ -180,6 +180,117 @@ PY
   PATCHES+=("Adds \`NoEcho: true\` to \`${PARAM}\`.")
 done
 
+# Patch in an `AosSubnetIds` parameter that lets AutoSocSiemStack place the
+# OpenSearch domain and es-loader directly into an existing VPC's subnets,
+# without needing a pre-existing OpenSearch domain to anchor a
+# `VpcEndpointId` (AWS's `opensearch create-vpc-endpoint --domain-arn`
+# feature, which upstream's own `resource_validator_handler` uses to derive
+# VPC/subnet placement, requires an *already-existing* domain). Upstream's
+# separate native CDK app (source/cdk/mysiem/aos_deployment.py,
+# `vpc_type=import`) sidesteps this entirely by injecting `AOS_SUBNET_IDS`/
+# `AOS_SECURITY_GROUP_ID` directly as Lambda environment variables at synth
+# time; this patch reproduces exactly that mechanism on the vendored
+# template instead of forking upstream's Python application code. Verified
+# directly against the shipped `deploy_es.zip`/index.py: when
+# `AOS_SUBNET_IDS` is non-empty and `VPCE_ID` is empty, both
+# `resource_validator_handler` and `aes_domain_handler` skip the
+# `describe_vpc_endpoints` lookup and use the given subnets/security group
+# as-is. `AesSiemVpcSecurityGroup2nd` already exists in the template with
+# the correct `tcp/443` ingress from the VPC's own CIDR blocks (today only
+# wired to the SQS/SSM/STS VPC endpoints) — reused here for the domain's own
+# security group rather than declaring a new one. Idempotent: skipped if
+# the `AosSubnetIds` parameter is already present.
+if grep -q '^  AosSubnetIds:' "${TARGET}"; then
+  echo "AosSubnetIds parameter already present, skipping VPC subnet-ids patch"
+else
+  python3 - "${TARGET}" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    text = f.read()
+
+edits = [
+    (
+        "  VpcEndpointId:\n"
+        "    Type: String\n"
+        "    Default: ''\n"
+        "    AllowedPattern: (^vpce-[0-9a-z]*|aos-[0-9a-z]*|)\n"
+        "    Description: (Optional) Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions\n"
+        "      and other resources will be deployed into VPC\n"
+        "  AllowedSourceIpAddresses:\n",
+        "  VpcEndpointId:\n"
+        "    Type: String\n"
+        "    Default: ''\n"
+        "    AllowedPattern: (^vpce-[0-9a-z]*|aos-[0-9a-z]*|)\n"
+        "    Description: (Optional) Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions\n"
+        "      and other resources will be deployed into VPC\n"
+        "  AosSubnetIds:\n"
+        "    Type: String\n"
+        "    Default: ''\n"
+        "    AllowedPattern: ^(subnet-[0-9a-f]{8,17})?(,subnet-[0-9a-f]{8,17})*$\n"
+        "    Description: (Optional, truemark patch) Comma-separated VPC subnet ids to place the OpenSearch domain and es-loader into directly, bypassing VpcEndpointId's existing-domain requirement. Reuses AesSiemVpcSecurityGroup2nd as the domain's security group.\n"
+        "  AllowedSourceIpAddresses:\n",
+    ),
+    (
+        "  hasVpce: !Not\n"
+        "    - !Equals\n"
+        "      - !Ref 'VpcEndpointId'\n"
+        "      - ''\n"
+        "  IsInVpc: !Or\n"
+        "    - !Equals\n"
+        "      - false\n"
+        "      - true\n"
+        "    - !Condition 'hasVpce'\n",
+        "  hasVpce: !Not\n"
+        "    - !Equals\n"
+        "      - !Ref 'VpcEndpointId'\n"
+        "      - ''\n"
+        "  HasAosSubnetIds: !Not\n"
+        "    - !Equals\n"
+        "      - !Ref 'AosSubnetIds'\n"
+        "      - ''\n"
+        "  IsInVpc: !Or\n"
+        "    - !Equals\n"
+        "      - false\n"
+        "      - true\n"
+        "    - !Condition 'hasVpce'\n"
+        "    - !Condition 'HasAosSubnetIds'\n",
+    ),
+    (
+        "          AOS_SUBNET_IDS: ''\n",
+        "          AOS_SUBNET_IDS: !Ref 'AosSubnetIds'\n",
+    ),
+    (
+        "          ACCOUNT_ID: !Ref 'AWS::AccountId'\n"
+        "          ALLOWED_SOURCE_ADDRESSES: !Ref 'AllowedSourceIpAddresses'\n"
+        "          DEPLOYMENT_TARGET: !Ref 'DeploymentTarget'\n",
+        "          ACCOUNT_ID: !Ref 'AWS::AccountId'\n"
+        "          ALLOWED_SOURCE_ADDRESSES: !Ref 'AllowedSourceIpAddresses'\n"
+        "          AOS_SECURITY_GROUP_ID: !If\n"
+        "            - IsInVpc\n"
+        "            - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'\n"
+        "            - ''\n"
+        "          AOS_SUBNET_IDS: !Ref 'AosSubnetIds'\n"
+        "          DEPLOYMENT_TARGET: !Ref 'DeploymentTarget'\n",
+    ),
+]
+
+for before, after in edits:
+    count = text.count(before)
+    if count != 1:
+        sys.exit(
+            f"error: expected exactly 1 occurrence of anchor text, found {count}:\n{before!r}"
+        )
+    text = text.replace(before, after, 1)
+
+with open(path, "w") as f:
+    f.write(text)
+PY
+  echo "Patched AosSubnetIds parameter, HasAosSubnetIds/IsInVpc conditions, and AOS_SUBNET_IDS/AOS_SECURITY_GROUP_ID env vars"
+  PATCHES+=("Adds an \`AosSubnetIds\` parameter (and \`HasAosSubnetIds\` condition, OR'd into \`IsInVpc\`) so the OpenSearch domain and es-loader can be placed directly into an existing VPC's subnets without requiring a pre-existing OpenSearch domain to anchor \`VpcEndpointId\`. Wires \`AOS_SUBNET_IDS\`/\`AOS_SECURITY_GROUP_ID\` (reusing \`AesSiemVpcSecurityGroup2nd\`) into the resource-validator and domain-deployment Lambdas, reproducing upstream's own native-CDK \`vpc_type=import\` behavior (source/cdk/mysiem/aos_deployment.py) on top of the vendored template instead.")
+fi
+
 {
   echo "# Vendored aes-siem template"
   echo ""
@@ -199,7 +310,7 @@ done
   echo "**Do not edit \`${TEMPLATE_FILE_NAME}\` by hand without recording the diff here** so"
   echo "future refreshes can be reconciled against upstream."
   echo ""
-  echo "To refresh, run \`pnpm run vendor:aes-siem\` from \`autosoc/\`; it fetches"
+  echo "To refresh, run \`pnpm run vendor:aes-siem\` from \`autosiem/\`; it fetches"
   echo "the exact tag recorded above. Previous copies are kept beside the template"
   echo "with a \`.previous\` suffix for diffing."
 } > "${METADATA}"
@@ -213,4 +324,4 @@ fi
 echo ""
 echo "Done. To use the vendored template, pass"
 echo "  -c siemTemplateSource=vendored"
-echo "to CDK (the vendored source is the default)."
+echo "to CDK (upstream is the default; vendored is opt-in)."
