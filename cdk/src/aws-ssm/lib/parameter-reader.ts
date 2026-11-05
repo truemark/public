@@ -57,9 +57,17 @@ export class ParameterReader extends AwsCustomResource {
     // A name with a leading slash drops it in the ARN (parameter/a/b), which
     // cannot be decided for a token, so a token falls back to every parameter
     // in the region.
-    const resourceName = Token.isUnresolved(props.parameterName)
+    const parameterName = props.parameterName;
+    if (
+      !Token.isUnresolved(parameterName) &&
+      parameterName.startsWith('arn:')
+    ) {
+      // Selectors choose a value; IAM authorizes the underlying parameter ARN.
+      return parameterName.split(':').slice(0, 6).join(':');
+    }
+    const resourceName = Token.isUnresolved(parameterName)
       ? '*'
-      : props.parameterName.replace(/^\//, '');
+      : parameterName.replace(/^\//, '').split(':')[0];
     return Stack.of(scope).formatArn({
       service: 'ssm',
       region: props.region,
