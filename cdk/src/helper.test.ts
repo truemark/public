@@ -62,6 +62,4 @@ export class HelperTest {
   }
 }
 
-test('Empty Test', () => {
-  // Do nothing
-});
+test('Empty Test', () => {});

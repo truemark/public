@@ -1,10 +1,11 @@
+import {ArnFormat, type RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {LogGroup, RetentionDays} from 'aws-cdk-lib/aws-logs';
 import {
   CfnLoggingConfiguration,
   CfnRuleGroup,
   CfnWebACL,
 } from 'aws-cdk-lib/aws-wafv2';
-import type {Construct} from 'constructs/lib/construct';
+import type {Construct} from 'constructs';
 import {ExtendedConstruct} from '../../aws-cdk/index';
 
 export type cloudFrontBlockMode = 'count' | 'active';
@@ -29,6 +30,13 @@ export interface CloudFrontSecurityBaselineWebAclProps {
    * The number of days log events are kept in CloudWatch Logs. Default is 1 year.
    */
   readonly logRetention?: RetentionDays;
+  /**
+   * The removal policy of the WAF log group. Its name is fixed, so a retained
+   * group must be deleted before the construct can be deployed again.
+   *
+   * @default RemovalPolicy.RETAIN
+   */
+  readonly logRemovalPolicy?: RemovalPolicy;
   /**
    * The country codes to match against.
    */
@@ -253,14 +261,26 @@ export class CloudFrontSecurityBaselineWebAcl extends ExtendedConstruct {
       [{Name: 'HostingProviderIPList', ActionToUse: {Count: {}}}],
     );
 
+    const logGroupName = `aws-waf-logs-global-waf-acl-logs-${this.node.addr}`;
     const wafLogGroup = new LogGroup(this, 'WafLogGroup', {
-      logGroupName: `aws-waf-logs-global-waf-acl-logs-${this.node.addr}`,
+      logGroupName,
       retention: props?.logRetention ?? RetentionDays.ONE_YEAR,
+      removalPolicy: props?.logRemovalPolicy,
     });
 
-    new CfnLoggingConfiguration(this, 'LoggingConfig', {
+    const loggingConfig = new CfnLoggingConfiguration(this, 'LoggingConfig', {
       resourceArn: this.webAcl.attrArn,
-      logDestinationConfigs: [wafLogGroup.logGroupArn],
+      // logGroupArn ends in ':*'; AWS WAF documents the log group ARN without it.
+      logDestinationConfigs: [
+        Stack.of(this).formatArn({
+          service: 'logs',
+          resource: 'log-group',
+          resourceName: logGroupName,
+          arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+        }),
+      ],
     });
+    // The ARN is built from the name, so CloudFormation no longer infers the order.
+    loggingConfig.node.addDependency(wafLogGroup);
   }
 }
