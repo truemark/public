@@ -175,6 +175,17 @@ export interface FunctionAlarmsOptions
    * @default true
    */
   readonly lambdaInsightsEnabled?: boolean;
+
+  /**
+   * Whether this function consumes a stream (e.g. a DynamoDB or Kinesis
+   * stream) and therefore emits the IteratorAge metric. Enables the
+   * iterator-age dashboard widget and is required for `maxIteratorAge` alarms;
+   * without it the underlying monitoring construct throws when an iterator-age
+   * alarm is configured.
+   *
+   * @default false
+   */
+  readonly isIterator?: boolean;
 }
 
 /**
@@ -224,6 +235,7 @@ export class FunctionAlarms extends AlarmsBase<
     this.monitoringFacade.monitorLambdaFunction({
       alarmFriendlyName: this.props.alarmNamePrefix,
       lambdaFunction: this.props.function,
+      isIterator: this.props.isIterator ?? false,
       addToAlarmDashboard: this.props.addToAlarmDashboard ?? true,
       addToDetailDashboard: this.props.addToDetailDashboard ?? true,
       addToSummaryDashboard: this.props.addToSummaryDashboard ?? true,
