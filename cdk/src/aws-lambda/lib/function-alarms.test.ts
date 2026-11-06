@@ -7,7 +7,7 @@ import {FunctionAlarms} from './function-alarms';
 
 function streamFunction(stack: ReturnType<typeof HelperTest.stack>) {
   return new Function(stack, 'StreamFn', {
-    runtime: Runtime.NODEJS_20_X,
+    runtime: Runtime.NODEJS_24_X,
     handler: 'index.handler',
     code: Code.fromInline('exports.handler = async () => {};'),
   });
