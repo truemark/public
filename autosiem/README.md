@@ -41,14 +41,15 @@ account:
 ```
 # In the autosoc package, deployed in the log-archive account
 cdk deploy AutoSocSecurityLake \
-  -c siemSubscriberAccountId=$(aws sts get-caller-identity --query Account --output text) \
+  -c siemSubscriberAccountId=$(aws sts get-caller-identity --profile security-audit --query Account --output text) \
   -c siemSubscriberExternalId=$(openssl rand -hex 16)
 ```
 
-(Run that `get-caller-identity` from the **security-audit** account
-you'll deploy `autosiem` into — it needs to resolve to the account that
-will assume the subscriber role, not the log-archive account running the
-command.)
+(That inline `get-caller-identity` needs a `security-audit`-profile
+credential — the account that will assume the subscriber role — separate
+from the credentials `cdk deploy` itself runs under for the log-archive
+account. Substitute whatever profile name you've configured for
+`security-audit` if it differs.)
 
 Once `AutoSocSecurityLake` reaches `CREATE_COMPLETE`/`UPDATE_COMPLETE`, read its three
 `CfnOutput`s:
@@ -125,10 +126,24 @@ standalone `AutoSocSiem`), so none of these migrations are automatic:
    those same physical names and fail.
 2. Before adopting a new layout, either keep the old stack/construct
    definition running during a transition window, or explicitly destroy
-   it first (`cdk destroy AutoSocSiemStack`, or remove the nested `Siem`
-   construct from `AutoSoc` and redeploy) — this deletes the OpenSearch
-   domain/data, so back it up or snapshot it first if you need to
-   preserve it — and then deploy the new `AutoSocSiem` stack.
+   it first. For the original sibling layout, its actual stack id was
+   `AutoSocSiem` (the class is named `AutoSocSiemStack`, but the CDK app
+   instantiated it as `new AutoSocSiemStack(app, 'AutoSocSiem', ...)` —
+   `cdk destroy AutoSocSiemStack` doesn't match any real stack and does
+   nothing). From that stack's original account/Region, run
+   `aws cloudformation delete-stack --stack-name AutoSocSiem --region
+   "$REGION"`, then `aws cloudformation wait stack-delete-complete
+   --stack-name AutoSocSiem --region "$REGION"`. For the interim layout,
+   remove the nested `Siem` construct from `AutoSoc` and redeploy.
+   **Destroying the stack does not delete the OpenSearch domain or its
+   data** — upstream's own delete handler only removes the EventBridge
+   rules it uses for polling, leaving the domain itself fully intact but
+   orphaned outside CloudFormation's management. That means no data
+   loss, but it also means the orphaned domain's physical resource names
+   (see point 1 above) will collide with a fresh deploy — delete the
+   orphaned domain manually first (or snapshot/migrate it if you want to
+   carry its data into the new stack) before deploying the new
+   `AutoSocSiem` stack.
 3. There is no automated data-migration path between layouts; OpenSearch
    indices, dashboards, and IOC state are not carried over automatically.
 
@@ -172,7 +187,7 @@ through your deployment system's protected parameter input, e.g.:
 aws cloudformation deploy --stack-name AutoSocSiem \
   --template-file cdk.out/AutoSocSiem.template.json \
   --parameter-overrides GeoLite2LicenseKey="$GEOLITE2_KEY" OtxApiKey="$OTX_KEY" \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_NAMED_IAM
 ```
 
 They are passed to the nested aes-siem stack by reference and are not

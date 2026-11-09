@@ -11,6 +11,11 @@ by the data lake.
 
 ## Deploying
 
+Security Lake requires the `AWSServiceRoleForLakeFormationDataAccess`
+service-linked role. If it does not already exist in this account, add
+`-c createLakeFormationSlr=true` to the first deploy below. Do not enable
+that flag when the role already exists.
+
 ```
 cdk deploy AutoSocSecurityLake
 ```
