@@ -40,7 +40,8 @@ public enum Engine {
   },
 
   /** MySQL and MariaDB, both reached through the MariaDB driver. */
-  MYSQL("mysql", 3306, "mysql") {
+  // information_schema is the one schema every user may connect to.
+  MYSQL("mysql", 3306, "information_schema") {
     @Override
     String jdbcUrl(String host, int port, String database) {
       return "jdbc:mariadb://" + host + ":" + port + "/" + database;

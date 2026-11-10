@@ -29,9 +29,13 @@ public class Collector {
           new Emf.Unit("CollectMillis", "Milliseconds"),
           new Emf.Unit("QueryErrors", "Count"));
 
+  /** Time kept back from the deadline to write the collector's own metrics. */
+  private static final long RESERVED_MILLIS = 2_000;
+
   private final TargetResolver resolver;
   private final ConnectionCache connections;
   private final QueryRunner runner;
+  private final int queryTimeoutSeconds;
   private final Function<Engine, List<QueryDefinition>> queries;
   private final Emf emf;
   private final Log log;
@@ -39,6 +43,7 @@ public class Collector {
   private final Consumer<String> onLoginFailure;
 
   /**
+   * @param queryTimeoutSeconds how long one query may run
    * @param queries supplies the queries to run for an engine
    * @param onLoginFailure told the secret ID when a login with that secret failed
    */
@@ -46,6 +51,7 @@ public class Collector {
       TargetResolver resolver,
       ConnectionCache connections,
       QueryRunner runner,
+      int queryTimeoutSeconds,
       Function<Engine, List<QueryDefinition>> queries,
       Emf emf,
       Log log,
@@ -54,6 +60,7 @@ public class Collector {
     this.resolver = resolver;
     this.connections = connections;
     this.runner = runner;
+    this.queryTimeoutSeconds = queryTimeoutSeconds;
     this.queries = queries;
     this.emf = emf;
     this.log = log;
@@ -66,8 +73,12 @@ public class Collector {
    *
    * <p>An unreachable database or a failing query is an expected condition: it is reported as a
    * metric and a log line, not thrown. Only an event that does not describe a database throws.
+   *
+   * @param deadlineMillis time, on the collector's clock, by which the collection must be done.
+   *     Queries are given less time, or skipped and counted as errors, so that the collector's own
+   *     metrics are still written before it.
    */
-  public Result collect(Map<String, Object> event) {
+  public Result collect(Map<String, Object> event, long deadlineMillis) {
     long started = clock.millis();
     TargetResolver.Resolved resolved = resolver.resolve(event);
     Target target = resolved.target();
@@ -98,10 +109,17 @@ public class Collector {
       if (!query.isDue(epochMinute)) {
         continue;
       }
+      long remainingSeconds = (deadlineMillis - RESERVED_MILLIS - clock.millis()) / 1000;
+      if (remainingSeconds < 1) {
+        failed++;
+        log.error("Query skipped", target, query.name(), new SQLException("Out of time"));
+        continue;
+      }
+      int timeout = (int) Math.min(queryTimeoutSeconds, remainingSeconds);
       try {
         List<Emf.Unit> units =
             query.metrics().stream().map(m -> new Emf.Unit(m.name(), m.unit())).toList();
-        for (QueryRunner.Row row : runner.run(lease.connection(), query)) {
+        for (QueryRunner.Row row : runner.run(lease.connection(), query, timeout)) {
           emf.write(started, target, query.name(), row.dimensions(), units, row.values());
         }
         succeeded++;

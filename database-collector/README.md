@@ -100,8 +100,12 @@ MySQL and MariaDB:
 
 ```sql
 CREATE USER 'database_collector'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS';
-GRANT PROCESS ON *.* TO 'database_collector'@'%';
+GRANT PROCESS, SHOW VIEW ON *.* TO 'database_collector'@'%';
 ```
+
+`PROCESS` lets the user see other users' sessions and transactions. `SHOW VIEW`
+makes every schema's tables visible in `information_schema`, which
+`SchemaSizeBytes` needs, without allowing the user to read their rows.
 
 ### Secrets
 
@@ -112,7 +116,7 @@ read secrets tagged `database-collector:enabled` or `database-collector:allow`
 with the value `true`. A secret encrypted with a customer managed KMS key
 also needs that key to allow the role to decrypt.
 
-The same `pg_monitor` role or `PROCESS` privilege is needed.
+The same `pg_monitor` role, or `PROCESS` and `SHOW VIEW` privileges, are needed.
 
 ### TLS
 
@@ -163,7 +167,7 @@ collector function with an event describing one database:
 | `id` | Required. Identifies the database in logs and the `Target` dimension. |
 | `secretId` | Secret to log in with. IAM authentication is used without it. |
 | `engine`, `host` | Required, from the event or the secret. |
-| `port`, `database` | Default to the engine's defaults. |
+| `port`, `database` | Default to the engine's port, and to `postgres` or `information_schema`. |
 | `username` | Required for IAM authentication; otherwise read from the secret. |
 | `tls` | `verify` (default), `encrypt` (no certificate check) or `off`. |
 

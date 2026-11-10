@@ -1,5 +1,6 @@
 # Built-in queries for MySQL and MariaDB. The monitoring user needs the PROCESS privilege to see
-# sessions and transactions that belong to other users.
+# sessions and transactions that belong to other users, and SHOW VIEW on *.* so that tables it has
+# no other privilege on are visible in information_schema.tables.
 
 - name: sessions
   sql: |
