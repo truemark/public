@@ -19,19 +19,20 @@ public class QueryRunner {
    */
   public record Row(Map<String, String> dimensions, Map<String, Double> values) {}
 
-  private final int timeoutSeconds;
   private final int maxRows;
 
   /**
-   * @param timeoutSeconds how long one query may run
    * @param maxRows rows read from one query; this bounds how many metric series a query can create
    */
-  public QueryRunner(int timeoutSeconds, int maxRows) {
-    this.timeoutSeconds = timeoutSeconds;
+  public QueryRunner(int maxRows) {
     this.maxRows = maxRows;
   }
 
-  public List<Row> run(Connection connection, QueryDefinition query) throws SQLException {
+  /**
+   * @param timeoutSeconds how long the query may run
+   */
+  public List<Row> run(Connection connection, QueryDefinition query, int timeoutSeconds)
+      throws SQLException {
     List<Row> rows = new ArrayList<>();
     try (Statement statement = connection.createStatement()) {
       statement.setQueryTimeout(timeoutSeconds);

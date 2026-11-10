@@ -27,13 +27,18 @@ class CollectorTest {
   private final List<String> loginFailures = new ArrayList<>();
   private int opened;
 
+  // An epoch minute divisible by every interval used below.
+  private static final Clock CLOCK =
+      Clock.fixed(Instant.ofEpochSecond(60 * 60 * 24), ZoneOffset.UTC);
+  private static final long DEADLINE = CLOCK.millis() + 50_000;
+
   private Collector collector(String namespace, ConnectionCache.Opener opener, String queries) {
-    // An epoch minute divisible by every interval used below.
-    Clock clock = Clock.fixed(Instant.ofEpochSecond(60 * 60 * 24), ZoneOffset.UTC);
+    Clock clock = CLOCK;
     return new Collector(
         new TargetResolver(id -> "{\"password\":\"p\"}", (host, port, username) -> "token"),
         new ConnectionCache(opener, Duration.ofMinutes(5), 2, clock),
-        new QueryRunner(5, 100),
+        new QueryRunner(100),
+        5,
         engine -> QueryLoader.parse(queries),
         new Emf(namespace, lines::add),
         new Log(lines::add),
@@ -74,7 +79,7 @@ class CollectorTest {
 
   @Test
   void writesOneEmbeddedMetricLinePerRow() throws Exception {
-    Collector.Result result = collector("Test", h2(), QUERIES).collect(EVENT);
+    Collector.Result result = collector("Test", h2(), QUERIES).collect(EVENT, DEADLINE);
 
     assertEquals(new Collector.Result("db1", true, 1, 0), result);
     List<JsonNode> out = json();
@@ -106,7 +111,7 @@ class CollectorTest {
 
   @Test
   void writesPlainJsonWithoutNamespace() throws Exception {
-    collector("", h2(), QUERIES).collect(EVENT);
+    collector("", h2(), QUERIES).collect(EVENT, DEADLINE);
 
     for (JsonNode line : json()) {
       assertFalse(line.has("_aws"));
@@ -118,8 +123,8 @@ class CollectorTest {
   void reusesTheConnectionBetweenCollections() {
     Collector collector = collector("Test", h2(), QUERIES);
 
-    collector.collect(EVENT);
-    collector.collect(EVENT);
+    collector.collect(EVENT, DEADLINE);
+    collector.collect(EVENT, DEADLINE);
 
     assertEquals(1, opened);
   }
@@ -133,7 +138,7 @@ class CollectorTest {
     Map<String, Object> event =
         Map.of("id", "db1", "engine", "mysql", "host", "h", "secretId", "s1", "username", "u");
 
-    Collector.Result result = collector("Test", failing, QUERIES).collect(event);
+    Collector.Result result = collector("Test", failing, QUERIES).collect(event, DEADLINE);
 
     assertEquals(new Collector.Result("db1", false, 0, 0), result);
     List<JsonNode> out = json();
@@ -141,6 +146,18 @@ class CollectorTest {
     assertEquals("Connection refused", out.get(0).get("error").asText());
     assertEquals(0, out.get(1).get("Up").asInt());
     assertEquals(List.of("s1"), loginFailures);
+  }
+
+  @Test
+  void skipsQueriesWhenOutOfTimeButStillReports() throws Exception {
+    Collector.Result result =
+        collector("Test", h2(), QUERIES).collect(EVENT, CLOCK.millis() + 1_000);
+
+    assertEquals(new Collector.Result("db1", true, 0, 1), result);
+    List<JsonNode> out = json();
+    assertEquals("Query skipped", out.get(0).get("message").asText());
+    assertEquals(1, out.get(1).get("Up").asInt());
+    assertEquals(1, out.get(1).get("QueryErrors").asInt());
   }
 
   @Test
@@ -158,7 +175,7 @@ class CollectorTest {
         """;
     Collector collector = collector("Test", h2(), queries);
 
-    Collector.Result result = collector.collect(EVENT);
+    Collector.Result result = collector.collect(EVENT, DEADLINE);
 
     assertEquals(new Collector.Result("db1", true, 1, 1), result);
     List<JsonNode> out = json();
@@ -168,7 +185,7 @@ class CollectorTest {
     assertEquals(1, out.get(2).get("QueryErrors").asInt());
 
     // The connection is not trusted after a failed query.
-    collector.collect(EVENT);
+    collector.collect(EVENT, DEADLINE);
     assertEquals(2, opened);
   }
 }

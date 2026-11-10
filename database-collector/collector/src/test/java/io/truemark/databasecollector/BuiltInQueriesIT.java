@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.testcontainers.containers.GenericContainer;
@@ -111,7 +112,9 @@ class BuiltInQueriesIT {
   private static List<String> mysqlSetup() {
     return List.of(
         "CREATE USER '" + USER + "'@'%' IDENTIFIED BY '" + PASSWORD + "'",
-        "GRANT PROCESS ON *.* TO '" + USER + "'@'%'",
+        "GRANT PROCESS, SHOW VIEW ON *.* TO '" + USER + "'@'%'",
+        "CREATE DATABASE app",
+        "CREATE TABLE app.orders (id int)",
         "CREATE TABLE test.writable (id int)",
         "GRANT ALL ON test.writable TO '" + USER + "'@'%'");
   }
@@ -145,10 +148,10 @@ class BuiltInQueriesIT {
   @ParameterizedTest
   @MethodSource("databases")
   void everyBuiltInQueryReturnsItsColumns(Database database) throws SQLException {
-    QueryRunner runner = new QueryRunner(10, 100);
+    QueryRunner runner = new QueryRunner(100);
     try (Connection connection = connect(database)) {
       for (QueryDefinition query : QueryLoader.builtIn(database.engine())) {
-        List<QueryRunner.Row> rows = runner.run(connection, query);
+        List<QueryRunner.Row> rows = runner.run(connection, query, 10);
         if (query.dimensions().isEmpty()) {
           assertEquals(1, rows.size(), query.name());
           assertEquals(
@@ -158,6 +161,46 @@ class BuiltInQueriesIT {
           assertFalse(row.values().isEmpty(), query.name());
         }
       }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("databases")
+  void connectsToTheDefaultDatabase(Database database) throws SQLException {
+    try (Connection ignored = connect(database)) {
+      Target byDefault =
+          new Target(
+              database.name(),
+              database.engine(),
+              database.container().getHost(),
+              database.container().getMappedPort(database.engine().defaultPort()),
+              database.engine().defaultDatabase(),
+              USER,
+              null,
+              database.tls());
+      try (Connection connection =
+          ConnectionCache.open(byDefault, new Credentials(USER, PASSWORD))) {
+        assertTrue(connection.isValid(2));
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("databases")
+  void schemaSizeCoversSchemasWithoutTableGrants(Database database) throws SQLException {
+    Assumptions.assumeTrue(database.engine() == Engine.MYSQL);
+    QueryDefinition schemaSize =
+        QueryLoader.builtIn(Engine.MYSQL).stream()
+            .filter(query -> query.name().equals("schema_size"))
+            .findFirst()
+            .orElseThrow();
+    try (Connection connection = connect(database)) {
+      List<String> schemas =
+          new QueryRunner(100)
+              .run(connection, schemaSize, 10).stream()
+                  .map(row -> row.dimensions().get("SchemaName"))
+                  .toList();
+      assertTrue(schemas.contains("app"), schemas.toString());
     }
   }
 

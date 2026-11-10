@@ -70,7 +70,12 @@ public class TargetResolver {
                   target.username(),
                   tokens.token(target.host(), target.port(), target.username())));
     }
-    String password = required(text(secret, "password"), "password in secret " + secretId);
+    // Taken verbatim: unlike the other fields, surrounding whitespace is part of a password.
+    JsonNode passwordNode = secret.get("password");
+    if (passwordNode == null || passwordNode.isNull() || passwordNode.asText().isEmpty()) {
+      throw new IllegalArgumentException("Missing password in secret " + secretId);
+    }
+    String password = passwordNode.asText();
     return new Resolved(target, () -> new Credentials(target.username(), password));
   }
 

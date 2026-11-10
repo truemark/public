@@ -73,7 +73,8 @@ public class Handler implements RequestHandler<Map<String, Object>, Collector.Re
         new Collector(
             new TargetResolver(secrets, tokens),
             connections,
-            new QueryRunner(QUERY_TIMEOUT_SECONDS, MAX_ROWS),
+            new QueryRunner(MAX_ROWS),
+            QUERY_TIMEOUT_SECONDS,
             builtInQueries::get,
             new Emf(System.getenv("METRICS_NAMESPACE"), System.out::println),
             new Log(System.out::println),
@@ -86,7 +87,8 @@ public class Handler implements RequestHandler<Map<String, Object>, Collector.Re
   @Override
   public Collector.Result handleRequest(Map<String, Object> event, Context context) {
     TrustStore.install();
-    return collector.collect(event);
+    return collector.collect(
+        event, System.currentTimeMillis() + context.getRemainingTimeInMillis());
   }
 
   @Override

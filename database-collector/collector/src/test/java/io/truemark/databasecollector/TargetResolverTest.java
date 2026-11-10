@@ -62,6 +62,17 @@ class TargetResolverTest {
   }
 
   @Test
+  void keepsWhitespaceAroundPassword() {
+    var spaced =
+        new TargetResolver(id -> "{\"username\":\"u\",\"password\":\" s3cret \"}", (h, p, u) -> "");
+
+    var resolved =
+        spaced.resolve(Map.of("id", "db1", "secretId", "s", "engine", "mysql", "host", "h"));
+
+    assertEquals(" s3cret ", resolved.credentials().get().password());
+  }
+
+  @Test
   void rejectsEventWithoutHost() {
     var e =
         assertThrows(
