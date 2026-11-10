@@ -1,12 +1,12 @@
-import {Duration, RemovalPolicy, Stack} from 'aws-cdk-lib';
+import {Duration, Stack} from 'aws-cdk-lib';
 import {SecurityGroup, Vpc} from 'aws-cdk-lib/aws-ec2';
 import {Rule, Schedule} from 'aws-cdk-lib/aws-events';
 import {LambdaFunction} from 'aws-cdk-lib/aws-events-targets';
 import {PolicyStatement, Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
 import type {Code} from 'aws-cdk-lib/aws-lambda';
 import {CfnScheduleGroup} from 'aws-cdk-lib/aws-scheduler';
-import {Queue, QueueEncryption} from 'aws-cdk-lib/aws-sqs';
 import {Construct} from 'constructs';
+import {StandardDeadLetterQueue} from 'truemark-cdk-lib/aws-sqs';
 import {CollectorFunction} from './collector-function.js';
 import {CollectorRole} from './collector-role.js';
 import {RegistrarFunction} from './registrar-function.js';
@@ -99,11 +99,10 @@ export class DatabaseCollector extends Construct {
 
     // Receives collector invocations that EventBridge Scheduler could not
     // deliver, and tag events the registrar failed to process.
-    const deadLetterQueue = new Queue(this, 'DeadLetterQueue', {
-      encryption: QueueEncryption.SQS_MANAGED,
-      removalPolicy: RemovalPolicy.DESTROY,
-      retentionPeriod: Duration.days(14),
-    });
+    const deadLetterQueue = new StandardDeadLetterQueue(
+      this,
+      'DeadLetterQueue',
+    );
 
     const scheduleGroup = new CfnScheduleGroup(this, 'ScheduleGroup', {
       name: `${stack.stackName}-${stack.region}`,
