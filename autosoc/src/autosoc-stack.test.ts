@@ -1,7 +1,7 @@
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
 import {beforeEach, describe, expect, test} from 'vitest';
-import {AutoSocStack} from './autosoc-stack.js';
+import {AutoSocSecurityLakeStack} from './autosoc-stack.js';
 
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
@@ -17,11 +17,13 @@ function synth(context: Record<string, unknown> = {}): Template {
       },
     },
   });
-  const stack = new AutoSocStack(app, 'AutoSoc', {env: TEST_ENV});
+  const stack = new AutoSocSecurityLakeStack(app, 'AutoSocSecurityLake', {
+    env: TEST_ENV,
+  });
   return Template.fromStack(stack);
 }
 
-describe('AutoSocStack', () => {
+describe('AutoSocSecurityLakeStack', () => {
   let template: Template;
 
   beforeEach(() => {
@@ -129,7 +131,7 @@ describe('AutoSocStack', () => {
     withSub.resourceCountIs('AWS::SecurityLake::Subscriber', 1);
     withSub.resourceCountIs('AWS::SecurityLake::SubscriberNotification', 1);
     withSub.hasResourceProperties('AWS::SecurityLake::Subscriber', {
-      SubscriberName: 'autosoc-siem',
+      SubscriberName: 'autosiem',
       AccessTypes: ['S3'],
       SubscriberIdentity: {
         ExternalId: 'supersecretexternalid',
@@ -139,17 +141,19 @@ describe('AutoSocStack', () => {
     withSub.hasResourceProperties('AWS::SecurityLake::SubscriberNotification', {
       NotificationConfiguration: {SqsNotificationConfiguration: {}},
     });
-    // Subscriber role / external-id / queue ARN should be exported so the
-    // sibling AutoSocSiemStack (or operators) can wire them into aes-siem.
+    // Subscriber role / external-id / queue ARN are exported as CfnOutputs
+    // for the operator to copy into the separate `autosiem` package's
+    // deploy (there is no CloudFormation cross-stack link between the two
+    // independent apps/stacks).
     const outputs = withSub.toJSON().Outputs ?? {};
     const exportNames = Object.values(outputs).map(
       (o) => (o as {Export?: {Name: string}}).Export?.Name,
     );
     expect(exportNames).toEqual(
       expect.arrayContaining([
-        'AutoSoc-SecurityLakeSubscriberRoleArn',
-        'AutoSoc-SecurityLakeSubscriberExternalId',
-        'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
+        'AutoSocSecurityLake-SecurityLakeSubscriberRoleArn',
+        'AutoSocSecurityLake-SecurityLakeSubscriberExternalId',
+        'AutoSocSecurityLake-SecurityLakeSubscriberNotificationQueueArn',
       ]),
     );
   });
@@ -161,5 +165,9 @@ describe('AutoSocStack', () => {
         siemSubscriberExternalId: 'external-id-with-hyphens',
       }),
     ).toThrow(/must be alphanumeric only/);
+  });
+
+  test('does not create any nested CloudFormation stacks (SIEM lives in the separate autosiem package)', () => {
+    template.resourceCountIs('AWS::CloudFormation::Stack', 0);
   });
 });

@@ -19,6 +19,8 @@
       <excludeFolder url="file://$MODULE_DIR$/autobackup/cdk.out" />
       <excludeFolder url="file://$MODULE_DIR$/autobackup/dist" />
       <excludeFolder url="file://$MODULE_DIR$/autobackup/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/autofim/lambda/fim-change-detector/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/autofim/cdk.out/asset.4d7dd67a9e706069e9c62d287b93446b35f51d3fda4d0672b06027e23bbe9b62/.venv" />
       <excludePattern pattern="lib/**/*.js" />
       <excludePattern pattern="lib/**/*.d.ts" />
       <excludePattern pattern="lib/**/*.map" />

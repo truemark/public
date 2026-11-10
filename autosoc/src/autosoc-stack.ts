@@ -8,6 +8,8 @@ import {
 } from 'truemark-cdk-lib/aws-securitylake';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
+export type AutoSocSecurityLakeStackProps = ExtendedStackProps;
+
 /**
  * The full set of AWS native log sources this stack enables on the data
  * lake. Also used by default when wiring a Security Lake subscriber so the
@@ -24,10 +26,14 @@ const DEFAULT_LOG_SOURCES = [
   AwsLogSourceName.WAF,
 ] as const;
 
-export class AutoSocStack extends ExtendedStack {
+export class AutoSocSecurityLakeStack extends ExtendedStack {
   readonly securityLake: StandardSecurityLake;
 
-  constructor(scope: Construct, id: string, props: ExtendedStackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: AutoSocSecurityLakeStackProps = {},
+  ) {
     super(scope, id, props);
     this.addMetadata('Version', process.env.npm_package_version);
     this.addMetadata('Name', process.env.npm_package_name);
@@ -40,9 +46,12 @@ export class AutoSocStack extends ExtendedStack {
       this.node.tryGetContext('createLakeFormationSlr') === 'true';
 
     // Optional Security Lake subscriber. When `siemSubscriberAccountId` and
-    // `siemSubscriberExternalId` are supplied (typically via the sibling
-    // `AutoSocSiemStack` wiring), add a subscriber so the SIEM es-loader
-    // can read OCSF Parquet files produced by Security Lake.
+    // `siemSubscriberExternalId` are supplied, add a subscriber so the
+    // separate `autosiem` package's es-loader (typically deployed in a
+    // different account, e.g. security-audit) can read OCSF Parquet files
+    // produced by Security Lake. The subscriber role ARN / external id /
+    // notification queue ARN are published below as CfnOutputs for the
+    // operator to copy into the `autosiem` deploy.
     const siemSubscriberAccountId = this.node.tryGetContext(
       'siemSubscriberAccountId',
     ) as string | undefined;
@@ -53,18 +62,18 @@ export class AutoSocStack extends ExtendedStack {
     const subscribers: SecurityLakeSubscriberProps[] = [];
     if (siemSubscriberAccountId && siemSubscriberExternalId) {
       subscribers.push({
-        subscriberName: 'autosoc-siem',
+        subscriberName: 'autosiem',
         principal: siemSubscriberAccountId,
         externalId: siemSubscriberExternalId,
         description:
-          'AutoSoc SIEM OpenSearch subscriber - consumes Security Lake OCSF Parquet via SQS notifications',
+          'autosiem OpenSearch subscriber - consumes Security Lake OCSF Parquet via SQS notifications',
         sources: DEFAULT_LOG_SOURCES.map((sourceName) => ({sourceName})),
         // aes-siem's es-loader Lambda has a 600s timeout. Security Lake
         // auto-provisions the subscriber Main-Queue with 300s, which is
         // less than the Lambda timeout and causes the es-loader event-
         // source-mapping to be rejected. The StandardSecurityLake
         // construct patches the queue via an AwsCustomResource so the
-        // first SIEM deploy succeeds. See autosoc/README.md §1.
+        // first `autosiem` deploy succeeds. See autosoc/README.md §1.
         sqsVisibilityTimeoutSeconds: 3600,
       });
     }
@@ -75,28 +84,43 @@ export class AutoSocStack extends ExtendedStack {
       subscribers,
     });
 
-    // Export subscriber details so AutoSocSiemStack (or operators) can feed
-    // them into the aes-siem CloudFormation parameters.
+    // Export subscriber details as CfnOutputs. Since `autosoc` and
+    // `autosiem` are independent CDK apps/stacks (typically deployed into
+    // different accounts, e.g. log-archive vs. security-audit), there is
+    // no CloudFormation cross-stack export/Fn::ImportValue link between
+    // them — copy these three values into the `autosiem` deploy's
+    // `-c siemSecurityLake*` context flags (see autosiem/README.md).
+    //
+    // IMPORTANT: StandardSecurityLake's post-creation queue-visibility-
+    // timeout patch (an AwsCustomResource that runs after the notification
+    // resource is created, see standard-security-lake.ts) may still be in
+    // flight when `AutoSocSecurityLake`'s deploy reaches CREATE_COMPLETE and
+    // these outputs become readable. If you deploy `autosiem` immediately
+    // after (e.g. scripted end-to-end), confirm `AutoSocSecurityLake` itself reached
+    // CREATE_COMPLETE/UPDATE_COMPLETE before copying these values —
+    // CloudFormation only reports the stack complete once every resource,
+    // including the patch, has finished.
     if (this.securityLake.subscribers.length > 0) {
       const [subscriber] = this.securityLake.subscribers;
       const [notification] = this.securityLake.subscriberNotifications;
       new CfnOutput(this, 'SecurityLakeSubscriberRoleArn', {
         value: subscriber.attrSubscriberRoleArn,
         description:
-          'IAM role ARN that the SIEM es-loader assumes to read Security Lake objects.',
-        exportName: 'AutoSoc-SecurityLakeSubscriberRoleArn',
+          'IAM role ARN that the autosiem es-loader assumes to read Security Lake objects. Copy into autosiem -c siemSecurityLakeSubscriberRoleArn.',
+        exportName: 'AutoSocSecurityLake-SecurityLakeSubscriberRoleArn',
       });
       new CfnOutput(this, 'SecurityLakeSubscriberExternalId', {
         value: siemSubscriberExternalId ?? '',
         description:
-          'External id the SIEM es-loader must present when assuming the subscriber role.',
-        exportName: 'AutoSoc-SecurityLakeSubscriberExternalId',
+          'External id the autosiem es-loader must present when assuming the subscriber role. Copy into autosiem -c siemSecurityLakeSubscriberExternalId.',
+        exportName: 'AutoSocSecurityLake-SecurityLakeSubscriberExternalId',
       });
       new CfnOutput(this, 'SecurityLakeSubscriberNotificationQueueArn', {
         value: notification.attrSubscriberEndpoint,
         description:
-          'SQS queue ARN Security Lake writes new-object notifications to.',
-        exportName: 'AutoSoc-SecurityLakeSubscriberNotificationQueueArn',
+          'SQS queue ARN Security Lake writes new-object notifications to. Copy into autosiem -c siemSecurityLakeSubscriberSqsArn.',
+        exportName:
+          'AutoSocSecurityLake-SecurityLakeSubscriberNotificationQueueArn',
       });
     }
   }
