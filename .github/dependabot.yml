@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: daily
+  - package-ecosystem: gradle
+    directory: /database-collector/collector
+    schedule:
+      interval: daily
   - package-ecosystem: npm
     directory: /
     schedule:

@@ -93,6 +93,14 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
+      # JDK for the Gradle-built Lambda function in database-collector/collector.
+      # The version must match the toolchain in its build.gradle.kts.
+      - name: "Setup Java"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
       - name: "Get pnpm store directory"
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
       - name: "Setup pnpm cache"
