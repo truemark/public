@@ -143,6 +143,11 @@ Parameters:
     AllowedPattern: (^vpce-[0-9a-z]*|aos-[0-9a-z]*|)
     Description: (Optional) Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions
       and other resources will be deployed into VPC
+  AosSubnetIds:
+    Type: String
+    Default: ''
+    AllowedPattern: ^(subnet-[0-9a-f]{8,17})?(,subnet-[0-9a-f]{8,17})*$
+    Description: (Optional, truemark patch) Comma-separated VPC subnet ids to place the OpenSearch domain and es-loader into directly, bypassing VpcEndpointId's existing-domain requirement. Reuses AesSiemVpcSecurityGroup2nd as the domain's security group.
   AllowedSourceIpAddresses:
     Type: String
     Default: 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
@@ -296,11 +301,16 @@ Conditions:
     - !Equals
       - !Ref 'VpcEndpointId'
       - ''
+  HasAosSubnetIds: !Not
+    - !Equals
+      - !Ref 'AosSubnetIds'
+      - ''
   IsInVpc: !Or
     - !Equals
       - false
       - true
     - !Condition 'hasVpce'
+    - !Condition 'HasAosSubnetIds'
   HasGeoipLicense: !Or
     - !Not
       - !Equals
@@ -402,7 +412,7 @@ Resources:
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
-          AOS_SUBNET_IDS: ''
+          AOS_SUBNET_IDS: !Ref 'AosSubnetIds'
           DEPLOYMENT_TARGET: !Ref 'DeploymentTarget'
           DOMAIN_OR_COLLECTION_NAME: !Ref 'DomainOrCollectionName'
           S3_LOG: !Sub 'aes-siem-${AWS::AccountId}-log'
@@ -2189,6 +2199,11 @@ Resources:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
           ALLOWED_SOURCE_ADDRESSES: !Ref 'AllowedSourceIpAddresses'
+          AOS_SECURITY_GROUP_ID: !If
+            - IsInVpc
+            - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+            - ''
+          AOS_SUBNET_IDS: !Ref 'AosSubnetIds'
           DEPLOYMENT_TARGET: !Ref 'DeploymentTarget'
           DOMAIN_OR_COLLECTION_NAME: !Ref 'DomainOrCollectionName'
           ROLE_AOS_ADMIN: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
