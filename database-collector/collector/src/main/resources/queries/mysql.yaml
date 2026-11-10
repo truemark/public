@@ -1,0 +1,51 @@
+# Built-in queries for MySQL and MariaDB. The monitoring user needs the PROCESS privilege to see
+# sessions and transactions that belong to other users.
+
+- name: sessions
+  sql: |
+    SELECT CASE WHEN command = 'Sleep' THEN 'idle' ELSE 'active' END AS State,
+           count(*) AS sessions
+    FROM information_schema.processlist
+    WHERE id <> connection_id() AND command <> 'Daemon'
+    GROUP BY 1
+  dimensions: [State]
+  metrics:
+    - {column: sessions, name: Sessions, unit: Count}
+
+- name: connections
+  sql: |
+    SELECT count(*) * 100.0 / @@max_connections AS used_percent
+    FROM information_schema.processlist
+    WHERE command <> 'Daemon'
+  metrics:
+    - {column: used_percent, name: ConnectionsUsedPercent, unit: Percent}
+
+- name: statements
+  sql: |
+    SELECT coalesce(max(time), 0) AS longest_statement
+    FROM information_schema.processlist
+    WHERE id <> connection_id()
+      AND command NOT IN ('Sleep', 'Daemon', 'Binlog Dump', 'Binlog Dump GTID')
+  metrics:
+    - {column: longest_statement, name: LongestStatementSeconds, unit: Seconds}
+
+- name: transactions
+  sql: |
+    SELECT
+      coalesce(max(timestampdiff(SECOND, trx_started, now())), 0) AS longest_transaction,
+      coalesce(sum(trx_state = 'LOCK WAIT'), 0) AS blocked
+    FROM information_schema.innodb_trx
+  metrics:
+    - {column: longest_transaction, name: LongestTransactionSeconds, unit: Seconds}
+    - {column: blocked, name: BlockedTransactions, unit: Count}
+
+- name: schema_size
+  interval: 15
+  sql: |
+    SELECT table_schema AS SchemaName, sum(data_length + index_length) AS bytes
+    FROM information_schema.tables
+    WHERE table_schema NOT IN ('mysql', 'sys', 'information_schema', 'performance_schema')
+    GROUP BY table_schema
+  dimensions: [SchemaName]
+  metrics:
+    - {column: bytes, name: SchemaSizeBytes, unit: Bytes}

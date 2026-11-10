@@ -18,6 +18,8 @@ export interface CollectorRoleProps {
    * instead of a password.
    */
   readonly databaseUser: string;
+  /** Prefix of the tags that opt a database in and configure it. */
+  readonly tagPrefix: string;
 }
 
 /**
@@ -28,6 +30,10 @@ export interface CollectorRoleProps {
  * and region. That alone grants nothing: a database only accepts the token
  * once an administrator has created that user and enabled IAM authentication
  * for it.
+ *
+ * The role may also read secrets, but only those tagged for the collector:
+ * either as a database to collect from (`enabled`) or as the credentials of a
+ * tagged RDS instance (`allow`).
  */
 export class CollectorRole extends Role {
   constructor(scope: Construct, id: string, props: CollectorRoleProps) {
@@ -42,6 +48,20 @@ export class CollectorRole extends Role {
         ),
       ],
     });
+
+    for (const tag of ['enabled', 'allow']) {
+      this.addToPolicy(
+        new PolicyStatement({
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              [`secretsmanager:ResourceTag/${props.tagPrefix}${tag}`]: 'true',
+            },
+          },
+        }),
+      );
+    }
 
     this.addToPolicy(
       new PolicyStatement({

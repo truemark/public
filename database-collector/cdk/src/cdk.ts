@@ -36,4 +36,7 @@ new DatabaseCollectorStack(app, 'DatabaseCollector', {
   tagPrefix: ctxString(app, 'tagPrefix'),
   databaseUser: ctxString(app, 'databaseUser'),
   roleName: ctxString(app, 'roleName'),
+  // Read directly so that an empty string, which turns metric publishing
+  // off, is not mistaken for "not set".
+  metricsNamespace: app.node.tryGetContext('metricsNamespace'),
 });
