@@ -1,5 +1,64 @@
 # TrueMark CDK Library Changelog
 
+## 1.32.0
+### Minor Changes
+
+- 952790d: - aws-sqs: `StandardQueue` implements `metricApproximateNumberOfMessagesOutstanding`, which
+    `IQueue` gained in newer aws-cdk-lib releases. Consumers on those releases no longer get
+    TS2420 from `standard-queue.d.ts` or TS2741 when passing a `StandardQueue` as an `IQueue`.
+    No template change.
+  - aws-sqs: `StandardQueue` takes an optional `enforceSSL` prop, applied to the queue and its
+    dead letter queue. Unset keeps today's behaviour: not enforced on the queue, enforced on the
+    dead letter queue.
+  - aws-wafv2: `CloudFrontSecurityBaselineWebAcl` and `RegionalSecurityBaselineWebAcl` import
+    `Construct` from `constructs` instead of `constructs/lib/construct`, which does not resolve
+    under `moduleResolution: NodeNext` with constructs 10.8 or later.
+  - aws-wafv2: both baselines send logs to the log group ARN without the trailing `:*`, the
+    format AWS WAF documents. On deploy the existing `AWS::WAFv2::LoggingConfiguration` is
+    updated in place; nothing is replaced.
+  - aws-wafv2: both baselines take an optional `logRemovalPolicy` for the WAF log group. Unset
+    keeps today's behaviour (retained). Pass `RemovalPolicy.DESTROY` where the stack is torn
+    down and redeployed: the group's name is fixed, so a retained group blocks the next deploy
+    until it is deleted by hand.
+  - aws-cloudfront: `apiDefaults()` takes an optional second list of headers that go to the
+    origin request policy only, for headers a cache policy rejects such as
+    `CloudFront-Viewer-Address`. Existing calls produce the same policies.
+  - aws-ssm: `ParameterReader`, used by `ParameterStore.read` across regions, grants
+    `ssm:GetParameter` on the parameter's ARN in the target region instead of `*`. The stack's
+    shared `AwsCustomResource` provider function logs to a new log group with 3 days'
+    retention, one per stack, unless a custom resource created before it already set one. On
+    deploy the stack gains that log group and the function's logging configuration is updated
+    in place. The function's previous `/aws/lambda/<function>` group, created by Lambda or,
+    under `@aws-cdk/aws-lambda:useCdkManagedLogGroup`, by CDK with a retain policy, is left
+    behind and can be deleted.
+  - aws-dynamodb: `ExtendedTableV2` (and so `StandardTableV2`) now sets `tableAlarms`, which was
+    always `undefined`, and adds every global secondary index, whether passed in
+    `globalSecondaryIndexes` or added later, to the monitoring dashboards when the stack creates
+    them. No alarms are added.
+
+## 1.31.0
+### Minor Changes
+
+- a866bd7: Add NAT instance and IPv6 support to `aws-vpc` (#483).
+  
+  - **New `NatInstance` construct** — a self-managed, ASG-backed NAT instance with a dedicated
+    ENI, offered as a lower-cost alternative to a managed NAT Gateway. Defaults to ARM64 on
+    `t4g.micro` (`t3a.micro` on X86_64), with optional spot instances (`useSpotInstance`),
+    a custom `imageId`, extra cloud-init files/commands (`additionalWriteFiles`,
+    `additionalRunCmds`), and a configurable `ssmPolicyArn`. Exported from `aws-vpc`.
+  - **`NatType` gains `'natInstance'`** — `StandardNetwork` provisions a `NatInstance` and points
+    the private subnet route tables at its ENI when selected. Requires at least one public subnet
+    and one private subnet; both are validated.
+  - **New `enableIpv6` prop on `StandardNetwork`** — associates an Amazon-provided IPv6 CIDR and
+    configures the VPC for dual-stack (`ec2.IpProtocol.DUAL_STACK`). IPv6-only mode is not yet
+    supported.
+  - **Migration note for older versions:** `StandardNetwork` defaults to 3 availability zones
+    (already the default in `1.29.0`). Consumers upgrading from a version that defaulted to 2
+    may get new per-AZ resources **and replacements of existing subnets**: adding a third private
+    subnet shifts sequential CIDR allocations in the public and later subnet groups.
+    Set `azCount: 2` before upgrading to retain the two-AZ setting; otherwise review `cdk diff`
+    and plan the subnet/resource migration.
+
 ## 1.30.0
 ### Minor Changes
 

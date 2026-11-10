@@ -1,0 +1,6 @@
+# From the upstream truemark/autostate root .gitignore (not covered by the monorepo root)
+**/*oneoff.test.ts
+**/*oneoff.test.mts
+one-off.test.ts
+one-off.test.mts
+tmp

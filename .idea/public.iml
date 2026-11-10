@@ -12,6 +12,10 @@
       <excludeFolder url="file://$MODULE_DIR$/autoalarm/cdk/node_modules" />
       <excludeFolder url="file://$MODULE_DIR$/autoalarm/handlers/coverage" />
       <excludeFolder url="file://$MODULE_DIR$/autoalarm/handlers/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/autostate/cdk/cdk.out" />
+      <excludeFolder url="file://$MODULE_DIR$/autostate/cdk/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/autostate/handlers/coverage" />
+      <excludeFolder url="file://$MODULE_DIR$/autostate/handlers/node_modules" />
       <excludeFolder url="file://$MODULE_DIR$/autobackup/cdk.out" />
       <excludeFolder url="file://$MODULE_DIR$/autobackup/dist" />
       <excludeFolder url="file://$MODULE_DIR$/autobackup/node_modules" />
