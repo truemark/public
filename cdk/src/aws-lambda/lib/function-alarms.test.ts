@@ -38,7 +38,33 @@ test('iterator-age alarm is created when isIterator is true', () => {
   });
 });
 
-test('maxIteratorAge without isIterator throws', () => {
+test('maxIteratorAge works when isIterator is left unset', () => {
+  const stack = HelperTest.stack();
+  // Unset must keep the cdk-monitoring-constructs default of true, so stacks
+  // that configured maxIteratorAge before isIterator existed still synth.
+  new FunctionAlarms(stack, 'Alarms', {
+    function: streamFunction(stack),
+    logGroup: new LogGroup(stack, 'LogGroup'),
+    criticalAlarmOptions: {
+      maxIteratorAge: 300000,
+    },
+  });
+  Template.fromStack(stack).hasResourceProperties(
+    ResourceType.CLOUDWATCH_ALARM,
+    {
+      Threshold: 300000,
+      Metrics: Match.arrayWith([
+        Match.objectLike({
+          MetricStat: Match.objectLike({
+            Metric: Match.objectLike({MetricName: 'IteratorAge'}),
+          }),
+        }),
+      ]),
+    },
+  );
+});
+
+test('maxIteratorAge with isIterator false throws', () => {
   const stack = HelperTest.stack();
   const fn = streamFunction(stack);
   const logGroup = new LogGroup(stack, 'LogGroup');
@@ -46,6 +72,7 @@ test('maxIteratorAge without isIterator throws', () => {
     new FunctionAlarms(stack, 'Alarms', {
       function: fn,
       logGroup,
+      isIterator: false,
       criticalAlarmOptions: {
         maxIteratorAge: 300000,
       },
