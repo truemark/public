@@ -14,6 +14,8 @@ export interface DatabaseCollectorStackProps extends ExtendedStackProps {
   readonly databaseUser?: string;
   /** @default - 'database-collector-' followed by the region */
   readonly roleName?: string;
+  /** @default 'DatabaseCollector' */
+  readonly metricsNamespace?: string;
   /** @default - the zip built from ../collector */
   readonly collectorCode?: Code;
 }
@@ -31,6 +33,7 @@ export class DatabaseCollectorStack extends ExtendedStack {
       tagPrefix: props.tagPrefix,
       databaseUser: props.databaseUser,
       roleName: props.roleName,
+      metricsNamespace: props.metricsNamespace,
       collectorCode: props.collectorCode,
     });
     this.outputParameter('Name', 'DatabaseCollector');

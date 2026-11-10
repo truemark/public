@@ -16,9 +16,26 @@ java {
     }
 }
 
+configurations.runtimeClasspath {
+    // The URL connection HTTP client is used instead; leaving these out keeps the package small.
+    exclude(group = "software.amazon.awssdk", module = "apache-client")
+    exclude(group = "software.amazon.awssdk", module = "apache5-client")
+    exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+}
+
 dependencies {
     implementation("com.amazonaws:aws-lambda-java-core:1.4.1")
     implementation("org.crac:crac:1.5.0")
+
+    implementation(platform("software.amazon.awssdk:bom:2.57.12"))
+    implementation("software.amazon.awssdk:secretsmanager")
+    // Only used to sign IAM database authentication tokens, which makes no API call.
+    implementation("software.amazon.awssdk:rds")
+    implementation("software.amazon.awssdk:url-connection-client")
+
+    implementation(platform("com.fasterxml.jackson:jackson-bom:2.23.0"))
+    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
 
     // JDBC drivers. Every driver listed here is packaged into the function
     // under lib/ and discovered at runtime through java.sql.DriverManager.
@@ -31,6 +48,10 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("com.h2database:h2:2.5.252")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.17")
 }
 
 spotless {
@@ -41,6 +62,14 @@ spotless {
 
 tasks.test {
     useJUnitPlatform()
+    // Lets HandlerTest build the AWS clients; nothing is ever sent with these credentials.
+    environment("AWS_REGION", "us-east-1")
+    environment("AWS_ACCESS_KEY_ID", "test")
+    environment("AWS_SECRET_ACCESS_KEY", "test")
+    testLogging {
+        events("skipped", "failed")
+        showStandardStreams = false
+    }
 }
 
 // Byte-for-byte reproducible archives keep the CDK asset hash stable, so the

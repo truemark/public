@@ -38,6 +38,13 @@ export interface DatabaseCollectorProps {
    */
   readonly roleName?: string;
   /**
+   * CloudWatch namespace the collected metrics are published under. Set to
+   * an empty string to write structured logs without publishing metrics.
+   *
+   * @default 'DatabaseCollector'
+   */
+  readonly metricsNamespace?: string;
+  /**
    * Overrides the collector deployment package.
    *
    * @default - the zip built from ../collector
@@ -87,6 +94,7 @@ export class DatabaseCollector extends Construct {
     this.collectorRole = new CollectorRole(this, 'CollectorRole', {
       roleName: props.roleName ?? `database-collector-${stack.region}`,
       databaseUser: props.databaseUser ?? 'database_collector',
+      tagPrefix,
     });
 
     this.collectorFunction = new CollectorFunction(this, 'CollectorFunction', {
@@ -95,6 +103,7 @@ export class DatabaseCollector extends Construct {
       vpcSubnets: {subnets: vpc.privateSubnets},
       securityGroups: [this.collectorSecurityGroup],
       code: props.collectorCode,
+      metricsNamespace: props.metricsNamespace ?? 'DatabaseCollector',
     });
 
     // Receives collector invocations that EventBridge Scheduler could not

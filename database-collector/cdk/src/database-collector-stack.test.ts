@@ -51,6 +51,24 @@ describe('DatabaseCollectorStack', () => {
     expect(policies).toContain(':dbuser:*/database_collector');
   });
 
+  test('collector may only read secrets tagged for it', () => {
+    const policies = JSON.stringify(template.findResources('AWS::IAM::Policy'));
+    expect(policies).toContain(
+      '"secretsmanager:ResourceTag/database-collector:enabled":"true"',
+    );
+    expect(policies).toContain(
+      '"secretsmanager:ResourceTag/database-collector:allow":"true"',
+    );
+  });
+
+  test('collector publishes metrics under the default namespace', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'java25',
+      Environment: {Variables: {METRICS_NAMESPACE: 'DatabaseCollector'}},
+      LoggingConfig: Match.objectLike({LogFormat: 'Text'}),
+    });
+  });
+
   test('tag changes on RDS instances and secrets reach the registrar', () => {
     template.hasResourceProperties('AWS::Events::Rule', {
       EventPattern: {

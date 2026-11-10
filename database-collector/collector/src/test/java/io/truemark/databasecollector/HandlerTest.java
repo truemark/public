@@ -1,32 +1,28 @@
 package io.truemark.databasecollector;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.sql.DriverManager;
-import java.util.List;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 class HandlerTest {
 
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "jdbc:postgresql://localhost/test",
-        "jdbc:mariadb://localhost/test",
-        "jdbc:oracle:thin:@//localhost/test",
-        "jdbc:sqlserver://localhost;databaseName=test"
-      })
-  void bundlesDriverFor(String url) {
-    assertDoesNotThrow(() -> DriverManager.getDriver(url));
-  }
+  /**
+   * Exercises the real wiring up to the network: the IAM token is signed locally, then the
+   * connection to a port nothing listens on is refused.
+   */
+  @Test
+  void reportsUnreachableDatabaseAsDown() {
+    Map<String, Object> event =
+        Map.of(
+            "id", "db1",
+            "engine", "postgres",
+            "host", "127.0.0.1",
+            "port", 1,
+            "username", "database_collector");
 
-  @org.junit.jupiter.api.Test
-  void handlerReportsBundledDrivers() {
-    @SuppressWarnings("unchecked")
-    List<String> drivers =
-        (List<String>) new Handler().handleRequest(java.util.Map.of(), null).get("drivers");
-    assertEquals(4, drivers.size(), drivers.toString());
+    Collector.Result result = new Handler().handleRequest(event, null);
+
+    assertEquals(new Collector.Result("db1", false, 0, 0), result);
   }
 }

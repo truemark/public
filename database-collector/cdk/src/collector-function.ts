@@ -7,6 +7,7 @@ import {
   Alias,
   Architecture,
   Code,
+  LoggingFormat,
   Runtime,
   SnapStartConf,
 } from 'aws-cdk-lib/aws-lambda';
@@ -29,6 +30,11 @@ export interface CollectorFunctionProps {
   readonly vpc: IVpc;
   readonly vpcSubnets: SubnetSelection;
   readonly securityGroups: ISecurityGroup[];
+  /**
+   * CloudWatch namespace the collected metrics are published under. An empty
+   * string writes the same structured logs without publishing metrics.
+   */
+  readonly metricsNamespace: string;
   /**
    * Overrides the deployment package.
    *
@@ -63,6 +69,13 @@ export class CollectorFunction extends ExtendedFunction {
       vpc: props.vpc,
       vpcSubnets: props.vpcSubnets,
       securityGroups: props.securityGroups,
+      // Each line the function writes is already a JSON document in the
+      // CloudWatch embedded metric format, which must reach the log
+      // unwrapped for CloudWatch to extract the metrics.
+      loggingFormat: LoggingFormat.TEXT,
+      environment: {
+        METRICS_NAMESPACE: props.metricsNamespace,
+      },
     });
 
     this.alias = new Alias(this, 'LiveAlias', {

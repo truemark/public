@@ -1,0 +1,127 @@
+package io.truemark.databasecollector;
+
+import java.sql.SQLException;
+import java.time.Clock;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+/** Collects metrics from one database: connects, runs the queries that are due, writes results. */
+public class Collector {
+  /**
+   * Outcome of one collection.
+   *
+   * @param up whether the collector could log in to the database
+   * @param queries queries that ran successfully
+   * @param errors queries that failed
+   */
+  public record Result(String id, boolean up, int queries, int errors) {}
+
+  /** Query name the collector reports its own metrics under. */
+  static final String SELF = "collector";
+
+  private static final List<Emf.Unit> SELF_UNITS =
+      List.of(
+          new Emf.Unit("Up", "Count"),
+          new Emf.Unit("ConnectMillis", "Milliseconds"),
+          new Emf.Unit("CollectMillis", "Milliseconds"),
+          new Emf.Unit("QueryErrors", "Count"));
+
+  private final TargetResolver resolver;
+  private final ConnectionCache connections;
+  private final QueryRunner runner;
+  private final Function<Engine, List<QueryDefinition>> queries;
+  private final Emf emf;
+  private final Log log;
+  private final Clock clock;
+  private final Consumer<String> onLoginFailure;
+
+  /**
+   * @param queries supplies the queries to run for an engine
+   * @param onLoginFailure told the secret ID when a login with that secret failed
+   */
+  public Collector(
+      TargetResolver resolver,
+      ConnectionCache connections,
+      QueryRunner runner,
+      Function<Engine, List<QueryDefinition>> queries,
+      Emf emf,
+      Log log,
+      Clock clock,
+      Consumer<String> onLoginFailure) {
+    this.resolver = resolver;
+    this.connections = connections;
+    this.runner = runner;
+    this.queries = queries;
+    this.emf = emf;
+    this.log = log;
+    this.clock = clock;
+    this.onLoginFailure = onLoginFailure;
+  }
+
+  /**
+   * Collects from the database the event describes.
+   *
+   * <p>An unreachable database or a failing query is an expected condition: it is reported as a
+   * metric and a log line, not thrown. Only an event that does not describe a database throws.
+   */
+  public Result collect(Map<String, Object> event) {
+    long started = clock.millis();
+    TargetResolver.Resolved resolved = resolver.resolve(event);
+    Target target = resolved.target();
+    Map<String, Double> self = new LinkedHashMap<>();
+
+    ConnectionCache.Lease lease;
+    try {
+      lease = connections.get(target, resolved.credentials());
+    } catch (SQLException | RuntimeException e) {
+      log.error("Connection failed", target, null, e);
+      if (target.secretId() != null) {
+        // The secret may have been rotated since it was cached.
+        onLoginFailure.accept(target.secretId());
+      }
+      self.put("Up", 0.0);
+      writeSelf(started, target, self);
+      return new Result(target.id(), false, 0, 0);
+    }
+    self.put("Up", 1.0);
+    if (lease.opened()) {
+      self.put("ConnectMillis", (double) (clock.millis() - started));
+    }
+
+    int succeeded = 0;
+    int failed = 0;
+    long epochMinute = started / 60_000;
+    for (QueryDefinition query : queries.apply(target.engine())) {
+      if (!query.isDue(epochMinute)) {
+        continue;
+      }
+      try {
+        List<Emf.Unit> units =
+            query.metrics().stream().map(m -> new Emf.Unit(m.name(), m.unit())).toList();
+        for (QueryRunner.Row row : runner.run(lease.connection(), query)) {
+          emf.write(started, target, query.name(), row.dimensions(), units, row.values());
+        }
+        succeeded++;
+      } catch (SQLException e) {
+        failed++;
+        log.error("Query failed", target, query.name(), e);
+      }
+    }
+    if (failed > 0) {
+      // A failed query may have left the connection unusable; start fresh next time.
+      connections.discard(target.id());
+    }
+
+    self.put("QueryErrors", (double) failed);
+    self.put("CollectMillis", (double) (clock.millis() - started));
+    writeSelf(started, target, self);
+    return new Result(target.id(), true, succeeded, failed);
+  }
+
+  private void writeSelf(long timestamp, Target target, Map<String, Double> values) {
+    emf.write(timestamp, target, SELF, Map.of(), SELF_UNITS, values);
+  }
+}

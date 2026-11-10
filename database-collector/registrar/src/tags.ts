@@ -8,6 +8,7 @@ export const DEFAULT_TAG_PREFIX = 'database-collector:';
 export const TAG_NAMES = [
   'enabled',
   'secret',
+  'allow',
   'username',
   'database',
   'query-sets',

@@ -1,0 +1,55 @@
+# Built-in queries for PostgreSQL. The monitoring user needs the pg_monitor role to see sessions
+# and sizes that belong to other users.
+
+- name: sessions
+  sql: |
+    SELECT coalesce(state, 'unknown') AS "State", count(*) AS sessions
+    FROM pg_stat_activity
+    WHERE backend_type = 'client backend' AND pid <> pg_backend_pid()
+    GROUP BY 1
+  dimensions: [State]
+  metrics:
+    - {column: sessions, name: Sessions, unit: Count}
+
+- name: connections
+  sql: |
+    SELECT count(*) * 100.0 / current_setting('max_connections')::numeric AS used_percent
+    FROM pg_stat_activity
+    WHERE backend_type = 'client backend'
+  metrics:
+    - {column: used_percent, name: ConnectionsUsedPercent, unit: Percent}
+
+- name: transactions
+  sql: |
+    SELECT
+      coalesce(max(extract(epoch FROM now() - xact_start)), 0) AS longest_transaction,
+      coalesce(max(extract(epoch FROM now() - state_change))
+        FILTER (WHERE state LIKE 'idle in transaction%'), 0) AS longest_idle_in_transaction,
+      count(*) FILTER (WHERE wait_event_type = 'Lock') AS blocked
+    FROM pg_stat_activity
+    WHERE backend_type = 'client backend' AND pid <> pg_backend_pid()
+  metrics:
+    - {column: longest_transaction, name: LongestTransactionSeconds, unit: Seconds}
+    - {column: longest_idle_in_transaction, name: LongestIdleInTransactionSeconds, unit: Seconds}
+    - {column: blocked, name: BlockedSessions, unit: Count}
+
+- name: tuples
+  interval: 5
+  sql: |
+    SELECT
+      coalesce(sum(n_dead_tup), 0) AS dead,
+      coalesce(sum(n_live_tup), 0) AS live
+    FROM pg_stat_user_tables
+  metrics:
+    - {column: dead, name: DeadTuples, unit: Count}
+    - {column: live, name: LiveTuples, unit: Count}
+
+- name: database_size
+  interval: 15
+  sql: |
+    SELECT datname AS "DatabaseName", pg_database_size(datname) AS bytes
+    FROM pg_database
+    WHERE NOT datistemplate AND datname <> 'rdsadmin'
+  dimensions: [DatabaseName]
+  metrics:
+    - {column: bytes, name: DatabaseSizeBytes, unit: Bytes}

@@ -9,6 +9,7 @@ test('tagKeys applies a custom prefix', () => {
   expect(tagKeys('dbc:')).toEqual([
     'dbc:enabled',
     'dbc:secret',
+    'dbc:allow',
     'dbc:username',
     'dbc:database',
     'dbc:query-sets',
