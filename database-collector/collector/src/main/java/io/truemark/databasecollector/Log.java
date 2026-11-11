@@ -17,11 +17,21 @@ public class Log {
   }
 
   public void error(String message, Target target, String query, Throwable cause) {
+    error(message, target.id(), target.engine().id(), query, cause);
+  }
+
+  /**
+   * @param engine engine name, or null when it is not known
+   * @param query query name, or null when the error is not about one query
+   */
+  public void error(String message, String targetId, String engine, String query, Throwable cause) {
     Map<String, Object> line = new LinkedHashMap<>();
     line.put("level", "ERROR");
     line.put("message", message);
-    line.put("Target", target.id());
-    line.put("Engine", target.engine().id());
+    line.put("Target", targetId);
+    if (engine != null) {
+      line.put("Engine", engine);
+    }
     if (query != null) {
       line.put("Query", query);
     }

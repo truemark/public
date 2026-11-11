@@ -50,6 +50,21 @@ public class Emf {
       Map<String, String> dimensions,
       List<Unit> units,
       Map<String, Double> values) {
+    write(timestampMillis, target.id(), target.engine().id(), query, dimensions, units, values);
+  }
+
+  /**
+   * @param engine engine name, or null when it is not known because the target could not be
+   *     resolved
+   */
+  public void write(
+      long timestampMillis,
+      String targetId,
+      String engine,
+      String query,
+      Map<String, String> dimensions,
+      List<Unit> units,
+      Map<String, Double> values) {
     if (values.isEmpty()) {
       return;
     }
@@ -71,8 +86,10 @@ public class Emf {
     } else {
       line.put("timestamp", timestampMillis);
     }
-    line.put("Target", target.id());
-    line.put("Engine", target.engine().id());
+    line.put("Target", targetId);
+    if (engine != null) {
+      line.put("Engine", engine);
+    }
     line.put("Query", query);
     dimensions.forEach(line::put);
     values.forEach(line::put);

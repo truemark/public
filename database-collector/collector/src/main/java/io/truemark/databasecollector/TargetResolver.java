@@ -9,6 +9,10 @@ import java.util.regex.Pattern;
 /**
  * Turns the event the function is invoked with into a {@link Target} and its {@link Credentials}.
  *
+ * <p>An event or secret that does not describe a database is rejected with {@link
+ * IllegalArgumentException}; a secret that cannot be read at all is reported with {@link
+ * SecretUnavailableException}.
+ *
  * <p>The event carries these fields. Each one except {@code id} and {@code secretId} may instead
  * come from the secret, using the field names of RDS-managed secrets ({@code engine}, {@code host},
  * {@code port}, {@code dbname}, {@code username}); the event wins when both are present.
@@ -44,7 +48,7 @@ public class TargetResolver {
   public Resolved resolve(Map<String, Object> event) {
     String id = required(text(event.get("id")), "id");
     String secretId = text(event.get("secretId"));
-    JsonNode secret = secretId == null ? MAPPER.createObjectNode() : readSecret(secretId);
+    JsonNode secret = secretId == null ? MAPPER.createObjectNode() : readSecret(id, secretId);
 
     Engine engine =
         Engine.parse(required(first(text(event.get("engine")), text(secret, "engine")), "engine"));
@@ -89,9 +93,15 @@ public class TargetResolver {
     return new Resolved(target, () -> new Credentials(target.username(), password));
   }
 
-  private JsonNode readSecret(String secretId) {
+  private JsonNode readSecret(String targetId, String secretId) {
+    String text;
     try {
-      return MAPPER.readTree(secrets.get(secretId));
+      text = secrets.get(secretId);
+    } catch (RuntimeException e) {
+      throw new SecretUnavailableException(targetId, secretId, e);
+    }
+    try {
+      return MAPPER.readTree(text);
     } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
       // The parser's message can quote the secret, so it is deliberately not included.
       throw new IllegalArgumentException("Secret " + secretId + " is not valid JSON");

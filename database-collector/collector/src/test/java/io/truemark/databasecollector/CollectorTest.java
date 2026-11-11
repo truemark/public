@@ -32,10 +32,12 @@ class CollectorTest {
       Clock.fixed(Instant.ofEpochSecond(60 * 60 * 24), ZoneOffset.UTC);
   private static final long DEADLINE = CLOCK.millis() + 50_000;
 
+  private SecretSource secrets = id -> "{\"password\":\"p\"}";
+
   private Collector collector(String namespace, ConnectionCache.Opener opener, String queries) {
     Clock clock = CLOCK;
     return new Collector(
-        new TargetResolver(id -> "{\"password\":\"p\"}", (host, port, username) -> "token"),
+        new TargetResolver(id -> secrets.get(id), (host, port, username) -> "token"),
         new ConnectionCache(opener, Duration.ofMinutes(5), 2, clock),
         new QueryRunner(100),
         5,
@@ -158,6 +160,25 @@ class CollectorTest {
     assertEquals("Query skipped", out.get(0).get("message").asText());
     assertEquals(1, out.get(1).get("Up").asInt());
     assertEquals(1, out.get(1).get("QueryErrors").asInt());
+  }
+
+  @Test
+  void reportsDownWhenSecretCannotBeRead() throws Exception {
+    secrets =
+        id -> {
+          throw new IllegalStateException("Read timed out");
+        };
+
+    Collector.Result result =
+        collector("Test", h2(), QUERIES).collect(Map.of("id", "db1", "secretId", "s1"), DEADLINE);
+
+    assertEquals(new Collector.Result("db1", false, 0, 0), result);
+    List<JsonNode> out = json();
+    assertEquals("Secret unavailable", out.get(0).get("message").asText());
+    assertEquals("ERROR", out.get(0).get("level").asText());
+    assertEquals("db1", out.get(1).get("Target").asText());
+    assertEquals(0, out.get(1).get("Up").asInt());
+    assertFalse(out.get(1).has("Engine"));
   }
 
   @Test
