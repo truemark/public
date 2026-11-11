@@ -50,6 +50,22 @@ test('Happy path test for StandardNetwork', () => {
   // S3 and DynamoDB gateway endpoints are created by default.
   template.resourceCountIs('AWS::EC2::VPCEndpoint', 2);
 
+  // Each gateway endpoint carries its own Name tag rather than inheriting the
+  // VPC's. The service name is asserted alongside the tag so that swapping the
+  // two tags would fail this test.
+  template.hasResourceProperties('AWS::EC2::VPCEndpoint', {
+    ServiceName: {
+      'Fn::Join': ['', ['com.amazonaws.', {Ref: 'AWS::Region'}, '.s3']],
+    },
+    Tags: Match.arrayWith([{Key: 'Name', Value: 'TestNetwork-s3'}]),
+  });
+  template.hasResourceProperties('AWS::EC2::VPCEndpoint', {
+    ServiceName: {
+      'Fn::Join': ['', ['com.amazonaws.', {Ref: 'AWS::Region'}, '.dynamodb']],
+    },
+    Tags: Match.arrayWith([{Key: 'Name', Value: 'TestNetwork-dynamodb'}]),
+  });
+
   // SSM parameters are published for the VPC and subnet groups.
   expect(
     Object.keys(template.findResources('AWS::SSM::Parameter')).length,
