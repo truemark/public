@@ -711,7 +711,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.7(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(vite@7.3.1(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.11(@types/node@24.12.4)(@vitest/coverage-v8@4.1.11)(vite@7.3.1(@types/node@24.12.4)(tsx@4.22.3))
 
   database-collector/collector: {}
 
@@ -731,7 +731,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.7(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(vite@7.3.1(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.11(@types/node@24.12.4)(@vitest/coverage-v8@4.1.11)(vite@7.3.1(@types/node@24.12.4)(tsx@4.22.3))
 
 packages:
 
