@@ -6,7 +6,7 @@ disable-model-invocation: true
 metadata:
   owner: Erik Jensen (@erikrj)
   source: https://github.com/erikrj/public/tree/main/.claude/skills/commit-push
-  version: 2026.09.20.1816
+  version: 2026.11.04.0314
 ---
 
 Stage every modified, deleted, and untracked file in the working tree, commit them with a clear, descriptive message, and push the branch to its remote. This is `commit` plus a push.
@@ -46,8 +46,9 @@ Use `gh pr list`, not `gh pr view`, and treat a **non-zero exit as a failed chec
 
 5. Commit, ending the message with the required trailer:
    ```sh
-   git commit -m "<subject>" -m "<optional body>" -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+   git commit -m "<subject>" -m "<optional body>" -m "Co-Authored-By: <model> <noreply@anthropic.com>"
    ```
+   Replace `<model>` with the name of the model actually writing the commit — never copy a name from this file. If your environment supplies its own attribution lines for commits, use those instead.
 
 6. Push the branch, setting upstream if it has none (e.g. a branch created with `--no-track`):
    ```sh

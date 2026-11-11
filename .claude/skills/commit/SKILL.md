@@ -5,7 +5,7 @@ allowed-tools: Bash(git:*), Bash(gh:*)
 metadata:
   owner: Erik Jensen (@erikrj)
   source: https://github.com/erikrj/public/tree/main/.claude/skills/commit
-  version: 2026.09.20.1816
+  version: 2026.11.04.0314
 ---
 
 Stage every modified, deleted, and untracked file in the working tree, then commit them with a clear, descriptive message. This skill commits locally only — it does **not** push.
@@ -45,7 +45,8 @@ Use `gh pr list`, not `gh pr view`, and treat a **non-zero exit as a failed chec
 
 5. Commit, ending the message with the required trailer:
    ```sh
-   git commit -m "<subject>" -m "<optional body>" -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+   git commit -m "<subject>" -m "<optional body>" -m "Co-Authored-By: <model> <noreply@anthropic.com>"
    ```
+   Replace `<model>` with the name of the model actually writing the commit — never copy a name from this file. If your environment supplies its own attribution lines for commits, use those instead.
 
 6. Report the result: the commit sha, the subject line, and the files included. Remind the user that the commit was **not** pushed. Then run the open-PR check above and, if there is one, close with its URL — noting that this commit is not on it yet, since nothing was pushed.
