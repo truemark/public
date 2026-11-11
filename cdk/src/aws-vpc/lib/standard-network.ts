@@ -625,17 +625,22 @@ export class StandardNetwork extends ExtendedConstruct {
     if (createRedshift) endpointSubnets.push({subnetGroupName: 'redshift'});
 
     if ((props.createS3Endpoint ?? true) && endpointSubnets.length > 0) {
-      this.vpc.addGatewayEndpoint('S3GatewayEndpoint', {
+      const s3Endpoint = this.vpc.addGatewayEndpoint('S3GatewayEndpoint', {
         service: ec2.GatewayVpcEndpointAwsService.S3,
         subnets: endpointSubnets,
       });
+      Tags.of(s3Endpoint).add('Name', `${props.name}-s3`);
     }
 
     if ((props.createDynamoDbEndpoint ?? true) && endpointSubnets.length > 0) {
-      this.vpc.addGatewayEndpoint('DynamoDbGatewayEndpoint', {
-        service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
-        subnets: endpointSubnets,
-      });
+      const dynamoDbEndpoint = this.vpc.addGatewayEndpoint(
+        'DynamoDbGatewayEndpoint',
+        {
+          service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+          subnets: endpointSubnets,
+        },
+      );
+      Tags.of(dynamoDbEndpoint).add('Name', `${props.name}-dynamodb`);
     }
 
     // CloudFormation outputs
