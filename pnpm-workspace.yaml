@@ -46,7 +46,7 @@ catalog:
   "@types/node": "^24.1.0"
   "@vitest/coverage-v8": "4.1.7"
   "aws-cdk": "^2.1124.0"
-  "aws-cdk-lib": "^2.256.0"
+  "aws-cdk-lib": "^2.260.0"
   "aws4": "^1.13.2"
   "cdk-monitoring-constructs": "10.0.0"
   "constructs": "^10.6.0"
