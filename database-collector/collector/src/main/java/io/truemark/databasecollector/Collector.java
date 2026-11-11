@@ -72,7 +72,8 @@ public class Collector {
    * Collects from the database the event describes.
    *
    * <p>An unreachable database or a failing query is an expected condition: it is reported as a
-   * metric and a log line, not thrown. Only an event that does not describe a database throws.
+   * metric and a log line, not thrown, and so is a secret that cannot be read. Only an event or
+   * secret that does not describe a database throws.
    *
    * @param deadlineMillis time, on the collector's clock, by which the collection must be done.
    *     Queries are given less time, or skipped and counted as errors, so that the collector's own
@@ -80,7 +81,15 @@ public class Collector {
    */
   public Result collect(Map<String, Object> event, long deadlineMillis) {
     long started = clock.millis();
-    TargetResolver.Resolved resolved = resolver.resolve(event);
+    TargetResolver.Resolved resolved;
+    try {
+      resolved = resolver.resolve(event);
+    } catch (SecretUnavailableException e) {
+      // The engine may only be recorded in the secret, so it is not known here.
+      log.error("Secret unavailable", e.targetId(), null, null, e);
+      emf.write(started, e.targetId(), null, SELF, Map.of(), SELF_UNITS, Map.of("Up", 0.0));
+      return new Result(e.targetId(), false, 0, 0);
+    }
     Target target = resolved.target();
     Map<String, Double> self = new LinkedHashMap<>();
 

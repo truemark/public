@@ -206,6 +206,22 @@ class BuiltInQueriesIT {
 
   @ParameterizedTest
   @MethodSource("databases")
+  void sessionsReportsEveryStateIncludingEmptyOnes(Database database) throws SQLException {
+    QueryDefinition sessions =
+        QueryLoader.builtIn(database.engine()).stream()
+            .filter(query -> query.name().equals("sessions"))
+            .findFirst()
+            .orElseThrow();
+    try (Connection connection = connect(database)) {
+      List<QueryRunner.Row> rows = new QueryRunner(100).run(connection, sessions, 10);
+      assertEquals(database.engine() == Engine.MYSQL ? 2 : 5, rows.size(), rows.toString());
+      // Nothing else is connected, so at least one state has no sessions.
+      assertTrue(rows.stream().anyMatch(row -> row.values().get("Sessions") == 0.0));
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("databases")
   void sessionIsReadOnly(Database database) throws SQLException {
     try (Connection connection = connect(database);
         Statement statement = connection.createStatement()) {

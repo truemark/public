@@ -2,13 +2,17 @@
 # sessions and transactions that belong to other users, and SHOW VIEW on *.* so that tables it has
 # no other privilege on are visible in information_schema.tables.
 
+# Starts from the fixed set of states so that a state with no sessions is reported as 0 rather
+# than left out.
 - name: sessions
   sql: |
-    SELECT CASE WHEN command = 'Sleep' THEN 'idle' ELSE 'active' END AS State,
-           count(*) AS sessions
-    FROM information_schema.processlist
-    WHERE id <> connection_id() AND command <> 'Daemon'
-    GROUP BY 1
+    SELECT s.State, count(p.id) AS sessions
+    FROM (SELECT 'active' AS State UNION ALL SELECT 'idle') s
+    LEFT JOIN information_schema.processlist p
+      ON p.id <> connection_id()
+      AND p.command <> 'Daemon'
+      AND s.State = CASE WHEN p.command = 'Sleep' THEN 'idle' ELSE 'active' END
+    GROUP BY s.State
   dimensions: [State]
   metrics:
     - {column: sessions, name: Sessions, unit: Count}

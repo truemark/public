@@ -31,6 +31,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Collector.Re
   private static final Duration SECRET_CALL_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration CONNECTION_IDLE_TIMEOUT = Duration.ofMinutes(5);
   private static final int MAX_CONNECTIONS = 20;
+  private static final int MAX_SECRETS = 20;
   private static final int QUERY_TIMEOUT_SECONDS = 10;
   private static final int MAX_ROWS = 100;
 
@@ -62,6 +63,7 @@ public class Handler implements RequestHandler<Map<String, Object>, Collector.Re
         new CachingSecretSource(
             id -> secretsManager.getSecretValue(r -> r.secretId(id)).secretString(),
             SECRET_TTL,
+            MAX_SECRETS,
             clock);
 
     RdsUtilities rds =
