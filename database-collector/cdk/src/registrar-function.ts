@@ -1,4 +1,4 @@
-import * as path from 'node:path';
+import {join} from 'node:path';
 import {Runtime} from 'aws-cdk-lib/aws-lambda';
 import type {Construct} from 'constructs';
 import {ExtendedNodejsFunction} from 'truemark-cdk-lib/aws-lambda';
@@ -15,7 +15,7 @@ export class RegistrarFunction extends ExtendedNodejsFunction {
   constructor(scope: Construct, id: string, props: RegistrarFunctionProps) {
     super(scope, id, {
       runtime: Runtime.NODEJS_24_X,
-      entry: path.join(
+      entry: join(
         import.meta.dirname,
         '..',
         '..',

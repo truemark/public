@@ -27,6 +27,8 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
  */
 public class Handler implements RequestHandler<Map<String, Object>, Collector.Result>, Resource {
   private static final Duration SECRET_TTL = Duration.ofMinutes(5);
+  private static final Duration SECRET_ATTEMPT_TIMEOUT = Duration.ofSeconds(4);
+  private static final Duration SECRET_CALL_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration CONNECTION_IDLE_TIMEOUT = Duration.ofMinutes(5);
   private static final int MAX_CONNECTIONS = 20;
   private static final int QUERY_TIMEOUT_SECONDS = 10;
@@ -51,6 +53,10 @@ public class Handler implements RequestHandler<Map<String, Object>, Collector.Re
             .region(region)
             .credentialsProvider(awsCredentials)
             .httpClient(UrlConnectionHttpClient.create())
+            // Without a route to Secrets Manager the default timeouts and retries would outlast
+            // the invocation; fail well inside it instead.
+            .overrideConfiguration(c ->
+                c.apiCallAttemptTimeout(SECRET_ATTEMPT_TIMEOUT).apiCallTimeout(SECRET_CALL_TIMEOUT))
             .build();
     secrets =
         new CachingSecretSource(

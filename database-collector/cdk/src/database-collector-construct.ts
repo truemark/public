@@ -106,8 +106,9 @@ export class DatabaseCollector extends Construct {
       metricsNamespace: props.metricsNamespace ?? 'DatabaseCollector',
     });
 
-    // Receives collector invocations that EventBridge Scheduler could not
-    // deliver, and tag events the registrar failed to process.
+    // Receives invocations that could not be delivered: collector invocations
+    // from EventBridge Scheduler and tag events for the registrar. A handler
+    // that was invoked and then failed or timed out does not end up here.
     const deadLetterQueue = new StandardDeadLetterQueue(
       this,
       'DeadLetterQueue',
