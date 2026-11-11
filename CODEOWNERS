@@ -1,2 +1,7 @@
-* @truemark/truemark
-cdk/* @erikrj
+* @erikrj
+/cdk/ @erikrj
+/autoalarm/ @erikrj @tvc123 @willisiswillis
+/autofim/ @erikrj @siddarthancha
+/autosoc/ @erikrj @siddarthancha
+/autostate/ @erikrj @tvc123
+/autobackup/ @erikrj @tvc123
