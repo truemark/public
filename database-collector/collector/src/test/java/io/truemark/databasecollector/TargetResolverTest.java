@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class TargetResolverTest {
   private static final String SECRET =
@@ -79,6 +81,36 @@ class TargetResolverTest {
             IllegalArgumentException.class,
             () -> resolver.resolve(Map.of("id", "db1", "engine", "mysql", "username", "u")));
     assertEquals("Missing host", e.getMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"app?sslmode=disable", "app&sslMode=disable", "app;encrypt=false", "a/b"})
+  void rejectsDatabaseNameThatWouldAddConnectionOptions(String database) {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            resolver.resolve(
+                Map.of(
+                    "id",
+                    "db1",
+                    "engine",
+                    "postgres",
+                    "host",
+                    "h",
+                    "username",
+                    "u",
+                    "database",
+                    database)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"h/db?sslmode=disable", "h:5432", "h?x=1"})
+  void rejectsHostThatIsNotAHostName(String host) {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            resolver.resolve(
+                Map.of("id", "db1", "engine", "postgres", "host", host, "username", "u")));
   }
 
   @Test

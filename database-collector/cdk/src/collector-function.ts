@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import {existsSync} from 'node:fs';
+import {join} from 'node:path';
 import {Duration} from 'aws-cdk-lib';
 import type {ISecurityGroup, IVpc, SubnetSelection} from 'aws-cdk-lib/aws-ec2';
 import type {IRole} from 'aws-cdk-lib/aws-iam';
@@ -15,7 +15,7 @@ import type {Construct} from 'constructs';
 import {ExtendedFunction} from 'truemark-cdk-lib/aws-lambda';
 
 /** Deployment package produced by `pnpm build` in ../collector. */
-const COLLECTOR_ZIP = path.join(
+const COLLECTOR_ZIP = join(
   import.meta.dirname,
   '..',
   '..',
@@ -85,7 +85,7 @@ export class CollectorFunction extends ExtendedFunction {
   }
 
   private static defaultCode(): Code {
-    if (!fs.existsSync(COLLECTOR_ZIP)) {
+    if (!existsSync(COLLECTOR_ZIP)) {
       throw new Error(
         `${COLLECTOR_ZIP} does not exist. Run "pnpm build" in database-collector/collector first.`,
       );

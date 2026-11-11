@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * Turns the event the function is invoked with into a {@link Target} and its {@link Credentials}.
@@ -29,6 +30,8 @@ public class TargetResolver {
   public record Resolved(Target target, Supplier<Credentials> credentials) {}
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final Pattern HOST = Pattern.compile("[A-Za-z0-9.-]+");
+  private static final Pattern DATABASE = Pattern.compile("[A-Za-z0-9_$.-]+");
 
   private final SecretSource secrets;
   private final TokenSource tokens;
@@ -50,6 +53,13 @@ public class TargetResolver {
     String database = first(text(event.get("database")), text(secret, "dbname"));
     String username = first(text(event.get("username")), text(secret, "username"));
     String tls = text(event.get("tls"));
+
+    // Both values become part of the JDBC URL, where characters such as ? ; & or / would let
+    // them add connection options, for example one that turns certificate verification off.
+    requireMatch(HOST, host, "host");
+    if (database != null) {
+      requireMatch(DATABASE, database, "database");
+    }
 
     Target target =
         new Target(
@@ -104,6 +114,12 @@ public class TargetResolver {
 
   private static String first(String a, String b) {
     return a != null ? a : b;
+  }
+
+  private static void requireMatch(Pattern pattern, String value, String name) {
+    if (!pattern.matcher(value).matches()) {
+      throw new IllegalArgumentException("Invalid " + name + ": " + value);
+    }
   }
 
   private static String required(String value, String name) {

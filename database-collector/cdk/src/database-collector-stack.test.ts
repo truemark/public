@@ -1,6 +1,6 @@
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import {mkdtempSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {Match, Template} from 'aws-cdk-lib/assertions';
 import {Code} from 'aws-cdk-lib/aws-lambda';
 import {ExtendedApp} from 'truemark-cdk-lib/aws-cdk';
@@ -13,8 +13,8 @@ let template: Template;
 
 beforeAll(() => {
   // Stands in for the Gradle-built zip so these tests do not need a JDK.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'database-collector-'));
-  fs.writeFileSync(path.join(dir, 'placeholder.txt'), '');
+  const dir = mkdtempSync(join(tmpdir(), 'database-collector-'));
+  writeFileSync(join(dir, 'placeholder.txt'), '');
 
   const app = new ExtendedApp({
     ...TEST_ENV,
