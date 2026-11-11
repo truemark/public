@@ -114,8 +114,33 @@ jobs:
       #------------------------------------------------------------------------
       - name: "Install dependencies"
         run: pnpm ${{ env.PNPM_RECURSIVE }} i --frozen-lockfile --prefer-offline
+      #------------------------------------------------------------------------
+      # "changeset version --snapshot" is a no-op when no changesets are
+      # pending: it logs "No unreleased changesets found, exiting" and leaves
+      # every package at its last released version. Publishing that untouched
+      # version re-publishes an existing release under the snapshot tag, which
+      # npm rejects with E409 -- and where the version was not yet released it
+      # would instead tag a real release as a snapshot. PRs carrying no
+      # changeset are routine (dependabot lockfile bumps, workflow-only and
+      # docs changes), so detect that case up front and skip both the
+      # versioning and the publish below.
+      #------------------------------------------------------------------------
+      - name: "Check for pending changesets"
+        id: changesets
+        run: |
+          if [ -d .changeset ]; then
+            count=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+          else
+            count=0
+          fi
+          echo "Pending changesets: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: "Snapshot version packages"
-        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
+        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]' && steps.changesets.outputs.pending == 'true'
         run: pnpm exec changeset version --snapshot snapshot
       - name: "Release version packages"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -152,7 +177,7 @@ jobs:
         if: github.event_name != 'pull_request' || env.PNPM_RECURSIVE != '-r'
         run: pnpm ${{ env.PNPM_RECURSIVE }} test
       - name: "Publish snapshot packages"
-        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]'
+        if: matrix.node-version == inputs.publish-node-version && ((github.ref != 'refs/heads/main' && github.event_name == 'push') || (github.base_ref == 'main' && github.event_name == 'pull_request')) && github.actor != 'dependabot[bot]' && steps.changesets.outputs.pending == 'true'
         run: pnpm exec changeset publish --tag snapshot --no-git-tag
       - name: "Commit and push release version bump"
         if: matrix.node-version == inputs.publish-node-version && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
