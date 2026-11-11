@@ -2,7 +2,7 @@
 metadata:
   owner: Erik Jensen (@erikrj)
   source: https://github.com/erikrj/public/blob/main/.github/copilot-instructions.md
-  version: 2026.10.10.1815
+  version: 2026.11.10.2105
 ---
 
 # Copilot Instructions
@@ -253,6 +253,26 @@ Check every rule that pairs a prohibition with a recommended pattern: read the p
 
 - Do **not** flag a `devDependencies` addition on bundle-size, CI-impact, or "confirm first" grounds. Dev-only packages (test, build, and tooling dependencies such as `testcontainers`, `vitest`, and `@types/*`) are never included in a deployed runtime bundle, so their size is irrelevant.
 - Only raise a dependency concern when a package is added to a project's runtime `dependencies` **and** that project is bundled and deployed **and** the package is large enough to materially affect the deployed artifact's size. Even then, cite this rule and frame it as a `should`-level suggestion, not a required change.
+
+**TS-017** — Catalog entries for packages that declare an **exact** peer dependency on one another must be bumped together, in the same change, and the lockfile regenerated from the manifest. `vitest` and `@vitest/coverage-v8` are the common case: they release in lockstep and each pins the other to an exact version, so moving one alone resolves an unmet peer and silently leaves the dependent package on the old release. Flag any change to `pnpm-workspace.yaml` that updates one side of such a pair without the other.
+
+Wrong — `vitest` bumped alone, so the lockfile resolves `@vitest/coverage-v8@4.1.7(vitest@4.1.11)` with an unmet peer:
+
+```yaml
+catalog:
+  "@vitest/coverage-v8": "4.1.7"
+  "vitest": "4.1.11"
+```
+
+Right — both entries move together, and `pnpm install --lockfile-only` is rerun so the lockfile resolves `@vitest/coverage-v8@4.1.11(vitest@4.1.11)`:
+
+```yaml
+catalog:
+  "@vitest/coverage-v8": "4.1.11"
+  "vitest": "4.1.11"
+```
+
+To confirm the pairing before flagging, check the dependency's own declaration: `npm view @vitest/coverage-v8@<version> peerDependencies` reports an exact version rather than a range.
 
 ### Formatting and Linting
 

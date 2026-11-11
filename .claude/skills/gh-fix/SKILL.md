@@ -6,7 +6,7 @@ arguments: [alert]
 metadata:
   owner: Erik Jensen (@erikrj)
   source: https://github.com/erikrj/public/tree/main/.claude/skills/gh-fix
-  version: 2026.07.15.1923
+  version: 2026.11.04.0314
 ---
 
 Fix the GitHub finding identified by `$alert`, then put the fix on a fresh branch and open a pull request for it. `$alert` is the alert's `html_url` (as emitted by `gh-findings`) or a `<source>/<number>` shorthand. This skill commits, pushes, and opens a PR — it does **not** dismiss the alert on GitHub (the alert closes only once the PR merges, or once a secret is rotated and resolved).
@@ -81,8 +81,9 @@ Fix the GitHub finding identified by `$alert`, then put the fix on a fresh branc
    - Stage and commit with a concise, descriptive message (imperative subject, ~50 chars, no trailing period) that names the finding it resolves. End the message with the required trailer:
      ```sh
      git add -A
-     git commit -m "<subject>" -m "<optional body>" -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+     git commit -m "<subject>" -m "<optional body>" -m "Co-Authored-By: <model> <noreply@anthropic.com>"
      ```
+     Replace `<model>` with the name of the model actually writing the commit — never copy a name from this file. If your environment supplies its own attribution lines for commits, use those instead.
    - Push and open a PR against `main`. Because the repo squash-merges, write the title and body as the final commit message — succinct but descriptive, and reference the alert:
      ```sh
      git push -u origin HEAD
