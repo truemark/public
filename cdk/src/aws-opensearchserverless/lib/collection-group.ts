@@ -114,10 +114,10 @@ export class CollectionGroup
         value === 4 ||
         value === 8 ||
         (value >= 16 && value <= 1696 && value % 16 === 0) ||
-        (minimum && (nextGen ? value === 0 : value === 1));
+        (nextGen ? minimum && value === 0 : value === 1);
       if (!Number.isInteger(value) || !valid) {
         throw new Error(
-          `${name} must be ${minimum ? `${nextGen ? 0 : 1}, ` : ''}2, 4, 8, or a multiple of 16 up to 1696.`,
+          `${name} must be ${nextGen ? (minimum ? '0, ' : '') : '1, '}2, 4, 8, or a multiple of 16 up to 1696.`,
         );
       }
     }

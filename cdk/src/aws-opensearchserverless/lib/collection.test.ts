@@ -484,6 +484,36 @@ test('Classic cannot scale to zero and NextGen cannot disable replicas', () => {
   ).toThrow(/replicas/);
 });
 
+test('Classic accepts a 1-OCU maximum on both bounds while NextGen rejects 1', () => {
+  const stack = new Stack();
+  new CollectionGroup(stack, 'Group', {
+    name: 'classic-group',
+    generation: CollectionGeneration.CLASSIC,
+    minIndexingCapacityInOcu: 1,
+    minSearchCapacityInOcu: 1,
+    maxIndexingCapacityInOcu: 1,
+    maxSearchCapacityInOcu: 1,
+  });
+  inspectTemplate(stack).hasResourceProperties(
+    'AWS::OpenSearchServerless::CollectionGroup',
+    {
+      CapacityLimits: {
+        MinIndexingCapacityInOcu: 1,
+        MinSearchCapacityInOcu: 1,
+        MaxIndexingCapacityInOcu: 1,
+        MaxSearchCapacityInOcu: 1,
+      },
+    },
+  );
+  expect(
+    () =>
+      new CollectionGroup(new Stack(), 'NextGenOneOcu', {
+        name: 'nextgen-group',
+        maxSearchCapacityInOcu: 1,
+      }),
+  ).toThrow(/maxSearchCapacityInOcu/);
+});
+
 test('validates range ordering and maximums while accepting capacity/name tokens', () => {
   const stack = new Stack();
   expect(
