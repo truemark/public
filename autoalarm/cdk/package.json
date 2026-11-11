@@ -1,0 +1,47 @@
+{
+  "name": "autoalarm-cdk",
+  "version": "1.14.6",
+  "private": true,
+  "description": "AWS CDK app that deploys AutoAlarm, tag-driven CloudWatch alarm automation.",
+  "homepage": "https://github.com/truemark/public/tree/main/autoalarm",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "bin": {
+    "autoalarm": "bin/auto-alarm.js"
+  },
+  "scripts": {
+    "prebuild": "prettier --check . && eslint .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "vitest run",
+    "cdk": "cdk",
+    "clean": "rm -rf cdk.out && find bin lib -type f \\( -name '*.d.ts' -o -name '*.js' \\) -delete",
+    "fmt": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "autoalarm-handlers": "workspace:",
+    "aws-cdk": "catalog:",
+    "esbuild": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "ts-node": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "catalog:",
+    "cdk-monitoring-constructs": "catalog:",
+    "constructs": "catalog:",
+    "source-map-support": "catalog:",
+    "truemark-cdk-lib": "workspace:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

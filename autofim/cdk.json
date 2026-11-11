@@ -1,0 +1,36 @@
+{
+  "app": "npx tsx src/cdk.ts",
+  "watch": {
+    "include": ["src/**", "lambda/**"],
+    "exclude": [
+      "node_modules",
+      "README.md",
+      "cdk*.json",
+      "cdk.out",
+      "*.d.ts",
+      "*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock"
+    ]
+  },
+  "context": {
+    "fimMonitoredPath": "/etc/paymentapp/",
+    "fimCriticalFilePatterns": "^/etc/paymentapp/config.*$",
+    "fimFindingSeverity": "MEDIUM",
+    "fimInventorySchedule": "rate(30 minutes)",
+    "fimInventoryTagKey": "FIM-Enabled",
+    "fimInventoryTagValue": "true",
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "@aws-cdk/core:stackRelativeExports": true,
+    "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
+    "@aws-cdk/core:enablePartitionLiterals": true,
+    "@aws-cdk/core:explicitStackTags": true,
+    "@aws-cdk/aws-iam:minimizePolicies": true,
+    "@aws-cdk/aws-s3:publicAccessBlockedByDefault": true,
+    "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/aws-lambda:useCdkManagedLogGroup": true,
+    "@aws-cdk/aws-lambda:recognizeVersionProps": true
+  }
+}

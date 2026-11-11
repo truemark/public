@@ -7,6 +7,7 @@ import {
   type CfnBackupVault,
 } from 'aws-cdk-lib/aws-backup';
 import {Schedule} from 'aws-cdk-lib/aws-events';
+import {type IRole, ManagedPolicy} from 'aws-cdk-lib/aws-iam';
 import type {Construct} from 'constructs';
 import {ExtendedConstruct} from '../../aws-cdk';
 
@@ -55,9 +56,16 @@ export class AutoBackup extends ExtendedConstruct {
   }
 
   private tagSelection(plan: BackupPlan, tagValue: string) {
-    plan.addSelection('Selection', {
+    const selection = plan.addSelection('Selection', {
       resources: [BackupResource.fromTag('backup:policy', tagValue)],
     });
+    // The default backup policy does not cover S3, so a tagged bucket fails
+    // with a permission error until the S3-specific policy is attached.
+    (selection.grantPrincipal as IRole).addManagedPolicy(
+      ManagedPolicy.fromAwsManagedPolicyName(
+        'AWSBackupServiceRolePolicyForS3Backup',
+      ),
+    );
   }
 
   constructor(scope: Construct, id: string, props: AutoBackupProps = {}) {

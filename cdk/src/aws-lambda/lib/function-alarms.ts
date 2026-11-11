@@ -175,6 +175,17 @@ export interface FunctionAlarmsOptions
    * @default true
    */
   readonly lambdaInsightsEnabled?: boolean;
+
+  /**
+   * Whether this function consumes a stream (e.g. a DynamoDB or Kinesis
+   * stream) and therefore emits the IteratorAge metric. Controls the
+   * iterator-age dashboard widget and gates `maxIteratorAge` alarms; set it to
+   * false on a non-stream function to drop the widget, which makes
+   * `maxIteratorAge` alarms throw.
+   *
+   * @default - true, the cdk-monitoring-constructs default
+   */
+  readonly isIterator?: boolean;
 }
 
 /**
@@ -224,6 +235,7 @@ export class FunctionAlarms extends AlarmsBase<
     this.monitoringFacade.monitorLambdaFunction({
       alarmFriendlyName: this.props.alarmNamePrefix,
       lambdaFunction: this.props.function,
+      isIterator: this.props.isIterator,
       addToAlarmDashboard: this.props.addToAlarmDashboard ?? true,
       addToDetailDashboard: this.props.addToDetailDashboard ?? true,
       addToSummaryDashboard: this.props.addToSummaryDashboard ?? true,
