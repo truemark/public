@@ -68,10 +68,10 @@ export class ExtendedAlarm extends Alarm {
       this.addAlarmAction(...props.alarmActions);
     }
     if (props.okActions) {
-      this.addAlarmAction(...props.okActions);
+      this.addOkAction(...props.okActions);
     }
     if (props.insufficientDataActions) {
-      this.addAlarmAction(...props.insufficientDataActions);
+      this.addInsufficientDataAction(...props.insufficientDataActions);
     }
   }
 

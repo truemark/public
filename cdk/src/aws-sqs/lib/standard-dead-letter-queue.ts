@@ -56,6 +56,14 @@ export interface StandardDeadLetterQueueProps {
   readonly alarmThreshold?: number;
 
   /**
+   * Create the alarm on the number of visible messages in this queue. Set to
+   * false when something else already alarms on this queue's depth.
+   *
+   * @default true
+   */
+  readonly createAlarm?: boolean;
+
+  /**
    * The duration of the wait time for receiving messages. Default is Duration.seconds(20).
    */
   readonly receiveMessageWaitTime?: Duration;
@@ -69,10 +77,28 @@ export interface StandardDeadLetterQueueProps {
 }
 
 /**
- * Standard dead letter queue implementation with an alarm that triggers when messages are received.
+ * Standard dead letter queue implementation with an alarm that triggers when messages are received,
+ * unless `createAlarm` is false.
  */
 export class StandardDeadLetterQueue extends Queue {
-  readonly alarm: Alarm;
+  private readonly _alarm?: Alarm;
+
+  /**
+   * The alarm on the number of visible messages in this queue.
+   *
+   * @throws if the queue was created with `createAlarm: false`
+   */
+  get alarm(): Alarm {
+    // A getter rather than an optional field keeps the published type `Alarm`,
+    // so existing consumers that read it without a guard still compile.
+    if (this._alarm === undefined) {
+      throw new Error(
+        `${this.node.path} has no alarm: it was created with createAlarm: false`,
+      );
+    }
+    return this._alarm;
+  }
+
   constructor(
     scope: Construct,
     id: string,
@@ -91,12 +117,15 @@ export class StandardDeadLetterQueue extends Queue {
       ...(props?.fifo && {fifo: true}),
     });
 
-    this.alarm = new Alarm(this, 'Alarm', {
-      metric: this.metricApproximateNumberOfMessagesVisible(),
-      threshold: props?.alarmThreshold ?? 1,
-      evaluationPeriods: 1,
-      treatMissingData: TreatMissingData.IGNORE,
-      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-    });
+    if (props?.createAlarm ?? true) {
+      this._alarm = new Alarm(this, 'Alarm', {
+        metric: this.metricApproximateNumberOfMessagesVisible(),
+        threshold: props?.alarmThreshold ?? 1,
+        evaluationPeriods: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator:
+          ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      });
+    }
   }
 }

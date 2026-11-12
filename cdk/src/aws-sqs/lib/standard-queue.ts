@@ -146,6 +146,16 @@ export interface StandardQueueProps
   readonly fifo?: boolean;
 
   /**
+   * Use a SHA-256 hash of the message body as the deduplication ID when a
+   * producer does not send one. Only valid with `fifo: true`. Applies to the
+   * queue only: messages moved to the dead letter queue keep their
+   * deduplication ID.
+   *
+   * @default false
+   */
+  readonly contentBasedDeduplication?: boolean;
+
+  /**
    * Default wait time for ReceiveMessage calls.
    *
    * Does not wait if set to 0, otherwise waits this amount of seconds
@@ -163,6 +173,23 @@ export interface StandardQueueProps
    * @default - not enforced on the queue; enforced on the dead letter queue
    */
   readonly enforceSSL?: boolean;
+
+  /**
+   * Create the dead letter queue's own alarm (`StandardDeadLetterQueue.alarm`,
+   * visible messages >= 1 over one 5-minute period, no name, no actions).
+   *
+   * By default the queue's alarms (`QueueAlarms`) also create a critical alarm
+   * on the dead letter queue's visible messages (`deadLetterQueueMaxSize`,
+   * default 0), named and sent to the `criticalAlarmOptions` topics and actions,
+   * so the dead letter queue carries two alarms for the same condition. Set this
+   * to false to keep only the `QueueAlarms` one. Doing so on an existing stack
+   * deletes the dead letter queue's own alarm; nothing else changes. If you also
+   * set `createAlarms: false` or `deadLetterQueueMaxSize: -1`, nothing alarms on
+   * the dead letter queue.
+   *
+   * @default true
+   */
+  readonly createDeadLetterQueueAlarm?: boolean;
 }
 
 export class StandardQueue extends ExtendedConstruct implements IQueue {
@@ -186,6 +213,12 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
     super(scope, id, {
       standardTags: StandardTags.merge(props?.standardTags, LibStandardTags),
     });
+
+    // Queue would infer FIFO from contentBasedDeduplication alone, leaving a
+    // FIFO queue with a standard dead letter queue, which SQS rejects.
+    if (props?.contentBasedDeduplication && !props.fifo) {
+      throw new Error('contentBasedDeduplication requires fifo: true');
+    }
 
     const maxReceiveCount =
       props?.maxReceiveCount ?? StandardQueue.DEFAULT_MAX_RECEIVE_COUNT;
@@ -211,6 +244,7 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
                 props?.deadLetterQueueRetentionPeriod ?? Duration.days(14),
               fifo: props?.fifo,
               enforceSSL: props?.enforceSSL,
+              createAlarm: props?.createDeadLetterQueueAlarm,
             }),
             maxReceiveCount,
           };
@@ -222,6 +256,7 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
       encryptionMasterKey,
       dataKeyReuse,
       fifo: props?.fifo,
+      contentBasedDeduplication: props?.contentBasedDeduplication,
       receiveMessageWaitTime:
         props?.receiveMessageWaitTime ?? Duration.seconds(20),
       alarmFriendlyName: props?.alarmFriendlyName ?? id,
