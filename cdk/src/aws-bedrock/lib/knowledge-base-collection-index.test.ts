@@ -16,4 +16,11 @@ test('Test KnowledgeBaseCollectionIndex', () => {
   const template = Template.fromStack(stack);
   // HelperTest.logTemplate(template);
   template.resourceCountIs('AWS::CloudFormation::CustomResource', 1);
+  // Keyed on the handler: the stack also holds CDK's provider-framework
+  // function, which tracks its own runtime and would satisfy a bare
+  // Runtime-only assertion even if this construct's runtime regressed.
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Handler: 'index.handler',
+    Runtime: 'nodejs24.x',
+  });
 });
