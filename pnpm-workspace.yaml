@@ -9,6 +9,9 @@ packages:
   - 'autosoc'
   - 'blueprints/aws-workspaces'
   - 'cdk'
+  - 'database-collector/cdk'
+  - 'database-collector/collector'
+  - 'database-collector/registrar'
   - '!**/cdk.out/**'
   - '!**/dist/**'
 catalog:

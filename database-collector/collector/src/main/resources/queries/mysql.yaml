@@ -1,0 +1,56 @@
+# Built-in queries for MySQL and MariaDB. The monitoring user needs the PROCESS privilege to see
+# sessions and transactions that belong to other users, and SHOW VIEW on *.* so that tables it has
+# no other privilege on are visible in information_schema.tables.
+
+# Starts from the fixed set of states so that a state with no sessions is reported as 0 rather
+# than left out.
+- name: sessions
+  sql: |
+    SELECT s.State, count(p.id) AS sessions
+    FROM (SELECT 'active' AS State UNION ALL SELECT 'idle') s
+    LEFT JOIN information_schema.processlist p
+      ON p.id <> connection_id()
+      AND p.command <> 'Daemon'
+      AND s.State = CASE WHEN p.command = 'Sleep' THEN 'idle' ELSE 'active' END
+    GROUP BY s.State
+  dimensions: [State]
+  metrics:
+    - {column: sessions, name: Sessions, unit: Count}
+
+- name: connections
+  sql: |
+    SELECT count(*) * 100.0 / @@max_connections AS used_percent
+    FROM information_schema.processlist
+    WHERE command <> 'Daemon'
+  metrics:
+    - {column: used_percent, name: ConnectionsUsedPercent, unit: Percent}
+
+- name: statements
+  sql: |
+    SELECT coalesce(max(time), 0) AS longest_statement
+    FROM information_schema.processlist
+    WHERE id <> connection_id()
+      AND command NOT IN ('Sleep', 'Daemon', 'Binlog Dump', 'Binlog Dump GTID')
+  metrics:
+    - {column: longest_statement, name: LongestStatementSeconds, unit: Seconds}
+
+- name: transactions
+  sql: |
+    SELECT
+      coalesce(max(timestampdiff(SECOND, trx_started, now())), 0) AS longest_transaction,
+      coalesce(sum(trx_state = 'LOCK WAIT'), 0) AS blocked
+    FROM information_schema.innodb_trx
+  metrics:
+    - {column: longest_transaction, name: LongestTransactionSeconds, unit: Seconds}
+    - {column: blocked, name: BlockedTransactions, unit: Count}
+
+- name: schema_size
+  interval: 15
+  sql: |
+    SELECT table_schema AS SchemaName, sum(data_length + index_length) AS bytes
+    FROM information_schema.tables
+    WHERE table_schema NOT IN ('mysql', 'sys', 'information_schema', 'performance_schema')
+    GROUP BY table_schema
+  dimensions: [SchemaName]
+  metrics:
+    - {column: bytes, name: SchemaSizeBytes, unit: Bytes}

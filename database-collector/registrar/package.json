@@ -1,0 +1,33 @@
+{
+  "name": "database-collector-registrar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lambda handler that turns Database Collector tags into per-database collection schedules.",
+  "homepage": "https://github.com/truemark/public/tree/main/database-collector",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist coverage",
+    "fix": "biome check --write .",
+    "fmt": "biome format --write .",
+    "prebuild": "biome check",
+    "reset": "rm -rf dist coverage node_modules",
+    "test": "vitest run",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/aws-lambda": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
