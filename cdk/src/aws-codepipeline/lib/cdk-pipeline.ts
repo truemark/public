@@ -372,7 +372,7 @@ export class CdkPipeline extends Construct {
         ...(props.preBuildCommands ?? []),
         'pnpm run build',
         'pnpm run test',
-        `pnpx cdk synth ${stackName}`,
+        `pnpm exec cdk synth ${stackName}`,
       ];
     } else if (commands === undefined) {
       commands = [
@@ -502,6 +502,27 @@ export class CdkPipeline extends Construct {
           privileged: !(props.computeType?.includes('LAMBDA') ?? false),
           computeType: props.computeType ?? ComputeType.SMALL,
           buildImage: props.buildImage ?? LinuxBuildImage.AMAZON_LINUX_2_5,
+          environmentVariables: {
+            // pnpm 11 defaults minimumReleaseAge to 1440 (a 1-day publish
+            // cooldown), which breaks aws-cdk-lib NodejsFunction bundling: that
+            // runs an isolated `pnpm install` over a copy of the workspace
+            // lockfile without the workspace's minimumReleaseAgeExclude, so a
+            // freshly published dependency fails the cooldown check. The
+            // default pnpm commands install the workspace from the committed
+            // lockfile (--frozen-lockfile) and run the lockfile-installed CDK
+            // CLI (`pnpm exec cdk`), so those steps resolve no new versions.
+            // Bundling does: its isolated install passes
+            // --no-prefer-frozen-lockfile over a generated package.json, so it
+            // can resolve versions outside the reviewed lockfile, within the
+            // declared ranges. This override removes the cooldown from those
+            // bundling-time resolutions, and from custom commands that resolve
+            // packages outside the lockfile (e.g. `pnpm dlx`). That is the
+            // trade-off for bundling working at all; pin bundled `nodeModules`
+            // to exact versions where that matters.
+            // pnpm reads its own settings only from the PNPM_CONFIG_ prefix,
+            // not NPM_CONFIG_.
+            PNPM_CONFIG_MINIMUM_RELEASE_AGE: {value: '0'},
+          },
         },
         rolePolicy,
       },
