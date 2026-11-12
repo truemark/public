@@ -17,12 +17,12 @@ on:
       node-versions:
         description: 'Node versions to use'
         required: false
-        default: '[20,22,24]'
+        default: '[22,24,26]'
         type: string
       publish-node-version:
         description: 'Node version to use for publish'
         required: false
-        default: '24'
+        default: '26'
         type: string
       pnpm-version:
         description: 'PNPM version to use'

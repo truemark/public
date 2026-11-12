@@ -281,6 +281,24 @@ exports[`Add proxy and grants through the IDatabaseCluster facade 1`] = `
         "DBProxyName": {
           "Ref": "DbProxy8FB1B91A",
         },
+        "Tags": [
+          {
+            "Key": "automation:component-id",
+            "Value": "StandardPostgresAuroraServerlessCluster",
+          },
+          {
+            "Key": "automation:component-url",
+            "Value": "https://github.com/truemark/cdk",
+          },
+          {
+            "Key": "automation:component-vendor",
+            "Value": "TrueMark",
+          },
+          {
+            "Key": "automation:id",
+            "Value": "TestStack",
+          },
+        ],
         "TargetGroupName": "default",
       },
       "Type": "AWS::RDS::DBProxyTargetGroup",

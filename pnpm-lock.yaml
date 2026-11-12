@@ -7,14 +7,14 @@ settings:
 catalogs:
   default:
     '@aws-cdk/aws-lambda-go-alpha':
-      specifier: ^2.256.0-alpha.0
-      version: 2.256.0-alpha.0
+      specifier: ^2.272.0-alpha.0
+      version: 2.272.0-alpha.0
     '@aws-cdk/aws-lambda-python-alpha':
-      specifier: ^2.256.0-alpha.0
-      version: 2.256.0-alpha.0
+      specifier: ^2.272.0-alpha.0
+      version: 2.272.0-alpha.0
     '@aws-cdk/aws-redshift-alpha':
-      specifier: ^2.256.0-alpha.0
-      version: 2.256.0-alpha.0
+      specifier: ^2.272.0-alpha.0
+      version: 2.272.0-alpha.0
     '@aws-sdk/client-amp':
       specifier: 3.1050.0
       version: 3.1050.0
@@ -97,26 +97,26 @@ catalogs:
       specifier: ^3.3.0
       version: 3.7.6
     '@types/node':
-      specifier: ^24.1.0
-      version: 24.12.4
+      specifier: ^24.19.1
+      version: 24.19.2
     '@vitest/coverage-v8':
       specifier: 4.1.12
       version: 4.1.12
     aws-cdk:
-      specifier: ^2.1124.0
-      version: 2.1124.0
+      specifier: ^2.1145.0
+      version: 2.1148.1
     aws-cdk-lib:
-      specifier: ^2.260.0
-      version: 2.260.0
+      specifier: ^2.272.0
+      version: 2.276.0
     aws4:
       specifier: ^1.13.2
       version: 1.13.2
     cdk-monitoring-constructs:
-      specifier: 10.0.0
-      version: 10.0.0
+      specifier: 10.3.1
+      version: 10.3.1
     constructs:
-      specifier: ^10.6.0
-      version: 10.6.0
+      specifier: ^10.8.1
+      version: 10.8.1
     cron-parser:
       specifier: ^4.8.1
       version: 4.9.0
@@ -172,19 +172,19 @@ importers:
     devDependencies:
       '@changesets/cli':
         specifier: ^2.30.0
-        version: 2.30.0(@types/node@24.12.4)
+        version: 2.30.0(@types/node@24.19.2)
 
   autoalarm/cdk:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       cdk-monitoring-constructs:
         specifier: 'catalog:'
-        version: 10.0.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)
+        version: 10.3.1(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       source-map-support:
         specifier: 'catalog:'
         version: 0.5.21
@@ -197,13 +197,13 @@ importers:
         version: 9.39.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       autoalarm-handlers:
         specifier: 'workspace:'
         version: link:../handlers
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
@@ -215,7 +215,7 @@ importers:
         version: 3.9.10
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -224,7 +224,7 @@ importers:
         version: 8.71.2(eslint@9.39.5)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autoalarm/handlers:
     dependencies:
@@ -287,7 +287,7 @@ importers:
         version: 4.4.3
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       aws4:
         specifier: 'catalog:'
         version: 1.13.2
@@ -312,7 +312,7 @@ importers:
         version: 4.0.9
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.12(vitest@4.1.12)
@@ -330,16 +330,16 @@ importers:
         version: 8.71.2(eslint@9.39.5)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autobackup:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       truemark-cdk-lib:
         specifier: 'workspace:'
         version: link:../cdk
@@ -349,16 +349,16 @@ importers:
         version: 2.4.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.22.3
@@ -367,16 +367,16 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autofim:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       truemark-cdk-lib:
         specifier: 'workspace:'
         version: link:../cdk
@@ -386,16 +386,16 @@ importers:
         version: 2.4.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.22.3
@@ -404,16 +404,16 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autosiem:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       truemark-cdk-lib:
         specifier: 'workspace:'
         version: link:../cdk
@@ -423,16 +423,16 @@ importers:
         version: 2.4.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.22.3
@@ -441,16 +441,16 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autosoc:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       truemark-cdk-lib:
         specifier: 'workspace:'
         version: link:../cdk
@@ -460,16 +460,16 @@ importers:
         version: 2.4.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.22.3
@@ -478,16 +478,16 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autostate/cdk:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       source-map-support:
         specifier: 'catalog:'
         version: 0.5.21
@@ -500,13 +500,13 @@ importers:
         version: 9.39.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       autostate-handlers:
         specifier: 'workspace:'
         version: link:../handlers
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
@@ -518,7 +518,7 @@ importers:
         version: 3.9.10
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -527,7 +527,7 @@ importers:
         version: 8.71.2(eslint@9.39.5)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   autostate/handlers:
     dependencies:
@@ -564,7 +564,7 @@ importers:
         version: 8.10.164
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.12(vitest@4.1.12)
@@ -582,16 +582,16 @@ importers:
         version: 8.71.2(eslint@9.39.5)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   blueprints/aws-workspaces:
     dependencies:
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
       truemark-cdk-lib:
         specifier: 'workspace:'
         version: link:../../cdk
@@ -601,16 +601,16 @@ importers:
         version: 2.4.5
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       aws-cdk:
         specifier: 'catalog:'
-        version: 2.1124.0
+        version: 2.1148.1
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.22.3
@@ -619,28 +619,28 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   cdk:
     dependencies:
       '@aws-cdk/aws-lambda-go-alpha':
         specifier: 'catalog:'
-        version: 2.256.0-alpha.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)
+        version: 2.272.0-alpha.0(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)
       '@aws-cdk/aws-lambda-python-alpha':
         specifier: 'catalog:'
-        version: 2.256.0-alpha.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)
+        version: 2.272.0-alpha.0(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)
       '@aws-cdk/aws-redshift-alpha':
         specifier: 'catalog:'
-        version: 2.256.0-alpha.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)
+        version: 2.272.0-alpha.0(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)
       aws-cdk-lib:
         specifier: 'catalog:'
-        version: 2.260.0(constructs@10.6.0)
+        version: 2.276.0(constructs@10.8.1)
       cdk-monitoring-constructs:
         specifier: 'catalog:'
-        version: 10.0.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)
+        version: 10.3.1(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)
       constructs:
         specifier: 'catalog:'
-        version: 10.6.0
+        version: 10.8.1
     devDependencies:
       '@aws-sdk/client-dynamodb':
         specifier: 'catalog:'
@@ -659,51 +659,51 @@ importers:
         version: 2.13.0
       '@types/node':
         specifier: 'catalog:'
-        version: 24.12.4
+        version: 24.19.2
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
       ts-node:
         specifier: 'catalog:'
-        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@24.19.2)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
 packages:
 
-  '@aws-cdk/asset-awscli-v1@2.2.282':
-    resolution: {integrity: sha512-7hKMi5tTxDcKGIMIOq14PnY0GBcugW33Uh/2YHDZiEwSxLeFOCYBwhR+BFXONb/EJeVI3RETFgailNZbkcKF6g==}
+  '@aws-cdk/asset-awscli-v1@2.2.292':
+    resolution: {integrity: sha512-d4aMFsAFj19FtxVyw8IzlUKv5Zu4sIvgnEjI2IU6IWBJgVbJ4aFnadANqYa+6MwB1CQbGOg0jh8WE77M+Nb/9A==}
 
-  '@aws-cdk/asset-node-proxy-agent-v6@2.1.2':
-    resolution: {integrity: sha512-pDiuqH+qY3zM9lhhLjbKJ1tnKOHzQ2V4Wr/3qsxyKeKAkuPMI/BVGvZG1PbrikUw949cGVTfVEt4ETKKYnrj0Q==}
+  '@aws-cdk/asset-node-proxy-agent-v6@2.1.3':
+    resolution: {integrity: sha512-98We1QWfin9vtuuQtNFhIIAEWb8CreyYTAP0Vn8HqSBoNiFJM9nZgifJeQawT9Wq0NX1HCNFlxCyTccIrK1PSA==}
 
-  '@aws-cdk/aws-lambda-go-alpha@2.256.0-alpha.0':
-    resolution: {integrity: sha512-fX0blhjnHsXE5oq2397+Aa6zy9zRrQGYuvyC510ST7aWnXtPnTb0yVWXF2s44M/kqw2DWJGRJyutdOZyyqG+QQ==}
+  '@aws-cdk/aws-lambda-go-alpha@2.272.0-alpha.0':
+    resolution: {integrity: sha512-1GGG6KqPA0YUvOduI/MWQwkgLrXWomsIIwuBdaCYiByBnZ+gZTNWNgly9WJI6G0dXBkw0S1mfQPS3c8oPoIMEw==}
     engines: {node: '>= 20.0.0'}
     peerDependencies:
-      aws-cdk-lib: ^2.256.0
+      aws-cdk-lib: ^2.272.0
       constructs: ^10.5.0
 
-  '@aws-cdk/aws-lambda-python-alpha@2.256.0-alpha.0':
-    resolution: {integrity: sha512-wqSgxML6pAkNCEiZFMbXwf8gGNzb6dRXJFijBmVOumVC6h1+OguLG4fbFhebdc558Qi/JS7HztKyNCEwn7vjtw==}
+  '@aws-cdk/aws-lambda-python-alpha@2.272.0-alpha.0':
+    resolution: {integrity: sha512-AubVfrwL0xhw8R9bXkvX1aB5EemDUtsK0nQrDqdnIXkpgLdT+eJTUuRupAQ9WODbPgtWqHOh4PhQMWM68Ea9BA==}
     engines: {node: '>= 20.0.0'}
     peerDependencies:
-      aws-cdk-lib: ^2.256.0
+      aws-cdk-lib: ^2.272.0
       constructs: ^10.5.0
 
-  '@aws-cdk/aws-redshift-alpha@2.256.0-alpha.0':
-    resolution: {integrity: sha512-39OOgCSGvCnrtXXn8Rz0mQzBpklmytynt+rpMahVuULGa6L4djjeiOsBqoMfoy7mNVBodV7M6KKcSkMckHuymg==}
+  '@aws-cdk/aws-redshift-alpha@2.272.0-alpha.0':
+    resolution: {integrity: sha512-H6mm1KGvenglsVtrekJYsouAcVo6wkQJFyHTjjbaby+4LBfDu7gooe0jqrAAyAbiItiXqQ1zgfiK2viuuo1mKQ==}
     engines: {node: '>= 20.0.0'}
     peerDependencies:
-      aws-cdk-lib: ^2.256.0
+      aws-cdk-lib: ^2.272.0
       constructs: ^10.5.0
 
-  '@aws-cdk/cloud-assembly-schema@54.26.0':
-    resolution: {integrity: sha512-zYI3XhQ/bpuSXuPaF77f7u2q6rZBPwdrPh8a0v+e/B3IxbRQAtQv0fmacQ8uYh9RPVuIVnExE6IsFJBSALH7BA==}
+  '@aws-cdk/cloud-assembly-schema@55.6.0':
+    resolution: {integrity: sha512-gvgzQtc0ZEcYc8WXMyCfbwJ1xlGWM/X6rG5gEiCSqT8c7e31c4tVQ5nhdgztKJ+E0UL4BCsVN0s/3YP62NJ/yg==}
     engines: {node: '>= 18.0.0'}
     bundledDependencies:
       - jsonschema
@@ -1570,8 +1570,8 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@24.12.4':
-    resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
+  '@types/node@24.19.2':
+    resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
 
   '@typescript-eslint/eslint-plugin@8.71.2':
     resolution: {integrity: sha512-K72/pvT7qpm8q3k8G5u93NCSN1RcLxX5h7Gw0bQpbMXviBHeY6Nx1WEwmk9wP+eKTSQ8ecxvcgt/ZX/rB938xQ==}
@@ -1746,12 +1746,13 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  aws-cdk-lib@2.260.0:
-    resolution: {integrity: sha512-2PPG+hbPDot8+ibkb5Jl9y3OY5rBE6TFwjzOi+yEyU4ZG6u8bM4DDKhhBi/S20NqqSFDso9rH1txVJAdwXNiuQ==}
+  aws-cdk-lib@2.276.0:
+    resolution: {integrity: sha512-K+yxURPKRDRDgaPazG4PKFmFHM/igg3kGp6tkPJ6vba8FMEo3DtJ/X6WaY5KvcwrkiKj2K7gFRZB6DO5aPYxxg==}
     engines: {node: '>= 20.0.0'}
     peerDependencies:
       constructs: ^10.5.0
     bundledDependencies:
+      - '@aws/cloudformation-validate'
       - '@balena/dockerignore'
       - '@aws-cdk/cloud-assembly-api'
       - case
@@ -1761,12 +1762,11 @@ packages:
       - minimatch
       - punycode
       - semver
-      - table
       - yaml
       - mime-types
 
-  aws-cdk@2.1124.0:
-    resolution: {integrity: sha512-E8viq6qaujEI4SXcj2HtBs5pOKVKwaNa8MCEa+N+6KIG8z2VgHEEdJt5sg+zVfJi+IOJ1Vd2OvHXVEVXkAx9Og==}
+  aws-cdk@2.1148.1:
+    resolution: {integrity: sha512-K3d02L17IwmAuiBWNuX1DzYhKUs9GrKYI7bZnGJfJ1bKz9ymXFxfudBOL3rUb8JAusDNSULiQU2fsJH7kyY2XA==}
     engines: {node: '>= 18.0.0'}
     hasBin: true
 
@@ -1817,8 +1817,8 @@ packages:
     resolution: {integrity: sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==}
     engines: {node: '>=6'}
 
-  cdk-monitoring-constructs@10.0.0:
-    resolution: {integrity: sha512-bYvletF/CavpoQGQhKiJBa7w1cUoiB535fOPcd8oeL5MGtvXxUZeGl85RKlNcki5KjQ0dpCnUO7Uo4eZKIkVZA==}
+  cdk-monitoring-constructs@10.3.1:
+    resolution: {integrity: sha512-Z1elRoKZ9gGfKM6gfNuciKO8D3BaIRsRSwdMZKX5CmeGGAvdaWQ2YquLeJKI0dqjeiNvlAKzDXf14knRvZ769Q==}
     peerDependencies:
       aws-cdk-lib: ^2.160.0
       constructs: ^10.0.5
@@ -1844,8 +1844,8 @@ packages:
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
-  constructs@10.6.0:
-    resolution: {integrity: sha512-TxHOnBO5zMo/G76ykzGF/wMpEHu257TbWiIxP9K0Yv/+t70UzgBQiTqjkAsWOPC6jW91DzJI0+ehQV6xDRNBuQ==}
+  constructs@10.8.1:
+    resolution: {integrity: sha512-98yGXYyhePqPYh3cYu8nzBERmAhC0DONe3UD03okK0nehZ7hYP4wgZuf02a04+uOWxnTJ5Rpp5m0GRNpwyLGGA==}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -2906,8 +2906,8 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  undici-types@7.16.0:
-    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+  undici-types@7.24.6:
+    resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
@@ -3052,26 +3052,26 @@ packages:
 
 snapshots:
 
-  '@aws-cdk/asset-awscli-v1@2.2.282': {}
+  '@aws-cdk/asset-awscli-v1@2.2.292': {}
 
-  '@aws-cdk/asset-node-proxy-agent-v6@2.1.2': {}
+  '@aws-cdk/asset-node-proxy-agent-v6@2.1.3': {}
 
-  '@aws-cdk/aws-lambda-go-alpha@2.256.0-alpha.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)':
+  '@aws-cdk/aws-lambda-go-alpha@2.272.0-alpha.0(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)':
     dependencies:
-      aws-cdk-lib: 2.260.0(constructs@10.6.0)
-      constructs: 10.6.0
+      aws-cdk-lib: 2.276.0(constructs@10.8.1)
+      constructs: 10.8.1
 
-  '@aws-cdk/aws-lambda-python-alpha@2.256.0-alpha.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)':
+  '@aws-cdk/aws-lambda-python-alpha@2.272.0-alpha.0(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)':
     dependencies:
-      aws-cdk-lib: 2.260.0(constructs@10.6.0)
-      constructs: 10.6.0
+      aws-cdk-lib: 2.276.0(constructs@10.8.1)
+      constructs: 10.8.1
 
-  '@aws-cdk/aws-redshift-alpha@2.256.0-alpha.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0)':
+  '@aws-cdk/aws-redshift-alpha@2.272.0-alpha.0(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1)':
     dependencies:
-      aws-cdk-lib: 2.260.0(constructs@10.6.0)
-      constructs: 10.6.0
+      aws-cdk-lib: 2.276.0(constructs@10.8.1)
+      constructs: 10.8.1
 
-  '@aws-cdk/cloud-assembly-schema@54.26.0': {}
+  '@aws-cdk/cloud-assembly-schema@55.6.0': {}
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -3621,7 +3621,7 @@ snapshots:
     dependencies:
       '@changesets/types': 6.1.0
 
-  '@changesets/cli@2.30.0(@types/node@24.12.4)':
+  '@changesets/cli@2.30.0(@types/node@24.19.2)':
     dependencies:
       '@changesets/apply-release-plan': 7.1.0
       '@changesets/assemble-release-plan': 6.0.9
@@ -3637,7 +3637,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3(@types/node@24.12.4)
+      '@inquirer/external-editor': 1.0.3(@types/node@24.19.2)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -3879,12 +3879,12 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@inquirer/external-editor@1.0.3(@types/node@24.12.4)':
+  '@inquirer/external-editor@1.0.3(@types/node@24.19.2)':
     dependencies:
       chardet: 2.1.1
       iconv-lite: 0.7.2
     optionalDependencies:
-      '@types/node': 24.12.4
+      '@types/node': 24.19.2
 
   '@isaacs/nonrecursive-glob-match@1.1.0': {}
 
@@ -4122,7 +4122,7 @@ snapshots:
 
   '@types/aws4@1.11.6':
     dependencies:
-      '@types/node': 24.12.4
+      '@types/node': 24.19.2
 
   '@types/chai@5.2.3':
     dependencies:
@@ -4143,9 +4143,9 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@24.12.4':
+  '@types/node@24.19.2':
     dependencies:
-      undici-types: 7.16.0
+      undici-types: 7.24.6
 
   '@typescript-eslint/eslint-plugin@8.71.2(@typescript-eslint/parser@8.71.2(eslint@9.39.5)(typescript@5.9.3))(eslint@9.39.5)(typescript@5.9.3)':
     dependencies:
@@ -4250,7 +4250,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+      vitest: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
   '@vitest/expect@4.1.12':
     dependencies:
@@ -4261,13 +4261,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.12(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))':
+  '@vitest/mocker@4.1.12(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))':
     dependencies:
       '@vitest/spy': 4.1.12
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.8(@types/node@24.12.4)(tsx@4.22.3)
+      vite: 7.3.8(@types/node@24.19.2)(tsx@4.22.3)
 
   '@vitest/pretty-format@4.1.12':
     dependencies:
@@ -4365,14 +4365,14 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  aws-cdk-lib@2.260.0(constructs@10.6.0):
+  aws-cdk-lib@2.276.0(constructs@10.8.1):
     dependencies:
-      '@aws-cdk/asset-awscli-v1': 2.2.282
-      '@aws-cdk/asset-node-proxy-agent-v6': 2.1.2
-      '@aws-cdk/cloud-assembly-schema': 54.26.0
-      constructs: 10.6.0
+      '@aws-cdk/asset-awscli-v1': 2.2.292
+      '@aws-cdk/asset-node-proxy-agent-v6': 2.1.3
+      '@aws-cdk/cloud-assembly-schema': 55.6.0
+      constructs: 10.8.1
 
-  aws-cdk@2.1124.0: {}
+  aws-cdk@2.1148.1: {}
 
   aws4@1.13.2: {}
 
@@ -4420,10 +4420,10 @@ snapshots:
 
   callsites@3.1.0: {}
 
-  cdk-monitoring-constructs@10.0.0(aws-cdk-lib@2.260.0(constructs@10.6.0))(constructs@10.6.0):
+  cdk-monitoring-constructs@10.3.1(aws-cdk-lib@2.276.0(constructs@10.8.1))(constructs@10.8.1):
     dependencies:
-      aws-cdk-lib: 2.260.0(constructs@10.6.0)
-      constructs: 10.6.0
+      aws-cdk-lib: 2.276.0(constructs@10.8.1)
+      constructs: 10.8.1
 
   chai@6.2.2: {}
 
@@ -4444,7 +4444,7 @@ snapshots:
 
   color-name@1.1.4: {}
 
-  constructs@10.6.0: {}
+  constructs@10.8.1: {}
 
   convert-source-map@2.0.0: {}
 
@@ -5590,14 +5590,14 @@ snapshots:
     dependencies:
       typescript: 5.9.3
 
-  ts-node@10.9.2(@types/node@24.12.4)(typescript@5.9.3):
+  ts-node@10.9.2(@types/node@24.19.2)(typescript@5.9.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.12
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 24.12.4
+      '@types/node': 24.19.2
       acorn: 8.15.0
       acorn-walk: 8.3.4
       arg: 4.1.3
@@ -5683,7 +5683,7 @@ snapshots:
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
 
-  undici-types@7.16.0: {}
+  undici-types@7.24.6: {}
 
   universalify@0.1.2: {}
 
@@ -5697,7 +5697,7 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3):
+  vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3):
     dependencies:
       esbuild: 0.28.2
       fdir: 6.5.0(picomatch@4.0.7)
@@ -5706,14 +5706,14 @@ snapshots:
       rollup: 4.68.2
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 24.12.4
+      '@types/node': 24.19.2
       fsevents: 2.3.3
       tsx: 4.22.3
 
-  vitest@4.1.12(@types/node@24.12.4)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3)):
+  vitest@4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3)):
     dependencies:
       '@vitest/expect': 4.1.12
-      '@vitest/mocker': 4.1.12(vite@7.3.8(@types/node@24.12.4)(tsx@4.22.3))
+      '@vitest/mocker': 4.1.12(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
       '@vitest/pretty-format': 4.1.12
       '@vitest/runner': 4.1.12
       '@vitest/snapshot': 4.1.12
@@ -5730,10 +5730,10 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 7.3.8(@types/node@24.12.4)(tsx@4.22.3)
+      vite: 7.3.8(@types/node@24.19.2)(tsx@4.22.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 24.12.4
+      '@types/node': 24.19.2
       '@vitest/coverage-v8': 4.1.12(vitest@4.1.12)
     transitivePeerDependencies:
       - msw

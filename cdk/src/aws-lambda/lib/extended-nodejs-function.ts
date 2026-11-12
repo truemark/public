@@ -83,7 +83,7 @@ export class ExtendedNodejsFunction extends NodejsFunction {
         scope,
         `${id}OpenTelemetryNodeJsLayer`,
         otelLayerVersionArn ??
-          `arn:aws:lambda:${region}:901920570463:layer:aws-otel-nodejs-${architecture.name}-ver-1-30-2:1`,
+          `arn:aws:lambda:${region}:901920570463:layer:aws-otel-nodejs-${architecture.name}-ver-1-30-2:6`,
       );
       const {otelSsmCollectorConfigLayer, workspaceId} =
         otelConfig?.ssmConfigContentParam
@@ -108,7 +108,11 @@ export class ExtendedNodejsFunction extends NodejsFunction {
       architecture,
       memorySize: 768, // change default from 128
       timeout: Duration.seconds(30), // change default from 3
-      runtime: Runtime.NODEJS_22_X,
+      // nodejs24.x removes callback-based handlers and the `context.succeed`,
+      // `context.fail`, `context.done` and `context.callbackWaitsForEmptyEventLoop`
+      // APIs. Handlers that still rely on those must either migrate to async or
+      // pin `runtime: Runtime.NODEJS_22_X` until they do.
+      runtime: Runtime.NODEJS_24_X,
       depsLockFilePath: ExtendedNodejsFunction.findDepsLockFile(props.entry),
       ...props,
       loggingFormat: props.loggingFormat ?? LoggingFormat.JSON,

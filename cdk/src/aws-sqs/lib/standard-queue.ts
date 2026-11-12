@@ -4,10 +4,10 @@ import {
   type ResourceEnvironment,
   Stack,
 } from 'aws-cdk-lib';
-import {
+import type {
   MathExpression,
-  type Metric,
-  type MetricOptions,
+  Metric,
+  MetricOptions,
 } from 'aws-cdk-lib/aws-cloudwatch';
 import type {
   AddToResourcePolicyResult,
@@ -281,26 +281,14 @@ export class StandardQueue extends ExtendedConstruct implements IQueue {
     return this.queue.metricApproximateNumberOfMessagesNotVisible(props);
   }
 
-  metricApproximateNumberOfMessagesVisible(props?: MetricOptions): Metric {
-    return this.queue.metricApproximateNumberOfMessagesVisible(props);
-  }
-
-  // Built here rather than delegated to this.queue: Queue gained this method
-  // after aws-cdk-lib 2.256, the version this library builds against.
   metricApproximateNumberOfMessagesOutstanding(
     props?: MetricOptions,
   ): MathExpression {
-    return new MathExpression({
-      expression: 'visible + notVisible',
-      usingMetrics: {
-        visible: this.queue.metricApproximateNumberOfMessagesVisible(props),
-        notVisible:
-          this.queue.metricApproximateNumberOfMessagesNotVisible(props),
-      },
-      label: props?.label ?? 'Approximate number of messages outstanding',
-      color: props?.color,
-      period: props?.period,
-    });
+    return this.queue.metricApproximateNumberOfMessagesOutstanding(props);
+  }
+
+  metricApproximateNumberOfMessagesVisible(props?: MetricOptions): Metric {
+    return this.queue.metricApproximateNumberOfMessagesVisible(props);
   }
 
   metricNumberOfEmptyReceives(props?: MetricOptions): Metric {

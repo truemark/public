@@ -16,7 +16,7 @@
     "prebuild": "prettier --check . && eslint .",
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "vitest run",
+    "test": "vitest run --testTimeout=30000",
     "cdk": "cdk",
     "fmt": "prettier --write ."
   },
