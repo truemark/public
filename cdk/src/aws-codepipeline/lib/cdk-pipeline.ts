@@ -508,13 +508,17 @@ export class CdkPipeline extends Construct {
             // runs an isolated `pnpm install` over a copy of the workspace
             // lockfile without the workspace's minimumReleaseAgeExclude, so a
             // freshly published dependency fails the cooldown check. The
-            // default pnpm commands only install from the committed lockfile
-            // (--frozen-lockfile) and run the lockfile-installed CDK CLI
-            // (`pnpm exec cdk`), so they never resolve new versions and the
-            // cooldown adds no protection here; it still applies where it
-            // matters, at lockfile-update time on a developer machine or PR.
-            // Custom commands that resolve packages outside the lockfile
-            // (e.g. `pnpm dlx`) run without the cooldown.
+            // default pnpm commands install the workspace from the committed
+            // lockfile (--frozen-lockfile) and run the lockfile-installed CDK
+            // CLI (`pnpm exec cdk`), so those steps resolve no new versions.
+            // Bundling does: its isolated install passes
+            // --no-prefer-frozen-lockfile over a generated package.json, so it
+            // can resolve versions outside the reviewed lockfile, within the
+            // declared ranges. This override removes the cooldown from those
+            // bundling-time resolutions, and from custom commands that resolve
+            // packages outside the lockfile (e.g. `pnpm dlx`). That is the
+            // trade-off for bundling working at all; pin bundled `nodeModules`
+            // to exact versions where that matters.
             // pnpm reads its own settings only from the PNPM_CONFIG_ prefix,
             // not NPM_CONFIG_.
             PNPM_CONFIG_MINIMUM_RELEASE_AGE: {value: '0'},
