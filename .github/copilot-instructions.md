@@ -2,7 +2,7 @@
 metadata:
   owner: Erik Jensen (@erikrj)
   source: https://github.com/erikrj/public/blob/main/.github/copilot-instructions.md
-  version: 2026.11.10.2105
+  version: 2026.11.12.0200
 ---
 
 # Copilot Instructions
@@ -152,6 +152,16 @@ Apply this wherever a truncated result would be read as authoritative: counts, c
 **GEN-013** — A pull request's title and description must describe the change as it stands at review time, not as it was first proposed. This repository squash-merges, so the PR title and body become the commit message on `main` — a claim that was true in the first push and falsified by a later one does not merely mislead a reviewer, it lands in the permanent history of the default branch, where nothing later corrects it.
 
 Re-read the description whenever the diff changes materially: a behavior removed, a mechanism replaced, a file no longer touched, a rationale that no longer holds. Flag any statement in the description that the final diff contradicts, quoting both. This applies with equal force to claims about configuration and security posture, where a reviewer is most likely to trust the summary instead of re-deriving it from the diff.
+
+A description also goes stale when the author changes nothing. A rebase moves the base out from under the diff, and where a repository rebases open pull requests automatically, that happens without the author acting at all. Any claim pinned to the old baseline is silently invalidated: a dependency transition written as `X` -> `Y`, a file or test count, a summary of which lines a regenerated artifact changed. Re-derive those from the final diff rather than trusting that they held when first written, and treat "I did not touch that" as a reason to re-check the claim rather than to trust it.
+
+```
+wrong — written at the first push, never revisited after main moved underneath it
+`@aws-cdk/cloud-assembly-schema` `53.26.0` -> `54.26.0`
+
+right — re-derived against the base as it stands at review time
+`@aws-cdk/cloud-assembly-schema` `54.26.0` -> `55.6.0`
+```
 
 ### Code Comments
 
