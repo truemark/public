@@ -59,3 +59,33 @@ test('ExtendedTableV2 keeps its alarms and monitors every global secondary index
   expect(dashboards).toContain('PropsIndex');
   expect(dashboards).toContain('AddedIndex');
 });
+
+test('ExtendedTableV2 leaves global secondary indexes off the dashboard when monitorGlobalSecondaryIndexes is false', () => {
+  const stack = new ExtendedStack(HelperTest.app(), 'TestStack', {
+    createDashboard: true,
+  });
+  const table = new ExtendedTableV2(stack, 'TestTable', {
+    partitionKey: {name: 'Pk', type: AttributeType.STRING},
+    billing: Billing.onDemand(),
+    monitorGlobalSecondaryIndexes: false,
+    globalSecondaryIndexes: [
+      {
+        indexName: 'PropsIndex',
+        partitionKey: {name: 'Gs1Pk', type: AttributeType.STRING},
+      },
+    ],
+  });
+  table.addGlobalSecondaryIndex({
+    indexName: 'AddedIndex',
+    partitionKey: {name: 'Gs2Pk', type: AttributeType.STRING},
+  });
+  expect(table.tableAlarms).toBeDefined();
+  const template = Template.fromStack(stack);
+  const dashboards = JSON.stringify(
+    template.findResources('AWS::CloudWatch::Dashboard'),
+  );
+  expect(dashboards).toContain('Dynamo Table');
+  expect(dashboards).not.toContain('PropsIndex');
+  expect(dashboards).not.toContain('AddedIndex');
+  template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 3);
+});

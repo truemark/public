@@ -44,6 +44,16 @@ export interface TableAlarmsOptions
    * @default true
    */
   readonly createAlarms?: boolean;
+
+  /**
+   * Flag to monitor each global secondary index. Every monitored index adds
+   * four widgets to each dashboard it is on, and CloudWatch rejects a dashboard
+   * with more than 500 widgets, so a stack with many indexes may need this off.
+   * The table itself is still monitored and keeps its alarms.
+   *
+   * @default true
+   */
+  readonly monitorGlobalSecondaryIndexes?: boolean;
 }
 
 /**
@@ -150,7 +160,10 @@ export class TableAlarms extends AlarmsBase<
   }
 
   addGlobalSecondaryIndexMonitoring(indexName: string) {
-    if (this.createAlarms) {
+    if (
+      this.createAlarms &&
+      (this.props.monitorGlobalSecondaryIndexes ?? true)
+    ) {
       if (this.monitoringFacade === undefined) {
         throw new Error('monitoringFacade is undefined');
       }
