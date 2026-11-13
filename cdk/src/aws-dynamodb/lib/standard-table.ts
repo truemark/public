@@ -84,8 +84,5 @@ export class StandardTable extends ExtendedTable {
             }),
       ...props,
     });
-    if (this.tableAlarms) {
-      this.tableAlarms.addGlobalSecondaryIndexMonitoring(indexName);
-    }
   }
 }

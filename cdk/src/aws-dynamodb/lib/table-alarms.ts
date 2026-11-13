@@ -46,14 +46,14 @@ export interface TableAlarmsOptions
   readonly createAlarms?: boolean;
 
   /**
-   * Flag to monitor each global secondary index. Every monitored index adds
+   * Flag to add each global secondary index to the dashboards. Every index adds
    * four widgets to each dashboard it is on, and CloudWatch rejects a dashboard
-   * with more than 500 widgets, so a stack with many indexes may need this off.
-   * The table itself is still monitored and keeps its alarms.
+   * with more than 500 widgets, so indexes are left off unless asked for. Their
+   * throttle alarms are created either way.
    *
-   * @default true
+   * @default false
    */
-  readonly monitorGlobalSecondaryIndexes?: boolean;
+  readonly addGlobalSecondaryIndexesToDashboards?: boolean;
 }
 
 /**
@@ -160,19 +160,36 @@ export class TableAlarms extends AlarmsBase<
   }
 
   addGlobalSecondaryIndexMonitoring(indexName: string) {
-    if (
-      this.createAlarms &&
-      (this.props.monitorGlobalSecondaryIndexes ?? true)
-    ) {
+    if (this.createAlarms) {
       if (this.monitoringFacade === undefined) {
         throw new Error('monitoringFacade is undefined');
       }
+      const onDashboards =
+        this.props.addGlobalSecondaryIndexesToDashboards ?? false;
       this.monitoringFacade.monitorDynamoTableGlobalSecondaryIndex({
         table: this.props.table,
         globalSecondaryIndexName: indexName,
-        addToSummaryDashboard: this.props.addToSummaryDashboard,
-        addToDetailDashboard: this.props.addToDetailDashboard,
-        addToAlarmDashboard: this.props.addToAlarmDashboard,
+        // The default name is the index name alone, which collides between
+        // tables in one stack: every StandardTable has a Gs1.
+        alarmFriendlyName: `${this.props.table.node.id}-${indexName}`,
+        addToSummaryDashboard:
+          onDashboards && (this.props.addToSummaryDashboard ?? true),
+        addToDetailDashboard:
+          onDashboards && (this.props.addToDetailDashboard ?? true),
+        addToAlarmDashboard:
+          onDashboards && (this.props.addToAlarmDashboard ?? true),
+        addReadThrottledEventsCountAlarm:
+          this.toRecord<ThrottledEventsThreshold>(
+            'maxReadThrottledEventsCount',
+            'maxThrottledEventsThreshold',
+            0,
+          ),
+        addWriteThrottledEventsCountAlarm:
+          this.toRecord<ThrottledEventsThreshold>(
+            'maxWriteThrottledEventsCount',
+            'maxThrottledEventsThreshold',
+            0,
+          ),
       });
     }
   }
