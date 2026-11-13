@@ -20,8 +20,9 @@ new StandardTableV2(this, 'Core', {
 ```
 
 **Behavior change — two new alarms per index.** Every index now gets a read-throttle and a
-write-throttle alarm, named `<prefix>-<table id>-<index name>-Read-Throttled-Events-Critical`
-(and `-Write-`). They use the table's existing `maxReadThrottledEventsCount` and
+write-throttle alarm, named `<prefix>-<table>-<index name>-Read-Throttled-Events-Critical`
+(and `-Write-`), where `<table>` is whatever the table's own alarms use: its explicit `tableName`
+when it has one, otherwise its construct id. They use the table's existing `maxReadThrottledEventsCount` and
 `maxWriteThrottledEventsCount` thresholds — critical at more than 0 by default — and the same
 notification topics and actions as the table's alarms. Expect two additional
 `AWS::CloudWatch::Alarm` resources per index on the next deploy, which counts toward the

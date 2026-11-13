@@ -1,5 +1,6 @@
 import {Template} from 'aws-cdk-lib/assertions';
 import {AttributeType, Billing} from 'aws-cdk-lib/aws-dynamodb';
+import {Construct} from 'constructs';
 import {expect, test} from 'vitest';
 import {ExtendedStack} from '../../aws-cdk/index';
 import {HelperTest, ResourceType} from '../../helper.test';
@@ -86,4 +87,30 @@ test('ExtendedTableV2 adds global secondary indexes to the dashboard when asked'
   template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 7);
   expect(dashboards).toContain('PropsIndex');
   expect(dashboards).toContain('AddedIndex');
+});
+
+test('Index alarms follow the table name, so same-id tables with distinct names do not collide', () => {
+  const stack = HelperTest.stack();
+  for (const tableName of ['Orders', 'Customers']) {
+    new ExtendedTableV2(new Construct(stack, tableName), 'Table', {
+      tableName,
+      partitionKey: {name: 'Pk', type: AttributeType.STRING},
+      billing: Billing.onDemand(),
+      globalSecondaryIndexes: [
+        {
+          indexName: 'Gs1',
+          partitionKey: {name: 'Gs1Pk', type: AttributeType.STRING},
+        },
+      ],
+    });
+  }
+  const template = Template.fromStack(stack);
+  for (const tableName of ['Orders', 'Customers']) {
+    template.hasResourceProperties(ResourceType.CLOUDWATCH_ALARM, {
+      AlarmName: `TestStack-${tableName}-Read-Throttled-Events-Critical`,
+    });
+    template.hasResourceProperties(ResourceType.CLOUDWATCH_ALARM, {
+      AlarmName: `TestStack-${tableName}-Gs1-Read-Throttled-Events-Critical`,
+    });
+  }
 });

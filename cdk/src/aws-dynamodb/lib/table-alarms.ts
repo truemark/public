@@ -1,5 +1,6 @@
 import type {Duration} from 'aws-cdk-lib';
 import type {ITable} from 'aws-cdk-lib/aws-dynamodb';
+import {MonitoringNamingStrategy} from 'cdk-monitoring-constructs';
 import type {
   ConsumedCapacityThreshold,
   ErrorCountThreshold,
@@ -171,7 +172,7 @@ export class TableAlarms extends AlarmsBase<
         globalSecondaryIndexName: indexName,
         // The default name is the index name alone, which collides between
         // tables in one stack: every StandardTable has a Gs1.
-        alarmFriendlyName: `${this.props.table.node.id}-${indexName}`,
+        alarmFriendlyName: `${this.tableAlarmName()}-${indexName}`,
         addToSummaryDashboard:
           onDashboards && (this.props.addToSummaryDashboard ?? true),
         addToDetailDashboard:
@@ -192,5 +193,21 @@ export class TableAlarms extends AlarmsBase<
           ),
       });
     }
+  }
+
+  /**
+   * The name cdk-monitoring-constructs gives this table's own alarms: its
+   * explicit table name when it has one, otherwise its construct id. Index
+   * alarms reuse it so tables that are told apart only by name do not collide.
+   */
+  private tableAlarmName(): string {
+    const table = this.props.table;
+    const resource = table.node.defaultChild as
+      | {tableName?: string}
+      | undefined;
+    return new MonitoringNamingStrategy({
+      namedConstruct: table,
+      fallbackConstructName: resource?.tableName,
+    }).resolveAlarmFriendlyName();
   }
 }
