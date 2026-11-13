@@ -28,5 +28,11 @@ notification topics and actions as the table's alarms. Expect two additional
 500-resource limit of a stack. `createAlarms: false` still turns off all monitoring for a table,
 its indexes included.
 
+`StandardTableProps` now extends `TableAlarmsOptions`, so `StandardTable` accepts
+`addGlobalSecondaryIndexesToDashboards` along with the other alarm options (`createAlarms`,
+`criticalAlarmOptions`, `warningAlarmOptions`, the `addTo*Dashboard` flags), as `StandardTableV2`
+already did. Previously these were rejected by the type even though the constructor passed them
+through.
+
 Also fixed: `StandardTable` registered each index for monitoring twice, which duplicated its
 dashboard widgets.
