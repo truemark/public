@@ -6,13 +6,15 @@ import {
 } from 'aws-cdk-lib/aws-dynamodb';
 import type {Construct} from 'constructs';
 import {ExtendedTable} from './extended-table';
+import type {TableAlarmsOptions} from './table-alarms';
 
 type StandardGlobalSecondaryIndexProps = Partial<GlobalSecondaryIndexProps>;
 
 type StandardTablePropsOmitFields = 'tableName' | 'partitionKey' | 'sortKey';
 
 export interface StandardTableProps
-  extends Omit<TableProps, StandardTablePropsOmitFields> {
+  extends Omit<TableProps, StandardTablePropsOmitFields>,
+    TableAlarmsOptions {
   /**
    * Setting this to true will suppress the creation of default tags on resources
    * created by this construct. Default is false.
@@ -84,8 +86,5 @@ export class StandardTable extends ExtendedTable {
             }),
       ...props,
     });
-    if (this.tableAlarms) {
-      this.tableAlarms.addGlobalSecondaryIndexMonitoring(indexName);
-    }
   }
 }

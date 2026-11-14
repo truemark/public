@@ -1,5 +1,6 @@
 import type {Duration} from 'aws-cdk-lib';
 import type {ITable} from 'aws-cdk-lib/aws-dynamodb';
+import {MonitoringNamingStrategy} from 'cdk-monitoring-constructs';
 import type {
   ConsumedCapacityThreshold,
   ErrorCountThreshold,
@@ -44,6 +45,16 @@ export interface TableAlarmsOptions
    * @default true
    */
   readonly createAlarms?: boolean;
+
+  /**
+   * Flag to add each global secondary index to the dashboards. Every index adds
+   * four widgets to each dashboard it is on, and CloudWatch rejects a dashboard
+   * with more than 500 widgets, so indexes are left off unless asked for. Their
+   * throttle alarms are created either way.
+   *
+   * @default false
+   */
+  readonly addGlobalSecondaryIndexesToDashboards?: boolean;
 }
 
 /**
@@ -154,13 +165,56 @@ export class TableAlarms extends AlarmsBase<
       if (this.monitoringFacade === undefined) {
         throw new Error('monitoringFacade is undefined');
       }
+      const onDashboards =
+        this.props.addGlobalSecondaryIndexesToDashboards ?? false;
       this.monitoringFacade.monitorDynamoTableGlobalSecondaryIndex({
         table: this.props.table,
         globalSecondaryIndexName: indexName,
-        addToSummaryDashboard: this.props.addToSummaryDashboard,
-        addToDetailDashboard: this.props.addToDetailDashboard,
-        addToAlarmDashboard: this.props.addToAlarmDashboard,
+        // The default name is the index name alone, which collides between
+        // tables in one stack: every StandardTable has a Gs1. The table's name
+        // and the index name alone are still ambiguous, since index Gs1 on
+        // table Orders reads the same as a table named Orders-Gs1, so the name
+        // ends with a hash of the table's construct path.
+        alarmFriendlyName: [
+          this.tableAlarmName(),
+          indexName,
+          this.props.table.node.addr.slice(-8),
+        ].join('-'),
+        addToSummaryDashboard:
+          onDashboards && (this.props.addToSummaryDashboard ?? true),
+        addToDetailDashboard:
+          onDashboards && (this.props.addToDetailDashboard ?? true),
+        addToAlarmDashboard:
+          onDashboards && (this.props.addToAlarmDashboard ?? true),
+        addReadThrottledEventsCountAlarm:
+          this.toRecord<ThrottledEventsThreshold>(
+            'maxReadThrottledEventsCount',
+            'maxThrottledEventsThreshold',
+            0,
+          ),
+        addWriteThrottledEventsCountAlarm:
+          this.toRecord<ThrottledEventsThreshold>(
+            'maxWriteThrottledEventsCount',
+            'maxThrottledEventsThreshold',
+            0,
+          ),
       });
     }
+  }
+
+  /**
+   * The name cdk-monitoring-constructs gives this table's own alarms: its
+   * explicit table name when it has one, otherwise its construct id. Index
+   * alarms reuse it so tables that are told apart only by name do not collide.
+   */
+  private tableAlarmName(): string {
+    const table = this.props.table;
+    const resource = table.node.defaultChild as
+      | {tableName?: string}
+      | undefined;
+    return new MonitoringNamingStrategy({
+      namedConstruct: table,
+      fallbackConstructName: resource?.tableName,
+    }).resolveAlarmFriendlyName();
   }
 }
