@@ -171,8 +171,15 @@ export class TableAlarms extends AlarmsBase<
         table: this.props.table,
         globalSecondaryIndexName: indexName,
         // The default name is the index name alone, which collides between
-        // tables in one stack: every StandardTable has a Gs1.
-        alarmFriendlyName: `${this.tableAlarmName()}-${indexName}`,
+        // tables in one stack: every StandardTable has a Gs1. The table's name
+        // and the index name alone are still ambiguous, since index Gs1 on
+        // table Orders reads the same as a table named Orders-Gs1, so the name
+        // ends with a hash of the table's construct path.
+        alarmFriendlyName: [
+          this.tableAlarmName(),
+          indexName,
+          this.props.table.node.addr.slice(-8),
+        ].join('-'),
         addToSummaryDashboard:
           onDashboards && (this.props.addToSummaryDashboard ?? true),
         addToDetailDashboard:

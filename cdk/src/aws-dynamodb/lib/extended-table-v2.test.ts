@@ -1,4 +1,4 @@
-import {Template} from 'aws-cdk-lib/assertions';
+import {Match, Template} from 'aws-cdk-lib/assertions';
 import {AttributeType, Billing} from 'aws-cdk-lib/aws-dynamodb';
 import {Construct} from 'constructs';
 import {expect, test} from 'vitest';
@@ -35,6 +35,12 @@ test('Create TableV2', () => {
   // three for the table, plus read and write throttles for its one index
   template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 5);
 });
+
+// Index alarm names end the table and index name with a hash of the table's path.
+const indexAlarmName = (name: string) =>
+  Match.stringLikeRegexp(
+    `^${name}-[0-9a-f]{8}-Read-Throttled-Events-Critical$`,
+  );
 
 const tableWithTwoIndexes = (
   addGlobalSecondaryIndexesToDashboards?: boolean,
@@ -74,7 +80,7 @@ test('ExtendedTableV2 alarms on every global secondary index and keeps them off 
   template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 7);
   for (const index of ['PropsIndex', 'AddedIndex']) {
     template.hasResourceProperties(ResourceType.CLOUDWATCH_ALARM, {
-      AlarmName: `TestStack-TestTable-${index}-Read-Throttled-Events-Critical`,
+      AlarmName: indexAlarmName(`TestStack-TestTable-${index}`),
     });
   }
   expect(dashboards).toContain('Dynamo Table');
@@ -110,7 +116,34 @@ test('Index alarms follow the table name, so same-id tables with distinct names 
       AlarmName: `TestStack-${tableName}-Read-Throttled-Events-Critical`,
     });
     template.hasResourceProperties(ResourceType.CLOUDWATCH_ALARM, {
-      AlarmName: `TestStack-${tableName}-Gs1-Read-Throttled-Events-Critical`,
+      AlarmName: indexAlarmName(`TestStack-${tableName}-Gs1`),
     });
   }
+});
+
+test('An index alarm does not collide with the alarm of a table named after it', () => {
+  const stack = HelperTest.stack();
+  new ExtendedTableV2(stack, 'Orders', {
+    partitionKey: {name: 'Pk', type: AttributeType.STRING},
+    billing: Billing.onDemand(),
+    globalSecondaryIndexes: [
+      {
+        indexName: 'Gs1',
+        partitionKey: {name: 'Gs1Pk', type: AttributeType.STRING},
+      },
+    ],
+  });
+  new ExtendedTableV2(stack, 'Orders-Gs1', {
+    partitionKey: {name: 'Pk', type: AttributeType.STRING},
+    billing: Billing.onDemand(),
+  });
+  const template = Template.fromStack(stack);
+  // three for each table, plus read and write throttles for the one index
+  template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 8);
+  template.hasResourceProperties(ResourceType.CLOUDWATCH_ALARM, {
+    AlarmName: 'TestStack-Orders-Gs1-Read-Throttled-Events-Critical',
+  });
+  template.hasResourceProperties(ResourceType.CLOUDWATCH_ALARM, {
+    AlarmName: indexAlarmName('TestStack-Orders-Gs1'),
+  });
 });
