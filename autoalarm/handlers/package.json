@@ -37,7 +37,7 @@
     "@aws-sdk/credential-provider-node": "catalog:",
     "@aws-sdk/util-arn-parser": "catalog:",
     "@nr1e/logging": "catalog:",
-    "@smithy/util-retry": "4.4.3",
+    "@smithy/util-retry": "4.6.2",
     "aws-cdk-lib": "catalog:",
     "aws4": "catalog:",
     "js-yaml": "catalog:",
