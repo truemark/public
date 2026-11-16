@@ -1,4 +1,7 @@
-import {CfnOutput} from 'aws-cdk-lib';
+import {CfnOutput, Duration} from 'aws-cdk-lib';
+import {CfnWorkGroup} from 'aws-cdk-lib/aws-athena';
+import {CfnDataLakeSettings} from 'aws-cdk-lib/aws-lakeformation';
+import {BlockPublicAccess, Bucket, BucketEncryption} from 'aws-cdk-lib/aws-s3';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {
@@ -6,6 +9,7 @@ import {
   type SecurityLakeSubscriberProps,
   StandardSecurityLake,
 } from 'truemark-cdk-lib/aws-securitylake';
+import {validateLakeFormationDataLakeAdmins} from './lake-formation-admins.js';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
 export type AutoSocSecurityLakeStackProps = ExtendedStackProps;
@@ -123,5 +127,71 @@ export class AutoSocSecurityLakeStack extends ExtendedStack {
           'AutoSocSecurityLake-SecurityLakeSubscriberNotificationQueueArn',
       });
     }
+
+    // Optional Lake Formation data lake administrators. `MutationType:
+    // APPEND` adds these principals to whatever administrators already
+    // exist in the account (e.g. AmazonSecurityLakeMetaStoreManagerV2 and
+    // the CDK bootstrap exec role, both registered automatically when
+    // Security Lake's data lake was created) rather than replacing the
+    // list outright — `AWS::LakeFormation::DataLakeSettings` with the
+    // default `REPLACE` mutation type would otherwise silently revoke
+    // every administrator not listed here on every deploy.
+    const lakeFormationDataLakeAdmins = (
+      this.node.tryGetContext('lakeFormationDataLakeAdmins') as
+        | string
+        | undefined
+    )
+      ?.split(',')
+      .map((arn) => arn.trim())
+      .filter((arn) => arn.length > 0);
+    validateLakeFormationDataLakeAdmins(lakeFormationDataLakeAdmins);
+    if (lakeFormationDataLakeAdmins && lakeFormationDataLakeAdmins.length > 0) {
+      new CfnDataLakeSettings(this, 'LakeFormationDataLakeSettings', {
+        admins: lakeFormationDataLakeAdmins.map((arn) => ({
+          dataLakePrincipalIdentifier: arn,
+        })),
+        mutationType: 'APPEND',
+      });
+    }
+
+    // S3 bucket for Athena query results, so humans with Lake Formation
+    // query access (see autosoc/README.md) can run Athena against Security
+    // Lake's tables without first having to hand-configure a results
+    // location. A lifecycle rule expires result objects automatically —
+    // they're cheap to regenerate by re-running the query — rather than
+    // accumulating indefinitely; the bucket itself is retained on stack
+    // deletion (CDK's default) since it's shared, account-wide Athena
+    // infrastructure, not something scoped to this one stack's lifecycle.
+    const athenaResultsBucket = new Bucket(this, 'AthenaResultsBucket', {
+      encryption: BucketEncryption.S3_MANAGED,
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      lifecycleRules: [
+        {
+          id: 'ExpireQueryResults',
+          expiration: Duration.days(30),
+        },
+      ],
+    });
+    new CfnWorkGroup(this, 'AthenaSecurityLakeWorkGroup', {
+      name: 'security-lake-queries',
+      description:
+        'Default Athena workgroup for querying Security Lake tables.',
+      workGroupConfiguration: {
+        resultConfiguration: {
+          outputLocation: `s3://${athenaResultsBucket.bucketName}/athena-results/`,
+        },
+        enforceWorkGroupConfiguration: true,
+      },
+    });
+    new CfnOutput(this, 'AthenaResultsBucketName', {
+      value: athenaResultsBucket.bucketName,
+      description: 'S3 bucket Athena writes query results to.',
+    });
+    new CfnOutput(this, 'AthenaWorkGroupName', {
+      value: 'security-lake-queries',
+      description:
+        'Athena workgroup pre-configured with the results bucket above.',
+    });
   }
 }

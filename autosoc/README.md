@@ -70,3 +70,45 @@ hand-off is this manual (or scripted) copy step.
 > `UPDATE_COMPLETE` before deploying `autosiem` against it. See §1 in
 > `autosiem/README.md`'s gotchas section for the full backstory and a
 > manual fallback.
+
+## Granting humans direct query access to Security Lake
+
+Security Lake's data is governed by AWS Lake Formation. Being an IAM
+admin in this account does **not** by itself grant Lake Formation query
+access — Lake Formation enforces its own separate permission layer, so
+without an explicit grant, even an admin role sees zero databases when
+browsing the Glue Data Catalog. Two things close that gap:
+
+### Registering Lake Formation data lake administrators
+
+```
+cdk deploy AutoSocSecurityLake \
+  -c lakeFormationDataLakeAdmins=<role-arn-1>,<role-arn-2>
+```
+
+This uses `MutationType: APPEND` on `AWS::LakeFormation::DataLakeSettings`
+deliberately — the default `MutationType` (`REPLACE`) would silently
+revoke every administrator not listed, including the ones Security Lake
+and the CDK bootstrap process register automatically
+(`AmazonSecurityLakeMetaStoreManagerV2`, the `cdk-hnb659fds-cfn-exec-role`).
+`APPEND` only adds the principals you list here, leaving those alone.
+
+Data lake administrators can see and query everything by default — no
+separate `SELECT` grant is needed for an administrator to query their
+own account's data. For a narrower grant (a specific database/table
+rather than full administrator access), or for a principal in a
+*different* AWS account, use Lake Formation's own `grant-permissions`
+API (same-account) or Security Lake's `LAKEFORMATION`-type subscriber
+(cross-account) directly — this flag is specifically for the
+account-wide administrator designation, not fine-grained grants.
+
+### Querying via Athena
+
+This stack always creates an S3 bucket and an Athena workgroup
+(`security-lake-queries`) pre-configured to use it as the query-results
+location, so Lake Formation administrators can start running Athena
+queries against Security Lake's tables immediately — no manual Athena
+setup required. The bucket's `CfnOutput` (`AthenaResultsBucketName`)
+and the workgroup name are both published for reference. Result objects
+expire automatically after 30 days; they're cheap to regenerate by
+re-running the query, so nothing is backed up before expiry.

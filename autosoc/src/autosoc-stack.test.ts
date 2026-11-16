@@ -170,4 +170,72 @@ describe('AutoSocSecurityLakeStack', () => {
   test('does not create any nested CloudFormation stacks (SIEM lives in the separate autosiem package)', () => {
     template.resourceCountIs('AWS::CloudFormation::Stack', 0);
   });
+
+  test('does not touch Lake Formation data lake administrators by default', () => {
+    template.resourceCountIs('AWS::LakeFormation::DataLakeSettings', 0);
+  });
+
+  test('appends Lake Formation data lake administrators when supplied, without replacing existing ones', () => {
+    const withAdmins = synth({
+      lakeFormationDataLakeAdmins:
+        'arn:aws:iam::100000000000:role/Administrator,arn:aws:iam::100000000000:role/SecurityEngineer',
+    });
+    withAdmins.resourceCountIs('AWS::LakeFormation::DataLakeSettings', 1);
+    withAdmins.hasResourceProperties('AWS::LakeFormation::DataLakeSettings', {
+      // APPEND, not the default REPLACE: the account already has
+      // AmazonSecurityLakeMetaStoreManagerV2 and the CDK bootstrap exec
+      // role registered as administrators, and this must not revoke them.
+      MutationType: 'APPEND',
+      Admins: [
+        {
+          DataLakePrincipalIdentifier:
+            'arn:aws:iam::100000000000:role/Administrator',
+        },
+        {
+          DataLakePrincipalIdentifier:
+            'arn:aws:iam::100000000000:role/SecurityEngineer',
+        },
+      ],
+    });
+  });
+
+  test('rejects a Lake Formation admin principal that is not an IAM role/user ARN', () => {
+    expect(() => synth({lakeFormationDataLakeAdmins: 'not-an-arn'})).toThrow(
+      /invalid Lake Formation admin principal/,
+    );
+  });
+
+  test('always creates an encrypted Athena results bucket and workgroup', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 1);
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketEncryption: Match.objectLike({
+        ServerSideEncryptionConfiguration: Match.arrayWith([
+          Match.objectLike({
+            ServerSideEncryptionByDefault: {SSEAlgorithm: 'AES256'},
+          }),
+        ]),
+      }),
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      },
+      LifecycleConfiguration: {
+        Rules: Match.arrayWith([
+          Match.objectLike({Id: 'ExpireQueryResults', Status: 'Enabled'}),
+        ]),
+      },
+    });
+    template.resourceCountIs('AWS::Athena::WorkGroup', 1);
+    template.hasResourceProperties('AWS::Athena::WorkGroup', {
+      Name: 'security-lake-queries',
+      WorkGroupConfiguration: {
+        EnforceWorkGroupConfiguration: true,
+        ResultConfiguration: Match.objectLike({
+          OutputLocation: Match.anyValue(),
+        }),
+      },
+    });
+  });
 });
