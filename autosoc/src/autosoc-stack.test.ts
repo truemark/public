@@ -237,5 +237,36 @@ describe('AutoSocSecurityLakeStack', () => {
         }),
       },
     });
+    template.hasResource('AWS::Athena::WorkGroup', {
+      DeletionPolicy: 'Retain',
+      UpdateReplacePolicy: 'Retain',
+    });
+  });
+
+  test('skips creating the Athena workgroup when told one already exists', () => {
+    // A workgroup retained by a prior `cdk destroy` (RemovalPolicy.RETAIN
+    // above) collides with a same-named redeploy attempt, since
+    // CloudFormation cannot auto-generate an Athena workgroup name the way
+    // it does for the results bucket. `createAthenaWorkGroup=false` lets
+    // the operator reuse the retained one instead.
+    const skipped = synth({createAthenaWorkGroup: false});
+    skipped.resourceCountIs('AWS::Athena::WorkGroup', 0);
+    // The output must still reflect the real (possibly pre-existing)
+    // workgroup name even when this stack didn't create it.
+    const outputs = skipped.toJSON().Outputs ?? {};
+    expect((outputs.AthenaWorkGroupName as {Value: string}).Value).toBe(
+      'security-lake-queries',
+    );
+  });
+
+  test('accepts a custom Athena workgroup name', () => {
+    const custom = synth({athenaWorkGroupName: 'custom-queries'});
+    custom.hasResourceProperties('AWS::Athena::WorkGroup', {
+      Name: 'custom-queries',
+    });
+    const outputs = custom.toJSON().Outputs ?? {};
+    expect((outputs.AthenaWorkGroupName as {Value: string}).Value).toBe(
+      'custom-queries',
+    );
   });
 });

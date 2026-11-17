@@ -175,36 +175,57 @@ export class AutoSocSecurityLakeStack extends ExtendedStack {
         ],
       },
     );
-    // RemovalPolicy.RETAIN, not CfnWorkGroup's own RecursiveDeleteOption
-    // (default false): once an operator saves a named query in this
-    // workgroup, a plain `cdk destroy` fails because CloudFormation can't
-    // delete a non-empty workgroup. Retaining it — same treatment as the
-    // results bucket above — avoids that failure instead of silently
-    // discarding saved queries via RecursiveDeleteOption=true.
-    const athenaWorkGroup = new CfnWorkGroup(
-      this,
-      'AthenaSecurityLakeWorkGroup',
-      {
-        name: 'security-lake-queries',
-        description:
-          'Default Athena workgroup for querying Security Lake tables.',
-        workGroupConfiguration: {
-          resultConfiguration: {
-            outputLocation: `s3://${athenaResultsBucket.bucketName}/athena-results/`,
+    // Athena workgroup name is configurable (not just hardcoded) because
+    // RemovalPolicy.RETAIN below means a `cdk destroy` leaves it behind —
+    // unlike the bucket above, CloudFormation cannot auto-generate a
+    // workgroup name, so a same-named redeploy after destroy would
+    // otherwise collide with the retained one and fail to create.
+    const athenaWorkGroupName =
+      (this.node.tryGetContext('athenaWorkGroupName') as string | undefined) ??
+      'security-lake-queries';
+    // Mirrors `createLakeFormationSlr` above: default true creates the
+    // workgroup; set `-c createAthenaWorkGroup=false` on a redeploy after
+    // a prior `cdk destroy` already left a same-named workgroup retained,
+    // to reuse it instead of colliding with it.
+    const createAthenaWorkGroup =
+      this.node.tryGetContext('createAthenaWorkGroup') !== false &&
+      this.node.tryGetContext('createAthenaWorkGroup') !== 'false';
+    if (createAthenaWorkGroup) {
+      // RemovalPolicy.RETAIN, not CfnWorkGroup's own RecursiveDeleteOption
+      // (default false): once an operator saves a named query in this
+      // workgroup, a plain `cdk destroy` fails because CloudFormation
+      // can't delete a non-empty workgroup. Retaining it — same treatment
+      // as the results bucket above — avoids that failure instead of
+      // silently discarding saved queries via RecursiveDeleteOption=true.
+      const athenaWorkGroup = new CfnWorkGroup(
+        this,
+        'AthenaSecurityLakeWorkGroup',
+        {
+          name: athenaWorkGroupName,
+          description:
+            'Default Athena workgroup for querying Security Lake tables.',
+          workGroupConfiguration: {
+            resultConfiguration: {
+              outputLocation: `s3://${athenaResultsBucket.bucketName}/athena-results/`,
+            },
+            enforceWorkGroupConfiguration: true,
           },
-          enforceWorkGroupConfiguration: true,
         },
-      },
-    );
-    athenaWorkGroup.applyRemovalPolicy(RemovalPolicy.RETAIN);
+      );
+      athenaWorkGroup.applyRemovalPolicy(RemovalPolicy.RETAIN);
+    }
     new CfnOutput(this, 'AthenaResultsBucketName', {
       value: athenaResultsBucket.bucketName,
       description: 'S3 bucket Athena writes query results to.',
     });
     new CfnOutput(this, 'AthenaWorkGroupName', {
-      value: 'security-lake-queries',
+      value: athenaWorkGroupName,
       description:
-        'Athena workgroup pre-configured with the results bucket above.',
+        'Athena workgroup pre-configured with the results bucket above. ' +
+        'Select it explicitly when running queries — see autosoc/README.md ' +
+        'for the IAM permissions (lakeformation:GetDataAccess, Athena API ' +
+        'actions, results-bucket access) also required beyond the Lake ' +
+        'Formation table grant.',
     });
   }
 }
