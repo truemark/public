@@ -93,22 +93,45 @@ and the CDK bootstrap process register automatically
 (`AmazonSecurityLakeMetaStoreManagerV2`, the `cdk-hnb659fds-cfn-exec-role`).
 `APPEND` only adds the principals you list here, leaving those alone.
 
-Data lake administrators can see and query everything by default — no
-separate `SELECT` grant is needed for an administrator to query their
-own account's data. For a narrower grant (a specific database/table
-rather than full administrator access), or for a principal in a
-*different* AWS account, use Lake Formation's own `grant-permissions`
-API (same-account) or Security Lake's `LAKEFORMATION`-type subscriber
-(cross-account) directly — this flag is specifically for the
+Data lake administrators automatically get `Describe` visibility into
+every database/table in the account, and can grant themselves (or
+anyone else) any permission at will — but that grant is **not**
+automatic. Per [Lake Formation's own implicit-permissions
+reference](https://docs.aws.amazon.com/lake-formation/latest/dg/implicit-permissions.html),
+administrators do not implicitly receive `SELECT` on tables created by
+a *different* principal — and Security Lake's own service role, not
+you, creates the tables this stack's data lake populates. Immediately
+after being added as an administrator, self-grant query access once
+(cheap and trivial for an admin to do, but not automatic):
+
+```bash
+aws lakeformation grant-permissions --region us-east-2 \
+  --principal DataLakePrincipalIdentifier=<your-role-arn> \
+  --resource '{"Database":{"Name":"<security-lake-database-name>"}}' \
+  --permissions "DESCRIBE"
+
+aws lakeformation grant-permissions --region us-east-2 \
+  --principal DataLakePrincipalIdentifier=<your-role-arn> \
+  --resource '{"Table":{"DatabaseName":"<security-lake-database-name>","TableWildcard":{}}}' \
+  --permissions "SELECT" "DESCRIBE"
+```
+
+Without this, Athena queries fail with an insufficient-permissions
+error even for a registered administrator. For a narrower grant (a
+specific database/table rather than full administrator access), or for
+a principal in a *different* AWS account, use the same
+`grant-permissions` API (same-account) or Security Lake's
+`LAKEFORMATION`-type subscriber (cross-account) directly — the
+`lakeFormationDataLakeAdmins` flag above is specifically for the
 account-wide administrator designation, not fine-grained grants.
 
 ### Querying via Athena
 
 This stack always creates an S3 bucket and an Athena workgroup
 (`security-lake-queries`) pre-configured to use it as the query-results
-location, so Lake Formation administrators can start running Athena
-queries against Security Lake's tables immediately — no manual Athena
-setup required. The bucket's `CfnOutput` (`AthenaResultsBucketName`)
-and the workgroup name are both published for reference. Result objects
-expire automatically after 30 days; they're cheap to regenerate by
-re-running the query, so nothing is backed up before expiry.
+location, so Lake Formation administrators have no manual Athena setup
+to do beyond the one-time `SELECT` grant above. The bucket's
+`CfnOutput` (`AthenaResultsBucketName`) and the workgroup name are both
+published for reference. Result objects expire automatically after 30
+days; they're cheap to regenerate by re-running the query, so nothing
+is backed up before expiry.

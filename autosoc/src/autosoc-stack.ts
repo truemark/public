@@ -1,9 +1,9 @@
-import {CfnOutput, Duration} from 'aws-cdk-lib';
+import {CfnOutput, Duration, RemovalPolicy} from 'aws-cdk-lib';
 import {CfnWorkGroup} from 'aws-cdk-lib/aws-athena';
 import {CfnDataLakeSettings} from 'aws-cdk-lib/aws-lakeformation';
-import {BlockPublicAccess, Bucket, BucketEncryption} from 'aws-cdk-lib/aws-s3';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
+import {ExtendedBucket} from 'truemark-cdk-lib/aws-s3';
 import {
   AwsLogSourceName,
   type SecurityLakeSubscriberProps,
@@ -162,28 +162,41 @@ export class AutoSocSecurityLakeStack extends ExtendedStack {
     // accumulating indefinitely; the bucket itself is retained on stack
     // deletion (CDK's default) since it's shared, account-wide Athena
     // infrastructure, not something scoped to this one stack's lifecycle.
-    const athenaResultsBucket = new Bucket(this, 'AthenaResultsBucket', {
-      encryption: BucketEncryption.S3_MANAGED,
-      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
-      enforceSSL: true,
-      lifecycleRules: [
-        {
-          id: 'ExpireQueryResults',
-          expiration: Duration.days(30),
-        },
-      ],
-    });
-    new CfnWorkGroup(this, 'AthenaSecurityLakeWorkGroup', {
-      name: 'security-lake-queries',
-      description:
-        'Default Athena workgroup for querying Security Lake tables.',
-      workGroupConfiguration: {
-        resultConfiguration: {
-          outputLocation: `s3://${athenaResultsBucket.bucketName}/athena-results/`,
-        },
-        enforceWorkGroupConfiguration: true,
+    const athenaResultsBucket = new ExtendedBucket(
+      this,
+      'AthenaResultsBucket',
+      {
+        enforceSSL: true,
+        lifecycleRules: [
+          {
+            id: 'ExpireQueryResults',
+            expiration: Duration.days(30),
+          },
+        ],
       },
-    });
+    );
+    // RemovalPolicy.RETAIN, not CfnWorkGroup's own RecursiveDeleteOption
+    // (default false): once an operator saves a named query in this
+    // workgroup, a plain `cdk destroy` fails because CloudFormation can't
+    // delete a non-empty workgroup. Retaining it — same treatment as the
+    // results bucket above — avoids that failure instead of silently
+    // discarding saved queries via RecursiveDeleteOption=true.
+    const athenaWorkGroup = new CfnWorkGroup(
+      this,
+      'AthenaSecurityLakeWorkGroup',
+      {
+        name: 'security-lake-queries',
+        description:
+          'Default Athena workgroup for querying Security Lake tables.',
+        workGroupConfiguration: {
+          resultConfiguration: {
+            outputLocation: `s3://${athenaResultsBucket.bucketName}/athena-results/`,
+          },
+          enforceWorkGroupConfiguration: true,
+        },
+      },
+    );
+    athenaWorkGroup.applyRemovalPolicy(RemovalPolicy.RETAIN);
     new CfnOutput(this, 'AthenaResultsBucketName', {
       value: athenaResultsBucket.bucketName,
       description: 'S3 bucket Athena writes query results to.',
