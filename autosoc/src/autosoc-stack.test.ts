@@ -243,19 +243,39 @@ describe('AutoSocSecurityLakeStack', () => {
     });
   });
 
-  test('skips creating the Athena workgroup when told one already exists', () => {
+  test('rejects createAthenaWorkGroup=false without an existing results bucket name', () => {
+    // Reusing a retained workgroup without also reusing its original
+    // results bucket would leave the (unmodified) workgroup writing to a
+    // bucket this stack no longer manages or reports via
+    // AthenaResultsBucketName — fail fast instead of synthesizing that
+    // mismatch silently.
+    expect(() => synth({createAthenaWorkGroup: false})).toThrow(
+      /createAthenaWorkGroup=false requires existingAthenaResultsBucketName/,
+    );
+  });
+
+  test('skips creating the Athena workgroup and bucket when told both already exist', () => {
     // A workgroup retained by a prior `cdk destroy` (RemovalPolicy.RETAIN
     // above) collides with a same-named redeploy attempt, since
     // CloudFormation cannot auto-generate an Athena workgroup name the way
-    // it does for the results bucket. `createAthenaWorkGroup=false` lets
-    // the operator reuse the retained one instead.
-    const skipped = synth({createAthenaWorkGroup: false});
+    // it does for the results bucket. `createAthenaWorkGroup=false` plus
+    // `existingAthenaResultsBucketName` lets the operator reuse both the
+    // retained workgroup and the bucket its OutputLocation already points
+    // at, instead of creating a second bucket the workgroup never uses.
+    const skipped = synth({
+      createAthenaWorkGroup: false,
+      existingAthenaResultsBucketName: 'pre-existing-results-bucket',
+    });
     skipped.resourceCountIs('AWS::Athena::WorkGroup', 0);
-    // The output must still reflect the real (possibly pre-existing)
-    // workgroup name even when this stack didn't create it.
+    skipped.resourceCountIs('AWS::S3::Bucket', 0);
+    // Outputs must reflect the real (pre-existing) names even though this
+    // stack didn't create either resource.
     const outputs = skipped.toJSON().Outputs ?? {};
     expect((outputs.AthenaWorkGroupName as {Value: string}).Value).toBe(
       'security-lake-queries',
+    );
+    expect((outputs.AthenaResultsBucketName as {Value: string}).Value).toBe(
+      'pre-existing-results-bucket',
     );
   });
 

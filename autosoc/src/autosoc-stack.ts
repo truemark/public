@@ -1,6 +1,7 @@
 import {CfnOutput, Duration, RemovalPolicy} from 'aws-cdk-lib';
 import {CfnWorkGroup} from 'aws-cdk-lib/aws-athena';
 import {CfnDataLakeSettings} from 'aws-cdk-lib/aws-lakeformation';
+import {Bucket, type IBucket} from 'aws-cdk-lib/aws-s3';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
 import {ExtendedBucket} from 'truemark-cdk-lib/aws-s3';
@@ -154,30 +155,9 @@ export class AutoSocSecurityLakeStack extends ExtendedStack {
       });
     }
 
-    // S3 bucket for Athena query results, so humans with Lake Formation
-    // query access (see autosoc/README.md) can run Athena against Security
-    // Lake's tables without first having to hand-configure a results
-    // location. A lifecycle rule expires result objects automatically —
-    // they're cheap to regenerate by re-running the query — rather than
-    // accumulating indefinitely; the bucket itself is retained on stack
-    // deletion (CDK's default) since it's shared, account-wide Athena
-    // infrastructure, not something scoped to this one stack's lifecycle.
-    const athenaResultsBucket = new ExtendedBucket(
-      this,
-      'AthenaResultsBucket',
-      {
-        enforceSSL: true,
-        lifecycleRules: [
-          {
-            id: 'ExpireQueryResults',
-            expiration: Duration.days(30),
-          },
-        ],
-      },
-    );
     // Athena workgroup name is configurable (not just hardcoded) because
     // RemovalPolicy.RETAIN below means a `cdk destroy` leaves it behind —
-    // unlike the bucket above, CloudFormation cannot auto-generate a
+    // unlike the bucket below, CloudFormation cannot auto-generate a
     // workgroup name, so a same-named redeploy after destroy would
     // otherwise collide with the retained one and fail to create.
     const athenaWorkGroupName =
@@ -190,6 +170,49 @@ export class AutoSocSecurityLakeStack extends ExtendedStack {
     const createAthenaWorkGroup =
       this.node.tryGetContext('createAthenaWorkGroup') !== false &&
       this.node.tryGetContext('createAthenaWorkGroup') !== 'false';
+    const existingAthenaResultsBucketName = this.node.tryGetContext(
+      'existingAthenaResultsBucketName',
+    ) as string | undefined;
+    // Reusing a retained workgroup without also reusing its original
+    // results bucket leaves the workgroup's own OutputLocation (fixed at
+    // its creation, not updated here since we aren't recreating it)
+    // pointing at a bucket this stack no longer manages or reports —
+    // AthenaResultsBucketName below would then name the wrong bucket, and
+    // the one the workgroup actually writes to wouldn't be the one anyone
+    // was granted access to. Fail fast instead of synthesizing that
+    // mismatch silently.
+    if (!createAthenaWorkGroup && !existingAthenaResultsBucketName) {
+      throw new Error(
+        'AutoSocSecurityLake: createAthenaWorkGroup=false requires ' +
+          'existingAthenaResultsBucketName — reusing a retained workgroup ' +
+          'without also reusing its original results bucket leaves the ' +
+          'workgroup writing to a bucket this stack no longer manages.',
+      );
+    }
+
+    // S3 bucket for Athena query results, so humans with Lake Formation
+    // query access (see autosoc/README.md) can run Athena against Security
+    // Lake's tables without first having to hand-configure a results
+    // location. A lifecycle rule expires result objects automatically —
+    // they're cheap to regenerate by re-running the query — rather than
+    // accumulating indefinitely; the bucket itself is retained on stack
+    // deletion (CDK's default) since it's shared, account-wide Athena
+    // infrastructure, not something scoped to this one stack's lifecycle.
+    const athenaResultsBucket: IBucket = existingAthenaResultsBucketName
+      ? Bucket.fromBucketName(
+          this,
+          'AthenaResultsBucket',
+          existingAthenaResultsBucketName,
+        )
+      : new ExtendedBucket(this, 'AthenaResultsBucket', {
+          enforceSSL: true,
+          lifecycleRules: [
+            {
+              id: 'ExpireQueryResults',
+              expiration: Duration.days(30),
+            },
+          ],
+        });
     if (createAthenaWorkGroup) {
       // RemovalPolicy.RETAIN, not CfnWorkGroup's own RecursiveDeleteOption
       // (default false): once an operator saves a named query in this
