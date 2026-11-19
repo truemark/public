@@ -5,11 +5,11 @@ on its own. Tag an RDS instance, or a Secrets Manager secret holding
 connection details, and the database is queried once per minute. Results are
 written as structured logs that carry metric data.
 
-> **Status: in development.** The collector connects to PostgreSQL, MySQL and
-> MariaDB and writes metrics, including [custom queries](#custom-queries). The
-> registrar does not create schedules yet, so for now the collector only runs
-> when invoked by hand (see [Invoking the collector](#invoking-the-collector)).
-> Oracle and SQL Server are not implemented yet.
+> **Status: in development.** The collector connects to PostgreSQL, MySQL,
+> MariaDB, Oracle and SQL Server and writes metrics, including
+> [custom queries](#custom-queries). The registrar does not create schedules
+> yet, so for now the collector only runs when invoked by hand (see
+> [Invoking the collector](#invoking-the-collector)).
 
 ## How it works
 
@@ -41,7 +41,8 @@ tag change ──▶ EventBridge rule ──▶ registrar function ──▶ one
 - A JDK. The Gradle wrapper downloads JDK 25 for compilation if it is not
   installed.
 - Docker, to run the collector's integration tests against real PostgreSQL,
-  MySQL and MariaDB servers. Without Docker those tests are skipped.
+  MySQL, MariaDB, Oracle and SQL Server servers (the SQL Server image is
+  x86-64 only). Without Docker those tests are skipped.
 
 ## Build and test
 
@@ -85,8 +86,10 @@ monitored database's security group.
 
 ## Database access
 
-The collector logs in as a dedicated, read-only monitoring user. It makes
-every session read-only as well, so a query cannot change data.
+The collector logs in as a dedicated, read-only monitoring user. On
+PostgreSQL, MySQL and MariaDB it makes every session read-only as well, so a
+query cannot change data. Oracle and SQL Server have no such session setting,
+so there the monitoring user must only be granted read access, as below.
 
 ### IAM authentication
 
@@ -123,11 +126,43 @@ with the value `true`. A secret encrypted with a customer managed KMS key
 also needs that key to allow the role to decrypt.
 
 The same `pg_monitor` role, or `PROCESS` and `SHOW VIEW` privileges, are needed.
+Oracle and SQL Server only support secrets, because RDS does not offer IAM
+database authentication for them.
+
+Oracle, connected to the database (the PDB, for a multitenant instance) the
+collector logs in to:
+
+```sql
+CREATE USER database_collector IDENTIFIED BY "<password>";
+GRANT CREATE SESSION, SELECT_CATALOG_ROLE TO database_collector;
+```
+
+`SELECT_CATALOG_ROLE` gives read access to the `v$` and `dba_` views the
+built-in queries use, and no access to table data. On RDS the master user can
+grant it.
+
+SQL Server:
+
+```sql
+CREATE LOGIN database_collector WITH PASSWORD = '<password>';
+GRANT VIEW SERVER STATE, VIEW ANY DEFINITION TO database_collector;
+```
+
+`VIEW SERVER STATE` lets the login see other sessions, transactions and
+requests; without it the queries only see the collector's own session and
+report zeros. `VIEW ANY DEFINITION` is needed for `DatabaseSizeBytes`. The
+login connects to `master` as `guest` and needs no database user.
 
 ### TLS
 
 Connections are encrypted and the server certificate is verified by default.
 The Amazon RDS certificate authorities are bundled with the collector.
+
+Oracle on RDS only accepts TLS once the `SSL` option is added to the
+instance's option group, and then on a separate port (2484 by default), so
+set `port` to that port. Without it, use `tls` = `encrypt`, which on Oracle
+means native network encryption instead of TLS (the `NATIVE_NETWORK_ENCRYPTION`
+option, or a server that accepts it), or `off`.
 
 ## Metrics
 
@@ -144,16 +179,31 @@ with `-c metricsNamespace=` (empty) to keep the logs but publish no metrics.
 | `Sessions` | all | `State` | 1 min |
 | `ConnectionsUsedPercent` | all | | 1 min |
 | `LongestTransactionSeconds` | all | | 1 min |
-| `LongestIdleInTransactionSeconds`, `BlockedSessions` | PostgreSQL | | 1 min |
-| `LongestStatementSeconds`, `BlockedTransactions` | MySQL, MariaDB | | 1 min |
+| `LongestStatementSeconds` | MySQL, MariaDB, Oracle, SQL Server | | 1 min |
+| `LongestIdleInTransactionSeconds` | PostgreSQL, SQL Server | | 1 min |
+| `BlockedSessions` | PostgreSQL, Oracle, SQL Server | | 1 min |
+| `BlockedTransactions` | MySQL, MariaDB | | 1 min |
 | `DeadTuples`, `LiveTuples` | PostgreSQL | | 5 min |
-| `DatabaseSizeBytes` | PostgreSQL | `DatabaseName` | 15 min |
+| `TablespaceUsedBytes`, `TablespaceUsedPercent` | Oracle | `TablespaceName` | 5 min |
+| `DatabaseSizeBytes` | PostgreSQL, SQL Server | `DatabaseName` | 15 min |
 | `SchemaSizeBytes` | MySQL, MariaDB | `SchemaName` | 15 min |
 
 `DeadTuples` and `LiveTuples` cover only the database the collector connects
 to (`postgres` unless set with the `database` tag or event field).
 `SchemaSizeBytes` on MySQL 8 comes from cached table statistics, so it can be
 up to `information_schema_stats_expiry` (default 1 day) old.
+
+The `State` values are `active`, `idle`, `idle in transaction`,
+`idle in transaction (aborted)` and `other` on PostgreSQL; `active` and `idle`
+on MySQL and MariaDB; `active`, `idle` and `other` on Oracle; and `active`,
+`idle`, `idle in transaction` and `other` on SQL Server.
+
+On Oracle, `ConnectionsUsedPercent` is whichever of the `processes` and
+`sessions` limits is closer, counting background processes, and
+`TablespaceUsedPercent` is measured against the size a tablespace can grow
+to with autoextend. On SQL Server, `ConnectionsUsedPercent` is relative to the
+`user connections` setting (32767 when unlimited), and `DatabaseSizeBytes` is
+the allocated size of the data files, without the log.
 
 A dimension whose value is NULL is reported as `"null"`. Each query keeps at
 most 100 rows; when a result is truncated a `WARN` log line says so.
@@ -256,9 +306,9 @@ collector function with an event describing one database:
 | Field | Description |
 |---|---|
 | `id` | Required. Identifies the database in logs and the `Target` dimension. |
-| `secretId` | Secret to log in with. IAM authentication is used without it. |
+| `secretId` | Secret to log in with. IAM authentication is used without it, except on Oracle and SQL Server, which require a secret. |
 | `engine`, `host` | Required, from the event or the secret. |
-| `port`, `database` | Default to the engine's port, and to `postgres` or `information_schema`. |
+| `port`, `database` | Default to the engine's port, and to `postgres`, `information_schema`, `ORCL` (Oracle service name) or `master`. |
 | `username` | Required for IAM authentication; otherwise read from the secret. |
 | `tls` | `verify` (default), `encrypt` (no certificate check) or `off`. |
 | `querySets` | Custom query sets to run as well, separated by spaces or commas, or a list. See [Custom queries](#custom-queries). |

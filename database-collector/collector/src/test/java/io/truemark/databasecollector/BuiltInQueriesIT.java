@@ -9,7 +9,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
@@ -28,11 +30,13 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 class BuiltInQueriesIT {
   // Pulled through the Amazon ECR public mirror because Docker Hub rate-limits anonymous pulls.
+  // Oracle and SQL Server images are not on the mirror, so they are named in full.
   private static final String MIRROR = "public.ecr.aws/docker/library/";
   private static final String USER = "database_collector";
   private static final String PASSWORD = "collector-test";
 
-  private static final String ADMIN_PASSWORD = "admin-test";
+  // Complex enough for SQL Server's password policy.
+  private static final String ADMIN_PASSWORD = "Admin-test-1";
 
   /**
    * A database server in a container. Plain containers are used instead of the Testcontainers
@@ -65,7 +69,8 @@ class BuiltInQueriesIT {
   }
 
   private static GenericContainer<?> container(String image, int port, String readyLog) {
-    return new GenericContainer<>(DockerImageName.parse(MIRROR + image))
+    String name = image.contains("/") ? image : MIRROR + image;
+    return new GenericContainer<>(DockerImageName.parse(name))
         .withExposedPorts(port)
         .waitingFor(Wait.forLogMessage(readyLog, 1));
   }
@@ -107,7 +112,43 @@ class BuiltInQueriesIT {
               "root",
               "test",
               Tls.ENCRYPT,
-              mysqlSetup()));
+              mysqlSetup()),
+          new Database(
+              "oracle-free:23",
+              Engine.ORACLE,
+              container(
+                      "gvenzl/oracle-free:23-slim-faststart", 1521, ".*DATABASE IS READY TO USE.*")
+                  .withEnv("ORACLE_PASSWORD", ADMIN_PASSWORD)
+                  .withStartupTimeout(Duration.ofMinutes(5)),
+              "system",
+              "FREEPDB1",
+              // Native network encryption, which the server accepts by default.
+              Tls.ENCRYPT,
+              List.of(
+                  "CREATE USER " + USER + " IDENTIFIED BY \"" + PASSWORD + "\"",
+                  "GRANT CREATE SESSION, SELECT_CATALOG_ROLE TO " + USER)),
+          new Database(
+              "sqlserver:2022",
+              Engine.SQLSERVER,
+              container(
+                      "mcr.microsoft.com/mssql/server:2022-latest",
+                      1433,
+                      ".*SQL Server is now ready for client connections.*")
+                  .withEnv("ACCEPT_EULA", "Y")
+                  .withEnv("MSSQL_SA_PASSWORD", ADMIN_PASSWORD)
+                  .withStartupTimeout(Duration.ofMinutes(5)),
+              "sa",
+              "master",
+              // The server makes a self-signed certificate.
+              Tls.ENCRYPT,
+              List.of(
+                  "CREATE LOGIN "
+                      + USER
+                      + " WITH PASSWORD = '"
+                      + PASSWORD
+                      + "', CHECK_POLICY = OFF",
+                  "GRANT VIEW SERVER STATE, VIEW ANY DEFINITION TO " + USER,
+                  "CREATE DATABASE app")));
 
   private static List<String> mysqlSetup() {
     return List.of(
@@ -118,6 +159,10 @@ class BuiltInQueriesIT {
         "CREATE TABLE test.writable (id int)",
         "GRANT ALL ON test.writable TO '" + USER + "'@'%'");
   }
+
+  /** Rows the sessions query returns: one per state it reports. */
+  private static final Map<Engine, Integer> SESSION_STATES =
+      Map.of(Engine.POSTGRESQL, 5, Engine.MYSQL, 2, Engine.ORACLE, 3, Engine.SQLSERVER, 4);
 
   static Stream<Database> databases() {
     return DATABASES.stream();
@@ -135,7 +180,7 @@ class BuiltInQueriesIT {
       Properties props = database.engine().connectionProperties(database.tls());
       props.setProperty("user", admin.username());
       props.setProperty("password", ADMIN_PASSWORD);
-      try (Connection connection = DriverManager.getConnection(admin.jdbcUrl(), props);
+      try (Connection connection = connectWithRetry(admin.jdbcUrl(), props);
           Statement statement = connection.createStatement()) {
         for (String sql : database.setup()) {
           statement.execute(sql);
@@ -143,6 +188,29 @@ class BuiltInQueriesIT {
       }
     }
     return ConnectionCache.open(database.target(USER), new Credentials(USER, PASSWORD));
+  }
+
+  /**
+   * SQL Server logs that it is ready before it has finished setting the sa password, so the first
+   * logins can be rejected for a few seconds.
+   */
+  private static Connection connectWithRetry(String url, Properties props) throws SQLException {
+    long giveUp = System.currentTimeMillis() + 60_000;
+    while (true) {
+      try {
+        return DriverManager.getConnection(url, props);
+      } catch (SQLException e) {
+        if (System.currentTimeMillis() > giveUp) {
+          throw e;
+        }
+        try {
+          Thread.sleep(1_000);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          throw e;
+        }
+      }
+    }
   }
 
   @ParameterizedTest
@@ -167,6 +235,8 @@ class BuiltInQueriesIT {
   @ParameterizedTest
   @MethodSource("databases")
   void connectsToTheDefaultDatabase(Database database) throws SQLException {
+    // The default, ORCL, is the RDS DB name; the Oracle Free image only has FREE and FREEPDB1.
+    Assumptions.assumeFalse(database.engine() == Engine.ORACLE);
     try (Connection ignored = connect(database)) {
       Target byDefault =
           new Target(
@@ -214,7 +284,7 @@ class BuiltInQueriesIT {
             .orElseThrow();
     try (Connection connection = connect(database)) {
       List<QueryRunner.Row> rows = new QueryRunner(100).run(connection, sessions, 10).rows();
-      assertEquals(database.engine() == Engine.MYSQL ? 2 : 5, rows.size(), rows.toString());
+      assertEquals(SESSION_STATES.get(database.engine()), rows.size(), rows.toString());
       // Nothing else is connected, so at least one state has no sessions.
       assertTrue(rows.stream().anyMatch(row -> row.values().get("Sessions") == 0.0));
     }
@@ -222,7 +292,29 @@ class BuiltInQueriesIT {
 
   @ParameterizedTest
   @MethodSource("databases")
+  void databaseSizeCoversEveryDatabase(Database database) throws SQLException {
+    Assumptions.assumeTrue(database.engine() == Engine.SQLSERVER);
+    QueryDefinition size =
+        QueryLoader.builtIn(Engine.SQLSERVER).stream()
+            .filter(query -> query.name().equals("database_size"))
+            .findFirst()
+            .orElseThrow();
+    try (Connection connection = connect(database)) {
+      List<String> names =
+          new QueryRunner(100)
+              .run(connection, size, 10).rows().stream()
+                  .map(row -> row.dimensions().get("DatabaseName"))
+                  .toList();
+      assertTrue(names.contains("app"), names.toString());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("databases")
   void sessionIsReadOnly(Database database) throws SQLException {
+    // Oracle and SQL Server have no read-only session; their monitoring user is only granted
+    // read access instead.
+    Assumptions.assumeFalse(database.engine().sessionSetup().isEmpty());
     try (Connection connection = connect(database);
         Statement statement = connection.createStatement()) {
       SQLException e =

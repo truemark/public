@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,41 @@ class TargetResolverTest {
     assertEquals(
         new Credentials("database_collector", "token:pg.example.com:5432:database_collector"),
         resolved.credentials().get());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"oracle-ee", "sqlserver-se"})
+  void rejectsIamAuthenticationWhereRdsDoesNotOfferIt(String engine) {
+    var e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                resolver.resolve(
+                    Map.of("id", "db1", "engine", engine, "host", "h", "username", "u")));
+    assertTrue(e.getMessage().contains("IAM authentication"), e.getMessage());
+  }
+
+  @Test
+  void usesEngineDefaultsForOracleAndSqlServer() {
+    var oracle =
+        new TargetResolver(
+            id ->
+                "{\"engine\":\"oracle-ee\",\"host\":\"o.example.com\",\"username\":\"m\",\"password\":\"p\"}",
+            (h, p, u) -> "");
+    Target target = oracle.resolve(Map.of("id", "db1", "secretId", "s")).target();
+    assertEquals(Engine.ORACLE, target.engine());
+    assertEquals(1521, target.port());
+    assertEquals("ORCL", target.database());
+
+    var sqlServer =
+        new TargetResolver(
+            id ->
+                "{\"engine\":\"sqlserver-se\",\"host\":\"s.example.com\",\"username\":\"m\",\"password\":\"p\"}",
+            (h, p, u) -> "");
+    target = sqlServer.resolve(Map.of("id", "db1", "secretId", "s")).target();
+    assertEquals(Engine.SQLSERVER, target.engine());
+    assertEquals(1433, target.port());
+    assertEquals("master", target.database());
   }
 
   @Test

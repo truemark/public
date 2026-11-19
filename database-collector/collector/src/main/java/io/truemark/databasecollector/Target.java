@@ -18,6 +18,6 @@ public record Target(
     Tls tls) {
 
   String jdbcUrl() {
-    return engine.jdbcUrl(host, port, database);
+    return engine.jdbcUrl(host, port, database, tls);
   }
 }

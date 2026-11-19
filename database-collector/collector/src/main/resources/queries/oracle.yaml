@@ -1,0 +1,76 @@
+# Built-in queries for Oracle Database. The monitoring user needs SELECT_CATALOG_ROLE (or SELECT
+# on the v$ and dba_ views used below) to see sessions, transactions and tablespaces.
+
+# Starts from the fixed set of states so that a state with no sessions is reported as 0 rather
+# than left out. KILLED, SNIPED and the other rare statuses are counted together as "other".
+- name: sessions
+  sql: |
+    SELECT st.state AS "State", count(s.sid) AS sessions
+    FROM (SELECT 'active' AS state FROM dual
+          UNION ALL SELECT 'idle' FROM dual
+          UNION ALL SELECT 'other' FROM dual) st
+    LEFT JOIN v$session s
+      ON s.type = 'USER'
+      AND s.sid <> to_number(sys_context('USERENV', 'SID'))
+      AND st.state = CASE s.status
+        WHEN 'ACTIVE' THEN 'active'
+        WHEN 'INACTIVE' THEN 'idle'
+        ELSE 'other'
+      END
+    GROUP BY st.state
+  dimensions: [State]
+  metrics:
+    - {column: sessions, name: Sessions, unit: Count}
+
+# Whichever of the processes and sessions limits is closer, since reaching either one refuses new
+# connections. Background processes count towards both. Counted from v$process and v$session
+# because v$resource_limit has no rows inside a pluggable database.
+- name: connections
+  sql: |
+    SELECT greatest(
+      (SELECT count(*) FROM v$process) * 100
+        / (SELECT to_number(value) FROM v$parameter WHERE name = 'processes'),
+      (SELECT count(*) FROM v$session) * 100
+        / (SELECT to_number(value) FROM v$parameter WHERE name = 'sessions')
+    ) AS used_percent
+    FROM dual
+  metrics:
+    - {column: used_percent, name: ConnectionsUsedPercent, unit: Percent}
+
+# last_call_et of an active session is how long its current call has been running.
+- name: statements
+  sql: |
+    SELECT coalesce(max(last_call_et), 0) AS longest_statement
+    FROM v$session
+    WHERE type = 'USER' AND status = 'ACTIVE'
+      AND sid <> to_number(sys_context('USERENV', 'SID'))
+  metrics:
+    - {column: longest_statement, name: LongestStatementSeconds, unit: Seconds}
+
+- name: transactions
+  sql: |
+    SELECT
+      (SELECT coalesce(max((sysdate - t.start_date) * 86400), 0)
+       FROM v$transaction t) AS longest_transaction,
+      (SELECT count(*)
+       FROM v$session s
+       WHERE s.type = 'USER' AND s.blocking_session IS NOT NULL) AS blocked
+    FROM dual
+  metrics:
+    - {column: longest_transaction, name: LongestTransactionSeconds, unit: Seconds}
+    - {column: blocked, name: BlockedSessions, unit: Count}
+
+# Used space against the most the tablespace can grow to, counting autoextend, as Oracle's own
+# tablespace full alerts do. Temporary and undo tablespaces are included.
+- name: tablespace_usage
+  interval: 5
+  sql: |
+    SELECT m.tablespace_name AS "TablespaceName",
+      m.used_space * t.block_size AS used_bytes,
+      m.used_percent AS used_percent
+    FROM dba_tablespace_usage_metrics m
+    JOIN dba_tablespaces t ON t.tablespace_name = m.tablespace_name
+  dimensions: [TablespaceName]
+  metrics:
+    - {column: used_bytes, name: TablespaceUsedBytes, unit: Bytes}
+    - {column: used_percent, name: TablespaceUsedPercent, unit: Percent}

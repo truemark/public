@@ -83,6 +83,10 @@ public class TargetResolver {
             tls == null ? Tls.VERIFY : Tls.parse(tls));
 
     if (secretId == null) {
+      if (!engine.supportsIamAuthentication()) {
+        throw new IllegalArgumentException(
+            "IAM authentication is not available for " + engine.id() + "; set secretId");
+      }
       return new Resolved(
           target,
           () ->

@@ -105,7 +105,7 @@ public class Collector {
       lease = connections.get(target, resolved.credentials());
     } catch (SQLException | RuntimeException e) {
       log.error("Connection failed", target, null, e);
-      if (target.secretId() != null && isAuthenticationFailure(e)) {
+      if (target.secretId() != null && isLoginRejected(target.engine(), e)) {
         // The secret may have been rotated since it was cached. Other failures, such as a database
         // that is down, keep the cached secret so they do not cost a Secrets Manager call each
         // time.
@@ -214,13 +214,10 @@ public class Collector {
     }
   }
 
-  /**
-   * Whether a login failed because the credentials were rejected (SQLState class 28, invalid
-   * authorization), which PostgreSQL reports as 28P01 or 28000 and MariaDB Connector/J as 28000.
-   */
-  private static boolean isAuthenticationFailure(Throwable e) {
+  /** Whether a login failed because the credentials were rejected; see {@link Engine}. */
+  private static boolean isLoginRejected(Engine engine, Throwable e) {
     for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-      if (cause instanceof SQLException sql && hasSqlStateClass(sql, "28")) {
+      if (cause instanceof SQLException sql && engine.isLoginRejected(sql)) {
         return true;
       }
     }
