@@ -2,6 +2,10 @@
 # sessions and transactions that belong to other users, and SHOW VIEW on *.* so that tables it has
 # no other privilege on are visible in information_schema.tables.
 
+# The session queries read information_schema.processlist rather than
+# performance_schema.processlist, which MariaDB lacks and MySQL only has from 8.0.22 with
+# performance_schema enabled.
+
 # Starts from the fixed set of states so that a state with no sessions is reported as 0 rather
 # than left out.
 - name: sessions
@@ -44,6 +48,8 @@
     - {column: longest_transaction, name: LongestTransactionSeconds, unit: Seconds}
     - {column: blocked, name: BlockedTransactions, unit: Count}
 
+# On MySQL 8 information_schema.tables caches sizes for information_schema_stats_expiry (86400
+# seconds by default), so the value can be up to a day old.
 - name: schema_size
   interval: 15
   sql: |

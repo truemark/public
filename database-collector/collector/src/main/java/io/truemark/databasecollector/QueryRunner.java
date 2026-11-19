@@ -19,6 +19,11 @@ public class QueryRunner {
    */
   public record Row(Map<String, String> dimensions, Map<String, Double> values) {}
 
+  /**
+   * @param truncated whether the row limit was reached, so rows may have been left out
+   */
+  public record Result(List<Row> rows, boolean truncated) {}
+
   private final int maxRows;
 
   /**
@@ -31,18 +36,23 @@ public class QueryRunner {
   /**
    * @param timeoutSeconds how long the query may run
    */
-  public List<Row> run(Connection connection, QueryDefinition query, int timeoutSeconds)
+  public Result run(Connection connection, QueryDefinition query, int timeoutSeconds)
       throws SQLException {
     List<Row> rows = new ArrayList<>();
     try (Statement statement = connection.createStatement()) {
       statement.setQueryTimeout(timeoutSeconds);
-      statement.setMaxRows(maxRows);
+      // One extra row tells a result that was cut off from one that fills the limit exactly.
+      statement.setMaxRows(maxRows + 1);
       try (ResultSet result = statement.executeQuery(query.sql())) {
         while (result.next()) {
+          if (rows.size() == maxRows) {
+            return new Result(rows, true);
+          }
           Map<String, String> dimensions = new LinkedHashMap<>();
           for (String dimension : query.dimensions()) {
             String value = result.getString(dimension);
-            dimensions.put(dimension, value == null ? "" : value);
+            // CloudWatch rejects an empty dimension value.
+            dimensions.put(dimension, value == null ? "null" : value);
           }
           Map<String, Double> values = new LinkedHashMap<>();
           for (QueryDefinition.Metric metric : query.metrics()) {
@@ -55,6 +65,6 @@ public class QueryRunner {
         }
       }
     }
-    return rows;
+    return new Result(rows, false);
   }
 }

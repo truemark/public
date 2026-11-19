@@ -47,6 +47,49 @@ class QueryDefinitionTest {
   }
 
   @Test
+  void parsesIntervalsWithUnits() {
+    List<QueryDefinition> queries =
+        QueryLoader.parse(
+            """
+            - {name: a, interval: 5, sql: SELECT 1 AS n, metrics: [{column: n, name: N}]}
+            - {name: b, interval: 15m, sql: SELECT 1 AS n, metrics: [{column: n, name: N}]}
+            - {name: c, interval: 2h, sql: SELECT 1 AS n, metrics: [{column: n, name: N}]}
+            - {name: d, interval: 1d, sql: SELECT 1 AS n, metrics: [{column: n, name: N}]}
+            - {name: e, interval: "30", sql: SELECT 1 AS n, metrics: [{column: n, name: N}]}
+            """);
+
+    assertEquals(
+        List.of(5, 15, 120, 1440, 30), queries.stream().map(QueryDefinition::interval).toList());
+  }
+
+  @ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(
+      strings = {"30s", "1w", "m", "-5", "0", "1.5h", "99999999999d"})
+  void rejectsInvalidIntervals(String interval) {
+    assertThrows(
+        UncheckedIOException.class,
+        () ->
+            QueryLoader.parse(
+                "- {name: q, interval: \""
+                    + interval
+                    + "\", sql: SELECT 1 AS n, metrics: [{column: n, name: N}]}"));
+  }
+
+  @Test
+  void dailyIntervalRunsAtMidnightUtc() {
+    QueryDefinition query =
+        new QueryDefinition(
+            "q",
+            "SELECT 1",
+            QueryDefinition.parseInterval("1d"),
+            null,
+            List.of(new QueryDefinition.Metric("n", "N", null)));
+
+    assertTrue(query.isDue(2 * 1440));
+    assertFalse(query.isDue(2 * 1440 + 60));
+  }
+
+  @Test
   void rejectsQueryWithoutMetrics() {
     assertThrows(UncheckedIOException.class, () -> QueryLoader.parse("- {name: q, sql: SELECT 1}"));
   }

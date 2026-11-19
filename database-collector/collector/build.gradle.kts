@@ -31,6 +31,9 @@ dependencies {
     implementation("software.amazon.awssdk:secretsmanager")
     // Only used to sign IAM database authentication tokens, which makes no API call.
     implementation("software.amazon.awssdk:rds")
+    // Custom query sets are read from S3 or SSM Parameter Store.
+    implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:ssm")
     implementation("software.amazon.awssdk:url-connection-client")
 
     implementation(platform("com.fasterxml.jackson:jackson-bom:2.23.0"))
@@ -93,4 +96,38 @@ val buildZip by tasks.registering(Zip::class) {
 
 tasks.assemble {
     dependsOn(buildZip)
+}
+
+// Runs the collector on a workstation against local databases; see local/README.md.
+// Kept in its own source set so it is never part of the Lambda package.
+val local: SourceSet by sourceSets.creating {
+    compileClasspath += sourceSets.main.get().output
+    runtimeClasspath += sourceSets.main.get().output
+}
+configurations[local.implementationConfigurationName].extendsFrom(configurations.implementation.get())
+configurations[local.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
+dependencies {
+    // Matches the slf4j-api the AWS SDK brings in; silences its "no logger" warning.
+    "localRuntimeOnly"("org.slf4j:slf4j-nop:1.7.36")
+}
+
+val runLocal by tasks.registering(JavaExec::class) {
+    description = "Collects from the databases in local/targets.yaml. Pass --args=\"<config> [--once]\" to change."
+    group = "application"
+    classpath = local.runtimeClasspath
+    mainClass = "io.truemark.databasecollector.LocalRunner"
+    workingDir = projectDir
+    args("local/targets.yaml")
+}
+
+// Classes and jars for the collector service in local/compose.yaml.
+val localDist by tasks.registering(Sync::class) {
+    description = "Lays out the local runner for local/compose.yaml."
+    group = "application"
+    into(layout.buildDirectory.dir("local"))
+    from(sourceSets.main.get().output)
+    from(local.output)
+    into("lib") {
+        from(local.runtimeClasspath.filter { it.name.endsWith(".jar") })
+    }
 }

@@ -151,7 +151,7 @@ class BuiltInQueriesIT {
     QueryRunner runner = new QueryRunner(100);
     try (Connection connection = connect(database)) {
       for (QueryDefinition query : QueryLoader.builtIn(database.engine())) {
-        List<QueryRunner.Row> rows = runner.run(connection, query, 10);
+        List<QueryRunner.Row> rows = runner.run(connection, query, 10).rows();
         if (query.dimensions().isEmpty()) {
           assertEquals(1, rows.size(), query.name());
           assertEquals(
@@ -197,7 +197,7 @@ class BuiltInQueriesIT {
     try (Connection connection = connect(database)) {
       List<String> schemas =
           new QueryRunner(100)
-              .run(connection, schemaSize, 10).stream()
+              .run(connection, schemaSize, 10).rows().stream()
                   .map(row -> row.dimensions().get("SchemaName"))
                   .toList();
       assertTrue(schemas.contains("app"), schemas.toString());
@@ -213,7 +213,7 @@ class BuiltInQueriesIT {
             .findFirst()
             .orElseThrow();
     try (Connection connection = connect(database)) {
-      List<QueryRunner.Row> rows = new QueryRunner(100).run(connection, sessions, 10);
+      List<QueryRunner.Row> rows = new QueryRunner(100).run(connection, sessions, 10).rows();
       assertEquals(database.engine() == Engine.MYSQL ? 2 : 5, rows.size(), rows.toString());
       // Nothing else is connected, so at least one state has no sessions.
       assertTrue(rows.stream().anyMatch(row -> row.values().get("Sessions") == 0.0));

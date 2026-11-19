@@ -50,6 +50,8 @@ public enum Engine {
     @Override
     Properties connectionProperties(Tls tls) {
       Properties props = new Properties();
+      // Shown as program_name in performance_schema.session_connect_attrs, like ApplicationName.
+      props.setProperty("connectionAttributes", "program_name:" + APPLICATION_NAME);
       props.setProperty("connectTimeout", String.valueOf(CONNECT_TIMEOUT_SECONDS * 1000));
       props.setProperty("socketTimeout", String.valueOf(SOCKET_TIMEOUT_SECONDS * 1000));
       props.setProperty(
@@ -104,14 +106,15 @@ public enum Engine {
 
   /**
    * Parses an engine name as RDS and RDS secrets spell it, for example {@code postgres}, {@code
-   * aurora-postgresql}, {@code mysql} or {@code mariadb}.
+   * aurora-postgresql}, {@code mysql} or {@code mariadb}. {@code aurora} is the legacy name of
+   * Aurora MySQL 5.6.
    */
   static Engine parse(String name) {
     String value = name.toLowerCase(Locale.ROOT);
     if (value.contains("postgres")) {
       return POSTGRESQL;
     }
-    if (value.contains("mysql") || value.contains("mariadb")) {
+    if (value.contains("mysql") || value.contains("mariadb") || value.equals("aurora")) {
       return MYSQL;
     }
     throw new IllegalArgumentException("Unsupported database engine: " + name);

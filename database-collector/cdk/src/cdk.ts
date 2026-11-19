@@ -39,4 +39,6 @@ new DatabaseCollectorStack(app, 'DatabaseCollector', {
   // Read directly so that an empty string, which turns metric publishing
   // off, is not mistaken for "not set".
   metricsNamespace: app.node.tryGetContext('metricsNamespace'),
+  querySetParameterPath: ctxString(app, 'querySetParameterPath'),
+  querySetsDir: ctxString(app, 'querySetsDir'),
 });

@@ -1,0 +1,56 @@
+# Local databases for trying the collector without AWS. See README.md in this directory.
+# Images come from the Amazon ECR public mirror because Docker Hub rate-limits anonymous pulls.
+name: database-collector-local
+
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: admin-local
+    ports: ["15432:5432"]
+    volumes: ["./init/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck:
+      # Over TCP, so it only passes once the real server (not the init one) is up.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+      interval: 2s
+      retries: 30
+
+  mysql:
+    image: public.ecr.aws/docker/library/mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: admin-local
+    ports: ["13306:3306"]
+    volumes: ["./init/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-padmin-local"]
+      interval: 2s
+      retries: 60
+
+  mariadb:
+    image: public.ecr.aws/docker/library/mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: admin-local
+    ports: ["13307:3306"]
+    volumes: ["./init/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 60
+
+  # Optional: runs the collector in a container. Build it first with ./gradlew localDist, then
+  # start it with: docker compose --profile collector up
+  collector:
+    profiles: [collector]
+    image: public.ecr.aws/docker/library/eclipse-temurin:25-jre
+    command: ["java", "-cp", "/app:/app/lib/*", "io.truemark.databasecollector.LocalRunner", "/config/targets.yaml"]
+    environment:
+      # Reaches the databases through the ports published above, like the host does.
+      DB_HOST: host.docker.internal
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - ../build/local:/app:ro
+      - ./targets.yaml:/config/targets.yaml:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      mysql: {condition: service_healthy}
+      mariadb: {condition: service_healthy}

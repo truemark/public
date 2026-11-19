@@ -33,6 +33,18 @@ class TargetResolverTest {
   }
 
   @Test
+  void readsQuerySetsFromEvent() {
+    var resolved =
+        resolver.resolve(
+            Map.of("id", "db1", "secretId", "my-secret", "querySets", "orders ssm:billing"));
+
+    assertEquals(java.util.List.of("orders", "ssm:billing"), resolved.querySets());
+    assertEquals(
+        java.util.List.of(),
+        resolver.resolve(Map.of("id", "db1", "secretId", "my-secret")).querySets());
+  }
+
+  @Test
   void eventOverridesSecret() {
     var resolved =
         resolver.resolve(

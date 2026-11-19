@@ -35,6 +35,10 @@ export interface CollectorFunctionProps {
    * string writes the same structured logs without publishing metrics.
    */
   readonly metricsNamespace: string;
+  /** Bucket custom query sets are read from. */
+  readonly querySetBucketName: string;
+  /** SSM Parameter Store path custom query sets are read from. */
+  readonly querySetParameterPath: string;
   /**
    * Overrides the deployment package.
    *
@@ -75,12 +79,19 @@ export class CollectorFunction extends ExtendedFunction {
       loggingFormat: LoggingFormat.TEXT,
       environment: {
         METRICS_NAMESPACE: props.metricsNamespace,
+        QUERY_SET_BUCKET: props.querySetBucketName,
+        QUERY_SET_PARAMETER_PATH: props.querySetParameterPath,
       },
     });
 
     this.alias = new Alias(this, 'LiveAlias', {
       aliasName: 'live',
       version: this.currentVersion,
+      // EventBridge Scheduler invokes the alias asynchronously. A retried or
+      // queued collection would land in a later minute and duplicate that
+      // minute's metrics, so failed or delayed events are dropped instead.
+      retryAttempts: 0,
+      maxEventAge: Duration.seconds(60),
     });
   }
 

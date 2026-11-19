@@ -1,4 +1,5 @@
-import {Duration, Stack} from 'aws-cdk-lib';
+import {existsSync, statSync} from 'node:fs';
+import {Duration, RemovalPolicy, Stack} from 'aws-cdk-lib';
 import {SecurityGroup, Vpc} from 'aws-cdk-lib/aws-ec2';
 import {Rule, Schedule} from 'aws-cdk-lib/aws-events';
 import {LambdaFunction} from 'aws-cdk-lib/aws-events-targets';
@@ -6,6 +7,7 @@ import {PolicyStatement, Role, ServicePrincipal} from 'aws-cdk-lib/aws-iam';
 import type {Code} from 'aws-cdk-lib/aws-lambda';
 import {CfnScheduleGroup} from 'aws-cdk-lib/aws-scheduler';
 import {Construct} from 'constructs';
+import {ExtendedBucket} from 'truemark-cdk-lib/aws-s3';
 import {StandardDeadLetterQueue} from 'truemark-cdk-lib/aws-sqs';
 import {CollectorFunction} from './collector-function.js';
 import {CollectorRole} from './collector-role.js';
@@ -16,7 +18,7 @@ export interface DatabaseCollectorProps {
   readonly vpcId: string;
   /**
    * Subnets the collector function is placed in. They need a route to the
-   * monitored databases and to the Secrets Manager and SSM APIs.
+   * monitored databases and to the Secrets Manager API.
    */
   readonly subnetIds: string[];
   /**
@@ -45,6 +47,21 @@ export interface DatabaseCollectorProps {
    */
   readonly metricsNamespace?: string;
   /**
+   * SSM Parameter Store path that custom query sets referenced as `<name>`
+   * or `ssm:<name>` are read from: the set is the parameter `<path>/<name>`.
+   *
+   * @default '/database-collector/query-sets'
+   */
+  readonly querySetParameterPath?: string;
+  /**
+   * Local directory whose `*.yaml` files are uploaded to the query set
+   * bucket under `query-sets/` on every deploy. Files already in the bucket
+   * that are not in the directory are left alone.
+   *
+   * @default - nothing is uploaded
+   */
+  readonly querySetsDir?: string;
+  /**
    * Overrides the collector deployment package.
    *
    * @default - the zip built from ../collector
@@ -64,6 +81,10 @@ export class DatabaseCollector extends Construct {
   readonly collectorRole: CollectorRole;
   /** Security group to allow in each monitored database's security group. */
   readonly collectorSecurityGroup: SecurityGroup;
+  /** Bucket custom query sets are read from, as `query-sets/<name>.yaml`. */
+  readonly querySetBucket: ExtendedBucket;
+  /** SSM Parameter Store path custom query sets are read from. */
+  readonly querySetParameterPath: string;
   readonly collectorFunction: CollectorFunction;
   readonly registrarFunction: RegistrarFunction;
 
@@ -76,6 +97,9 @@ export class DatabaseCollector extends Construct {
 
     const stack = Stack.of(this);
     const tagPrefix = props.tagPrefix ?? 'database-collector:';
+    this.querySetParameterPath = normalizeParameterPath(
+      props.querySetParameterPath ?? '/database-collector/query-sets',
+    );
 
     // Only the VPC ID and subnet IDs are known, so the availability zone
     // names are placeholders. They are never rendered into the template.
@@ -97,6 +121,49 @@ export class DatabaseCollector extends Construct {
       tagPrefix,
     });
 
+    // Custom query sets. Versioning keeps the history of every set, so a bad
+    // edit can be rolled back.
+    this.querySetBucket = new ExtendedBucket(this, 'QuerySetBucket', {
+      versioned: true,
+      enforceSSL: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    this.querySetBucket.grantRead(
+      this.collectorRole,
+      `${QUERY_SET_KEY_PREFIX}*`,
+    );
+    if (props.querySetsDir !== undefined) {
+      if (
+        !existsSync(props.querySetsDir) ||
+        !statSync(props.querySetsDir).isDirectory()
+      ) {
+        throw new Error(
+          `querySetsDir ${props.querySetsDir} is not a directory`,
+        );
+      }
+      this.querySetBucket.deploy({
+        source: props.querySetsDir,
+        prefix: QUERY_SET_KEY_PREFIX,
+        exclude: '*',
+        include: '*.yaml',
+        // Sets added to the bucket by other means are kept.
+        prune: false,
+      });
+    }
+    this.collectorRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          stack.formatArn({
+            service: 'ssm',
+            resource: 'parameter',
+            // The ARN has no slash of its own between "parameter" and the path.
+            resourceName: `${this.querySetParameterPath.slice(1)}/*`,
+          }),
+        ],
+      }),
+    );
+
     this.collectorFunction = new CollectorFunction(this, 'CollectorFunction', {
       role: this.collectorRole,
       vpc,
@@ -104,6 +171,8 @@ export class DatabaseCollector extends Construct {
       securityGroups: [this.collectorSecurityGroup],
       code: props.collectorCode,
       metricsNamespace: props.metricsNamespace ?? 'DatabaseCollector',
+      querySetBucketName: this.querySetBucket.bucketName,
+      querySetParameterPath: this.querySetParameterPath,
     });
 
     // Receives invocations that could not be delivered: collector invocations
@@ -201,4 +270,18 @@ export class DatabaseCollector extends Construct {
       targets: [registrarTarget],
     });
   }
+}
+
+/** Key prefix of query sets in the bucket; must match the collector's Handler. */
+const QUERY_SET_KEY_PREFIX = 'query-sets/';
+
+/** Checks an SSM parameter path and drops a trailing slash. */
+function normalizeParameterPath(path: string): string {
+  const normalized = path.replace(/\/+$/, '');
+  if (!/^(\/[A-Za-z0-9_.-]+)+$/.test(normalized)) {
+    throw new Error(
+      `querySetParameterPath must look like /a/b, not ${JSON.stringify(path)}`,
+    );
+  }
+  return normalized;
 }

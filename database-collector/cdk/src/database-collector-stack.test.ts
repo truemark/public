@@ -10,11 +10,17 @@ import {DatabaseCollectorStack} from './database-collector-stack.js';
 const TEST_ENV = {account: '100000000000', region: 'us-east-2'};
 
 let template: Template;
+/** Directory standing in for the Gradle-built zip, so tests need no JDK. */
+let placeholderDir: string;
+
+/** A new Code instance per stack, as CDK requires. */
+function placeholderCode(): Code {
+  return Code.fromAsset(placeholderDir);
+}
 
 beforeAll(() => {
-  // Stands in for the Gradle-built zip so these tests do not need a JDK.
-  const dir = mkdtempSync(join(tmpdir(), 'database-collector-'));
-  writeFileSync(join(dir, 'placeholder.txt'), '');
+  placeholderDir = mkdtempSync(join(tmpdir(), 'database-collector-'));
+  writeFileSync(join(placeholderDir, 'placeholder.txt'), '');
 
   const app = new ExtendedApp({
     ...TEST_ENV,
@@ -25,7 +31,7 @@ beforeAll(() => {
     env: TEST_ENV,
     vpcId: 'vpc-00000000000000000',
     subnetIds: ['subnet-00000000000000001', 'subnet-00000000000000002'],
-    collectorCode: Code.fromAsset(dir),
+    collectorCode: placeholderCode(),
   });
   template = Template.fromStack(stack);
 });
@@ -40,6 +46,20 @@ describe('DatabaseCollectorStack', () => {
       },
     });
     template.hasResourceProperties('AWS::Lambda::Alias', {Name: 'live'});
+  });
+
+  test('collector alias does not retry or queue async invocations', () => {
+    const [aliasId] = Object.keys(
+      template.findResources('AWS::Lambda::Alias', {
+        Properties: {Name: 'live'},
+      }),
+    );
+    template.hasResourceProperties('AWS::Lambda::EventInvokeConfig', {
+      // The qualifier is the last segment ("live") of the alias ARN.
+      Qualifier: {'Fn::Select': [7, {'Fn::Split': [':', {Ref: aliasId}]}]},
+      MaximumRetryAttempts: 0,
+      MaximumEventAgeInSeconds: 60,
+    });
   });
 
   test('collector role has a fixed name and may connect as the database user', () => {
@@ -79,6 +99,82 @@ describe('DatabaseCollectorStack', () => {
         }),
       },
     });
+  });
+
+  test('collector is told where custom query sets are kept', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Runtime: 'java25',
+      Environment: {
+        Variables: Match.objectLike({
+          QUERY_SET_BUCKET: {Ref: Match.stringLikeRegexp('QuerySetBucket')},
+          QUERY_SET_PARAMETER_PATH: '/database-collector/query-sets',
+        }),
+      },
+    });
+  });
+
+  test('query set bucket is private, versioned and retained', () => {
+    template.hasResource('AWS::S3::Bucket', {
+      DeletionPolicy: 'Retain',
+      Properties: Match.objectLike({
+        VersioningConfiguration: {Status: 'Enabled'},
+        PublicAccessBlockConfiguration: Match.objectLike({
+          BlockPublicAcls: true,
+          RestrictPublicBuckets: true,
+        }),
+      }),
+    });
+  });
+
+  test('collector may only read query sets', () => {
+    const policies = JSON.stringify(template.findResources('AWS::IAM::Policy'));
+    expect(policies).toContain('/query-sets/*');
+    expect(policies).toContain(':parameter/database-collector/query-sets/*');
+    expect(policies).not.toContain('"s3:PutObject');
+    expect(policies).not.toContain('"ssm:PutParameter"');
+  });
+
+  test('nothing is uploaded without querySetsDir', () => {
+    template.resourceCountIs('Custom::CDKBucketDeployment', 0);
+  });
+
+  test('querySetsDir uploads YAML files without deleting other sets', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'query-sets-'));
+    writeFileSync(join(dir, 'orders.yaml'), '[]');
+    const app = new ExtendedApp({
+      ...TEST_ENV,
+      context: {'aws:cdk:bundling-stacks': []},
+    });
+    const stack = new DatabaseCollectorStack(app, 'WithQuerySets', {
+      env: TEST_ENV,
+      vpcId: 'vpc-00000000000000000',
+      subnetIds: ['subnet-00000000000000001'],
+      querySetsDir: dir,
+      collectorCode: placeholderCode(),
+    });
+    Template.fromStack(stack).hasResourceProperties(
+      'Custom::CDKBucketDeployment',
+      {
+        DestinationBucketKeyPrefix: 'query-sets/',
+        Exclude: ['*'],
+        Include: ['*.yaml'],
+        Prune: false,
+      },
+    );
+  });
+
+  test('rejects an invalid parameter path', () => {
+    const app = new ExtendedApp({...TEST_ENV});
+    expect(
+      () =>
+        new DatabaseCollectorStack(app, 'Invalid', {
+          env: TEST_ENV,
+          vpcId: 'vpc-00000000000000000',
+          subnetIds: ['subnet-00000000000000001'],
+          querySetParameterPath: 'no-leading-slash',
+          collectorCode: placeholderCode(),
+        }),
+    ).toThrow(/querySetParameterPath/);
   });
 
   test('schedules are reconciled hourly', () => {

@@ -1,0 +1,31 @@
+# Databases the local runner collects from. Each target is the event the Lambda function would be
+# invoked with; each secret is what Secrets Manager would return for its secretId.
+# ${DB_HOST:-localhost} lets the collector service in compose.yaml reach the same published ports.
+targets:
+  - {id: local-postgres, engine: postgres, host: "${DB_HOST:-localhost}", port: 15432, secretId: local/postgres, tls: "off", querySets: example}
+  # The MySQL 8 default login plugin needs TLS or RSA key exchange; both servers make a
+  # self-signed certificate, so the connection is encrypted without verifying it.
+  - {id: local-mysql, engine: mysql, host: "${DB_HOST:-localhost}", port: 13306, secretId: local/mysql, tls: encrypt}
+  - {id: local-mariadb, engine: mariadb, host: "${DB_HOST:-localhost}", port: 13307, secretId: local/mariadb, tls: encrypt}
+  # Nothing listens here: shows how an unreachable database is reported (Up = 0).
+  - {id: local-unreachable, engine: postgres, host: "${DB_HOST:-localhost}", port: 1, secretId: local/postgres, tls: "off"}
+
+secrets:
+  local/postgres: {username: database_collector, password: collector-local}
+  local/mysql: {username: database_collector, password: collector-local}
+  local/mariadb: {username: database_collector, password: collector-local}
+
+# Custom query sets, keyed by the reference a target's querySets field uses: a bare name or
+# "ssm:<name>" stands for a parameter, "s3:<name>" for query-sets/<name>.yaml in the bucket.
+querySets:
+  example:
+    - name: commits
+      interval: 5m
+      sql: |
+        SELECT datname AS "DatabaseName", xact_commit AS commits, xact_rollback AS rollbacks
+        FROM pg_stat_database
+        WHERE datname = current_database()
+      dimensions: [DatabaseName]
+      metrics:
+        - {column: commits, name: Commits, unit: Count}
+        - {column: rollbacks, name: Rollbacks, unit: Count}

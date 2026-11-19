@@ -2,6 +2,7 @@ package io.truemark.databasecollector;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -24,14 +25,18 @@ import java.util.regex.Pattern;
  *   <li>{@code port}, {@code database} (default to the engine's defaults)
  *   <li>{@code username} (required for IAM authentication)
  *   <li>{@code tls}: {@code verify} (default), {@code encrypt} or {@code off}
+ *   <li>{@code querySets}: custom query sets to run as well, see {@link QuerySets}; event only
  * </ul>
  */
 public class TargetResolver {
   /**
    * A target and the credentials to connect to it with. The credentials are only produced when
    * asked for, because a connection that is already open does not need them.
+   *
+   * @param querySets references to custom query sets, not yet parsed; see {@link QuerySets#split}
    */
-  public record Resolved(Target target, Supplier<Credentials> credentials) {}
+  public record Resolved(
+      Target target, Supplier<Credentials> credentials, List<String> querySets) {}
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final Pattern HOST = Pattern.compile("[A-Za-z0-9.-]+");
@@ -57,6 +62,7 @@ public class TargetResolver {
     String database = first(text(event.get("database")), text(secret, "dbname"));
     String username = first(text(event.get("username")), text(secret, "username"));
     String tls = text(event.get("tls"));
+    List<String> querySets = QuerySets.split(event.get("querySets"));
 
     // Both values become part of the JDBC URL, where characters such as ? ; & or / would let
     // them add connection options, for example one that turns certificate verification off.
@@ -81,8 +87,8 @@ public class TargetResolver {
           target,
           () ->
               new Credentials(
-                  target.username(),
-                  tokens.token(target.host(), target.port(), target.username())));
+                  target.username(), tokens.token(target.host(), target.port(), target.username())),
+          querySets);
     }
     // Taken verbatim: unlike the other fields, surrounding whitespace is part of a password.
     JsonNode passwordNode = secret.get("password");
@@ -90,7 +96,7 @@ public class TargetResolver {
       throw new IllegalArgumentException("Missing password in secret " + secretId);
     }
     String password = passwordNode.asText();
-    return new Resolved(target, () -> new Credentials(target.username(), password));
+    return new Resolved(target, () -> new Credentials(target.username(), password), querySets);
   }
 
   private JsonNode readSecret(String targetId, String secretId) {

@@ -6,10 +6,10 @@ connection details, and the database is queried once per minute. Results are
 written as structured logs that carry metric data.
 
 > **Status: in development.** The collector connects to PostgreSQL, MySQL and
-> MariaDB and writes metrics. The registrar does not create schedules yet, so
-> for now the collector only runs when invoked by hand (see
-> [Invoking the collector](#invoking-the-collector)). Oracle, SQL Server and
-> custom queries are not implemented yet.
+> MariaDB and writes metrics, including [custom queries](#custom-queries). The
+> registrar does not create schedules yet, so for now the collector only runs
+> when invoked by hand (see [Invoking the collector](#invoking-the-collector)).
+> Oracle and SQL Server are not implemented yet.
 
 ## How it works
 
@@ -57,7 +57,9 @@ pnpm --filter "database-collector-*" test
 
 The installer chooses the VPC and the subnets the collector function runs in.
 The subnets need a route to the monitored databases and to the Secrets Manager
-and SSM APIs (through a NAT gateway or VPC interface endpoints).
+API (through a NAT gateway or a VPC interface endpoint). To use custom query
+sets they also need a route to S3 (a gateway endpoint is enough) or to SSM,
+depending on where the sets are kept.
 
 ```bash
 cd database-collector/cdk
@@ -66,16 +68,20 @@ pnpm cdk deploy \
   -c subnetIds=subnet-0123456789abcdef0,subnet-0fedcba9876543210
 ```
 
-| Context key    | Required | Default                        | Description                                              |
-|----------------|----------|--------------------------------|----------------------------------------------------------|
-| `vpcId`        | yes      |                                | VPC the collector function runs in.                      |
-| `subnetIds`    | yes      |                                | Comma-separated subnet IDs for the collector function.   |
-| `tagPrefix`    | no       | `database-collector:`          | Prefix of the tags read from databases and secrets.      |
-| `databaseUser` | no       | `database_collector`           | Database user for IAM authentication.                    |
-| `roleName`     | no       | `database-collector-<region>`  | Name of the collector's IAM role.                        |
+| Context key        | Required | Default                       | Description                                                     |
+|--------------------|----------|-------------------------------|-----------------------------------------------------------------|
+| `vpcId`            | yes      |                               | VPC the collector function runs in.                             |
+| `subnetIds`        | yes      |                               | Comma-separated subnet IDs for the collector function.          |
+| `tagPrefix`        | no       | `database-collector:`         | Prefix of the tags read from databases and secrets.             |
+| `databaseUser`     | no       | `database_collector`          | Database user for IAM authentication.                           |
+| `roleName`         | no       | `database-collector-<region>` | Name of the collector's IAM role.                               |
+| `metricsNamespace` | no       | `DatabaseCollector`           | CloudWatch namespace for metrics. Empty: logs only, no metrics. |
+| `querySetParameterPath` | no  | `/database-collector/query-sets` | SSM path query sets are read from (the default source).      |
+| `querySetsDir`     | no       |                               | Local folder whose `*.yaml` files are uploaded as query sets on every deploy (reference them as `s3:<name>`). |
 
-The stack outputs the collector's role ARN and security group ID. Allow the
-security group in each monitored database's security group.
+The stack outputs the collector's role ARN, security group ID, query set
+bucket name and query set parameter path. Allow the security group in each
+monitored database's security group.
 
 ## Database access
 
@@ -144,9 +150,94 @@ with `-c metricsNamespace=` (empty) to keep the logs but publish no metrics.
 | `DatabaseSizeBytes` | PostgreSQL | `DatabaseName` | 15 min |
 | `SchemaSizeBytes` | MySQL, MariaDB | `SchemaName` | 15 min |
 
+`DeadTuples` and `LiveTuples` cover only the database the collector connects
+to (`postgres` unless set with the `database` tag or event field).
+`SchemaSizeBytes` on MySQL 8 comes from cached table statistics, so it can be
+up to `information_schema_stats_expiry` (default 1 day) old.
+
+A dimension whose value is NULL is reported as `"null"`. Each query keeps at
+most 100 rows; when a result is truncated a `WARN` log line says so.
+
 A database that cannot be reached, or a query that fails, is reported as
 `Up` = 0 or a `QueryErrors` count plus an `ERROR` log line. It does not fail
 the function.
+
+## Custom queries
+
+Custom queries are grouped in query sets. A query set is a YAML list in the
+same format as the built-in queries in
+[`collector/src/main/resources/queries`](collector/src/main/resources/queries):
+
+```yaml
+- name: order_backlog
+  interval: 15m
+  sql: |
+    SELECT status AS "Status", count(*) AS orders
+    FROM orders.orders
+    WHERE status IN ('pending', 'processing')
+    GROUP BY status
+  dimensions: [Status]
+  metrics:
+    - {column: orders, name: OrderBacklog, unit: Count}
+```
+
+| Field | Description |
+|---|---|
+| `name` | Required. Logged as `<set>/<name>` in the `Query` field. |
+| `sql` | Required. Runs in a read-only session, as the collector's database user, with a 10 second timeout. |
+| `interval` | How often the query runs: minutes (`5`), or `15m`, `2h`, `1d`. Default 1 minute. |
+| `dimensions` | Result columns whose values become metric dimensions, in addition to `Target`. |
+| `metrics` | Result columns to publish: `column`, metric `name` and CloudWatch `unit` (default `None`). |
+
+The collector still runs every minute. Each run it executes the queries that
+are due: a query with interval *N* runs when the minutes since 1970-01-01
+UTC are divisible by *N*. So `1h` runs at minute 0 of every hour and `1d` at
+00:00 UTC. A run that fails or is skipped is not made up later.
+
+The database user needs whatever privileges the queries use, for example
+`SELECT` on the tables a query reads. Only the first 100 rows are used, and
+each distinct dimension value becomes a separate CloudWatch metric, so keep
+dimensions low in cardinality.
+
+### Where query sets are kept
+
+A set can live in either of two places. Which one is chosen per set, by its
+name:
+
+| Reference | Read from |
+|---|---|
+| `orders` or `ssm:orders` | SSM parameter `/database-collector/query-sets/orders` (stack output `QuerySetParameterPath`) |
+| `s3:orders` | `query-sets/orders.yaml` in the query set bucket (stack output `QuerySetBucketName`) |
+
+Names may contain letters, digits, `_` and `-`, and `.` or `/` between those
+(`s3:team/orders` is `query-sets/team/orders.yaml`). The collector can read
+nothing else from the bucket or Parameter Store.
+
+- **S3** suits sets kept in source control. Upload them with
+  `aws s3 cp orders.yaml s3://<bucket>/query-sets/orders.yaml`, or deploy with
+  `-c querySetsDir=<folder>` to upload a folder's `*.yaml` files on every
+  deploy. Reference them with the `s3:` prefix. Sets deleted from the folder stay in the bucket until removed by
+  hand. The bucket is versioned, so earlier versions of a set can be restored.
+  A set may be up to 64 KB.
+- **SSM Parameter Store** suits small sets edited in the console. Create a
+  `String` or `SecureString` parameter (a `SecureString` with a customer
+  managed KMS key also needs the key to allow the collector's role to
+  decrypt). A standard parameter holds up to 4 KB, an advanced one 8 KB.
+
+Sets are cached for 5 minutes, so a change takes effect within about 5
+minutes. A set that cannot be read or parsed is logged as an `ERROR` with the
+message `Query set unavailable`, counted in `QueryErrors`, and tried again a
+minute later; the other queries still run.
+
+### Choosing query sets for a database
+
+Name up to 10 sets, separated by spaces, in the
+`database-collector:query-sets` tag (tag values cannot contain commas), or in
+the `querySets` field when invoking the collector by hand:
+
+```
+database-collector:query-sets = billing s3:orders
+```
 
 ## Invoking the collector
 
@@ -170,6 +261,7 @@ collector function with an event describing one database:
 | `port`, `database` | Default to the engine's port, and to `postgres` or `information_schema`. |
 | `username` | Required for IAM authentication; otherwise read from the secret. |
 | `tls` | `verify` (default), `encrypt` (no certificate check) or `off`. |
+| `querySets` | Custom query sets to run as well, separated by spaces or commas, or a list. See [Custom queries](#custom-queries). |
 
 ## Tags
 
@@ -183,4 +275,4 @@ not supported yet.
 | `database-collector:allow`      | On a secret named by the tag above: set to `true` so the collector may read it. |
 | `database-collector:username`   | RDS only. Database user for IAM authentication.                |
 | `database-collector:database`   | RDS only. Database name to connect to.                         |
-| `database-collector:query-sets` | Custom query sets to run in addition to the built-in queries.  |
+| `database-collector:query-sets` | Custom query sets to run in addition to the built-in queries, separated by spaces. See [Custom queries](#custom-queries). |

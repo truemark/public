@@ -43,6 +43,8 @@
     - {column: longest_idle_in_transaction, name: LongestIdleInTransactionSeconds, unit: Seconds}
     - {column: blocked, name: BlockedSessions, unit: Count}
 
+# pg_stat_user_tables only covers the database the collector is connected to, "postgres" by
+# default. Set the database tag or event field to choose which one.
 - name: tuples
   interval: 5
   sql: |

@@ -16,6 +16,10 @@ export interface DatabaseCollectorStackProps extends ExtendedStackProps {
   readonly roleName?: string;
   /** @default 'DatabaseCollector' */
   readonly metricsNamespace?: string;
+  /** @default '/database-collector/query-sets' */
+  readonly querySetParameterPath?: string;
+  /** @default - nothing is uploaded */
+  readonly querySetsDir?: string;
   /** @default - the zip built from ../collector */
   readonly collectorCode?: Code;
 }
@@ -34,6 +38,8 @@ export class DatabaseCollectorStack extends ExtendedStack {
       databaseUser: props.databaseUser,
       roleName: props.roleName,
       metricsNamespace: props.metricsNamespace,
+      querySetParameterPath: props.querySetParameterPath,
+      querySetsDir: props.querySetsDir,
       collectorCode: props.collectorCode,
     });
     this.outputParameter('Name', 'DatabaseCollector');
@@ -41,6 +47,14 @@ export class DatabaseCollectorStack extends ExtendedStack {
     this.outputParameter(
       'SecurityGroupId',
       collector.collectorSecurityGroup.securityGroupId,
+    );
+    this.outputParameter(
+      'QuerySetBucketName',
+      collector.querySetBucket.bucketName,
+    );
+    this.outputParameter(
+      'QuerySetParameterPath',
+      collector.querySetParameterPath,
     );
   }
 }
