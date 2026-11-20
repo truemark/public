@@ -142,10 +142,38 @@ narrower, hand-picked list is easy to under-specify:
 
 - The AWS managed policy **`AmazonAthenaFullAccess`** — covers the
   Athena API actions (`StartQueryExecution`, `GetQueryExecution`,
-  `GetQueryResults`, `StopQueryExecution`, `GetWorkGroup`, etc.) and S3
-  access on the results bucket, including `s3:GetBucketLocation` and
-  multipart-upload actions that a narrower `GetObject`/`PutObject`-only
-  policy omits.
+  `GetQueryResults`, `StopQueryExecution`, `GetWorkGroup`, etc.).
+  **It does not cover S3 access to this stack's results bucket.** Its
+  S3 statement scopes `GetObject`/`PutObject`/multipart-upload/etc. to
+  `arn:aws:s3:::aws-athena-query-results-*` only — this stack's bucket
+  is a CDK-generated `ExtendedBucket` whose auto-assigned name does not
+  match that prefix, so without a separate grant Athena still fails to
+  write query results with `AccessDenied` even though the managed
+  policy is attached. Grant S3 access to the actual bucket (named by
+  the `AthenaResultsBucketName` output) explicitly:
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:ListMultipartUploadParts",
+          "s3:AbortMultipartUpload",
+          "s3:PutObject"
+        ],
+        "Resource": [
+          "arn:aws:s3:::<AthenaResultsBucketName output value>",
+          "arn:aws:s3:::<AthenaResultsBucketName output value>/*"
+        ]
+      }
+    ]
+  }
+  ```
 - Plus this inline policy, covering `lakeformation:GetDataAccess` (per
   [Lake Formation's underlying-data-access
   docs](https://docs.aws.amazon.com/lake-formation/latest/dg/access-control-underlying-data.html),
