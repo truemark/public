@@ -18,3 +18,12 @@ test('getGlobalIndexes returns sequential index names', () => {
 test('getGlobalIndexes returns an empty list for zero indexes', () => {
   expect(getGlobalIndexes(0)).toEqual([]);
 });
+
+test('Two StandardTableV2 in one stack get distinct index alarms', () => {
+  const stack = HelperTest.stack();
+  new StandardTableV2(stack, 'First', {globalSecondaryIndexes: 2});
+  new StandardTableV2(stack, 'Second', {globalSecondaryIndexes: 2});
+  const template = Template.fromStack(stack);
+  // per table: three of its own, plus read and write throttles for two indexes
+  template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 14);
+});
