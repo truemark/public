@@ -1,0 +1,77 @@
+# Built-in queries for Microsoft SQL Server. The monitoring login needs VIEW SERVER STATE to see
+# other sessions, transactions and requests (without it each query only sees the collector's own
+# session), and VIEW ANY DEFINITION for database sizes.
+
+# Starts from the fixed set of states so that a state with no sessions is reported as 0 rather
+# than left out. A sleeping session with an open transaction is "idle in transaction", as on
+# PostgreSQL. lower() keeps the comparison working on a case-sensitive server collation.
+- name: sessions
+  sql: |
+    SELECT st.State, count(s.session_id) AS sessions
+    FROM (VALUES ('active'), ('idle'), ('idle in transaction'), ('other')) AS st(State)
+    LEFT JOIN sys.dm_exec_sessions s
+      ON s.is_user_process = 1
+      AND s.session_id <> @@SPID
+      AND st.State = CASE
+        WHEN lower(s.status) = 'running' THEN 'active'
+        WHEN lower(s.status) = 'sleeping' AND s.open_transaction_count > 0
+          THEN 'idle in transaction'
+        WHEN lower(s.status) = 'sleeping' THEN 'idle'
+        ELSE 'other'
+      END
+    GROUP BY st.State
+  dimensions: [State]
+  metrics:
+    - {column: sessions, name: Sessions, unit: Count}
+
+# @@MAX_CONNECTIONS is the "user connections" setting, 32767 when left at 0 (unlimited).
+- name: connections
+  sql: |
+    SELECT count(*) * 100.0 / @@MAX_CONNECTIONS AS used_percent
+    FROM sys.dm_exec_sessions
+    WHERE is_user_process = 1
+  metrics:
+    - {column: used_percent, name: ConnectionsUsedPercent, unit: Percent}
+
+- name: statements
+  sql: |
+    SELECT coalesce(max(datediff(second, r.start_time, sysdatetime())), 0) AS longest_statement
+    FROM sys.dm_exec_requests r
+    JOIN sys.dm_exec_sessions s ON s.session_id = r.session_id
+    WHERE s.is_user_process = 1 AND r.session_id <> @@SPID
+  metrics:
+    - {column: longest_statement, name: LongestStatementSeconds, unit: Seconds}
+
+- name: transactions
+  sql: |
+    SELECT
+      (SELECT coalesce(max(datediff(second, t.transaction_begin_time, sysdatetime())), 0)
+       FROM sys.dm_tran_session_transactions st
+       JOIN sys.dm_tran_active_transactions t ON t.transaction_id = st.transaction_id
+       JOIN sys.dm_exec_sessions s ON s.session_id = st.session_id
+       WHERE s.is_user_process = 1 AND st.session_id <> @@SPID) AS longest_transaction,
+      (SELECT coalesce(max(datediff(second, s.last_request_end_time, sysdatetime())), 0)
+       FROM sys.dm_exec_sessions s
+       WHERE s.is_user_process = 1 AND s.session_id <> @@SPID
+         AND lower(s.status) = 'sleeping' AND s.open_transaction_count > 0)
+        AS longest_idle_in_transaction,
+      (SELECT count(*)
+       FROM sys.dm_exec_requests r
+       WHERE r.blocking_session_id <> 0) AS blocked
+  metrics:
+    - {column: longest_transaction, name: LongestTransactionSeconds, unit: Seconds}
+    - {column: longest_idle_in_transaction, name: LongestIdleInTransactionSeconds, unit: Seconds}
+    - {column: blocked, name: BlockedSessions, unit: Count}
+
+# Allocated size of each database's data files (log files are not counted). size is in 8 KB pages.
+- name: database_size
+  interval: 15
+  sql: |
+    SELECT d.name AS DatabaseName, sum(cast(f.size AS bigint)) * 8192 AS bytes
+    FROM sys.master_files f
+    JOIN sys.databases d ON d.database_id = f.database_id
+    WHERE f.type_desc = 'ROWS' AND d.name <> 'rdsadmin'
+    GROUP BY d.name
+  dimensions: [DatabaseName]
+  metrics:
+    - {column: bytes, name: DatabaseSizeBytes, unit: Bytes}

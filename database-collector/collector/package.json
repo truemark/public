@@ -1,0 +1,20 @@
+{
+  "name": "database-collector-collector",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Java Lambda function that connects to databases over JDBC and emits metrics for Database Collector. This package.json only wires the Gradle build into the pnpm workspace.",
+  "homepage": "https://github.com/truemark/public/tree/main/database-collector",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:truemark/public.git"
+  },
+  "scripts": {
+    "prebuild": "./gradlew --no-daemon spotlessCheck",
+    "build": "./gradlew --no-daemon buildZip",
+    "test": "./gradlew --no-daemon test",
+    "clean": "./gradlew --no-daemon clean",
+    "fmt": "./gradlew --no-daemon spotlessApply",
+    "reset": "rm -rf build .gradle node_modules"
+  }
+}

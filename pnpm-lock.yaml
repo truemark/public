@@ -673,6 +673,66 @@ importers:
         specifier: 'catalog:'
         version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
 
+  database-collector/cdk:
+    dependencies:
+      aws-cdk-lib:
+        specifier: 'catalog:'
+        version: 2.276.0(constructs@10.8.1)
+      constructs:
+        specifier: 'catalog:'
+        version: 10.8.1
+      truemark-cdk-lib:
+        specifier: 'workspace:'
+        version: link:../../cdk
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.4.5
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      aws-cdk:
+        specifier: 'catalog:'
+        version: 2.1148.1
+      database-collector-collector:
+        specifier: 'workspace:'
+        version: link:../collector
+      database-collector-registrar:
+        specifier: 'workspace:'
+        version: link:../registrar
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.2
+      tsx:
+        specifier: 'catalog:'
+        version: 4.22.3
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
+
+  database-collector/collector: {}
+
+  database-collector/registrar:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.4.5
+      '@types/aws-lambda':
+        specifier: 'catalog:'
+        version: 8.10.164
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.12(@types/node@24.19.2)(@vitest/coverage-v8@4.1.12)(vite@7.3.8(@types/node@24.19.2)(tsx@4.22.3))
+
 packages:
 
   '@aws-cdk/asset-awscli-v1@2.2.292':
@@ -2541,10 +2601,6 @@ packages:
   picomatch@2.3.2:
     resolution: {integrity: sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==}
     engines: {node: '>=8.6'}
-
-  picomatch@4.0.4:
-    resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
-    engines: {node: '>=12'}
 
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
@@ -4750,10 +4806,6 @@ snapshots:
     dependencies:
       reusify: 1.1.0
 
-  fdir@6.5.0(picomatch@4.0.4):
-    optionalDependencies:
-      picomatch: 4.0.4
-
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
       picomatch: 4.0.7
@@ -5233,8 +5285,6 @@ snapshots:
 
   picomatch@2.3.2: {}
 
-  picomatch@4.0.4: {}
-
   picomatch@4.0.7: {}
 
   pify@4.0.1: {}
@@ -5556,8 +5606,8 @@ snapshots:
 
   tinyglobby@0.2.16:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
 
   tinyglobby@0.2.17:
     dependencies:
