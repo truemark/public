@@ -170,4 +170,123 @@ describe('AutoSocSecurityLakeStack', () => {
   test('does not create any nested CloudFormation stacks (SIEM lives in the separate autosiem package)', () => {
     template.resourceCountIs('AWS::CloudFormation::Stack', 0);
   });
+
+  test('does not touch Lake Formation data lake administrators by default', () => {
+    template.resourceCountIs('AWS::LakeFormation::DataLakeSettings', 0);
+  });
+
+  test('appends Lake Formation data lake administrators when supplied, without replacing existing ones', () => {
+    const withAdmins = synth({
+      lakeFormationDataLakeAdmins:
+        'arn:aws:iam::100000000000:role/Administrator,arn:aws:iam::100000000000:role/SecurityEngineer',
+    });
+    withAdmins.resourceCountIs('AWS::LakeFormation::DataLakeSettings', 1);
+    withAdmins.hasResourceProperties('AWS::LakeFormation::DataLakeSettings', {
+      // APPEND, not the default REPLACE: the account already has
+      // AmazonSecurityLakeMetaStoreManagerV2 and the CDK bootstrap exec
+      // role registered as administrators, and this must not revoke them.
+      MutationType: 'APPEND',
+      Admins: [
+        {
+          DataLakePrincipalIdentifier:
+            'arn:aws:iam::100000000000:role/Administrator',
+        },
+        {
+          DataLakePrincipalIdentifier:
+            'arn:aws:iam::100000000000:role/SecurityEngineer',
+        },
+      ],
+    });
+  });
+
+  test('rejects a Lake Formation admin principal that is not an IAM role/user ARN', () => {
+    expect(() => synth({lakeFormationDataLakeAdmins: 'not-an-arn'})).toThrow(
+      /invalid Lake Formation admin principal/,
+    );
+  });
+
+  test('always creates an encrypted Athena results bucket and workgroup', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 1);
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketEncryption: Match.objectLike({
+        ServerSideEncryptionConfiguration: Match.arrayWith([
+          Match.objectLike({
+            ServerSideEncryptionByDefault: {SSEAlgorithm: 'AES256'},
+          }),
+        ]),
+      }),
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      },
+      LifecycleConfiguration: {
+        Rules: Match.arrayWith([
+          Match.objectLike({Id: 'ExpireQueryResults', Status: 'Enabled'}),
+        ]),
+      },
+    });
+    template.resourceCountIs('AWS::Athena::WorkGroup', 1);
+    template.hasResourceProperties('AWS::Athena::WorkGroup', {
+      Name: 'security-lake-queries',
+      WorkGroupConfiguration: {
+        EnforceWorkGroupConfiguration: true,
+        ResultConfiguration: Match.objectLike({
+          OutputLocation: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResource('AWS::Athena::WorkGroup', {
+      DeletionPolicy: 'Retain',
+      UpdateReplacePolicy: 'Retain',
+    });
+  });
+
+  test('rejects createAthenaWorkGroup=false without an existing results bucket name', () => {
+    // Reusing a retained workgroup without also reusing its original
+    // results bucket would leave the (unmodified) workgroup writing to a
+    // bucket this stack no longer manages or reports via
+    // AthenaResultsBucketName — fail fast instead of synthesizing that
+    // mismatch silently.
+    expect(() => synth({createAthenaWorkGroup: false})).toThrow(
+      /createAthenaWorkGroup=false requires existingAthenaResultsBucketName/,
+    );
+  });
+
+  test('skips creating the Athena workgroup and bucket when told both already exist', () => {
+    // A workgroup retained by a prior `cdk destroy` (RemovalPolicy.RETAIN
+    // above) collides with a same-named redeploy attempt, since
+    // CloudFormation cannot auto-generate an Athena workgroup name the way
+    // it does for the results bucket. `createAthenaWorkGroup=false` plus
+    // `existingAthenaResultsBucketName` lets the operator reuse both the
+    // retained workgroup and the bucket its OutputLocation already points
+    // at, instead of creating a second bucket the workgroup never uses.
+    const skipped = synth({
+      createAthenaWorkGroup: false,
+      existingAthenaResultsBucketName: 'pre-existing-results-bucket',
+    });
+    skipped.resourceCountIs('AWS::Athena::WorkGroup', 0);
+    skipped.resourceCountIs('AWS::S3::Bucket', 0);
+    // Outputs must reflect the real (pre-existing) names even though this
+    // stack didn't create either resource.
+    const outputs = skipped.toJSON().Outputs ?? {};
+    expect((outputs.AthenaWorkGroupName as {Value: string}).Value).toBe(
+      'security-lake-queries',
+    );
+    expect((outputs.AthenaResultsBucketName as {Value: string}).Value).toBe(
+      'pre-existing-results-bucket',
+    );
+  });
+
+  test('accepts a custom Athena workgroup name', () => {
+    const custom = synth({athenaWorkGroupName: 'custom-queries'});
+    custom.hasResourceProperties('AWS::Athena::WorkGroup', {
+      Name: 'custom-queries',
+    });
+    const outputs = custom.toJSON().Outputs ?? {};
+    expect((outputs.AthenaWorkGroupName as {Value: string}).Value).toBe(
+      'custom-queries',
+    );
+  });
 });

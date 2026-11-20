@@ -1,11 +1,16 @@
-import {CfnOutput} from 'aws-cdk-lib';
+import {CfnOutput, Duration, RemovalPolicy} from 'aws-cdk-lib';
+import {CfnWorkGroup} from 'aws-cdk-lib/aws-athena';
+import {CfnDataLakeSettings} from 'aws-cdk-lib/aws-lakeformation';
+import {Bucket, type IBucket} from 'aws-cdk-lib/aws-s3';
 import type {Construct} from 'constructs';
 import {ExtendedStack, type ExtendedStackProps} from 'truemark-cdk-lib/aws-cdk';
+import {ExtendedBucket} from 'truemark-cdk-lib/aws-s3';
 import {
   AwsLogSourceName,
   type SecurityLakeSubscriberProps,
   StandardSecurityLake,
 } from 'truemark-cdk-lib/aws-securitylake';
+import {validateLakeFormationDataLakeAdmins} from './lake-formation-admins.js';
 import {validateSecurityLakeExternalId} from './security-lake-external-id.js';
 
 export type AutoSocSecurityLakeStackProps = ExtendedStackProps;
@@ -123,5 +128,127 @@ export class AutoSocSecurityLakeStack extends ExtendedStack {
           'AutoSocSecurityLake-SecurityLakeSubscriberNotificationQueueArn',
       });
     }
+
+    // Optional Lake Formation data lake administrators. `MutationType:
+    // APPEND` adds these principals to whatever administrators already
+    // exist in the account (e.g. AmazonSecurityLakeMetaStoreManagerV2 and
+    // the CDK bootstrap exec role, both registered automatically when
+    // Security Lake's data lake was created) rather than replacing the
+    // list outright — `AWS::LakeFormation::DataLakeSettings` with the
+    // default `REPLACE` mutation type would otherwise silently revoke
+    // every administrator not listed here on every deploy.
+    const lakeFormationDataLakeAdmins = (
+      this.node.tryGetContext('lakeFormationDataLakeAdmins') as
+        | string
+        | undefined
+    )
+      ?.split(',')
+      .map((arn) => arn.trim())
+      .filter((arn) => arn.length > 0);
+    validateLakeFormationDataLakeAdmins(lakeFormationDataLakeAdmins);
+    if (lakeFormationDataLakeAdmins && lakeFormationDataLakeAdmins.length > 0) {
+      new CfnDataLakeSettings(this, 'LakeFormationDataLakeSettings', {
+        admins: lakeFormationDataLakeAdmins.map((arn) => ({
+          dataLakePrincipalIdentifier: arn,
+        })),
+        mutationType: 'APPEND',
+      });
+    }
+
+    // Athena workgroup name is configurable (not just hardcoded) because
+    // RemovalPolicy.RETAIN below means a `cdk destroy` leaves it behind —
+    // unlike the bucket below, CloudFormation cannot auto-generate a
+    // workgroup name, so a same-named redeploy after destroy would
+    // otherwise collide with the retained one and fail to create.
+    const athenaWorkGroupName =
+      (this.node.tryGetContext('athenaWorkGroupName') as string | undefined) ??
+      'security-lake-queries';
+    // Mirrors `createLakeFormationSlr` above: default true creates the
+    // workgroup; set `-c createAthenaWorkGroup=false` on a redeploy after
+    // a prior `cdk destroy` already left a same-named workgroup retained,
+    // to reuse it instead of colliding with it.
+    const createAthenaWorkGroup =
+      this.node.tryGetContext('createAthenaWorkGroup') !== false &&
+      this.node.tryGetContext('createAthenaWorkGroup') !== 'false';
+    const existingAthenaResultsBucketName = this.node.tryGetContext(
+      'existingAthenaResultsBucketName',
+    ) as string | undefined;
+    // Reusing a retained workgroup without also reusing its original
+    // results bucket leaves the workgroup's own OutputLocation (fixed at
+    // its creation, not updated here since we aren't recreating it)
+    // pointing at a bucket this stack no longer manages or reports —
+    // AthenaResultsBucketName below would then name the wrong bucket, and
+    // the one the workgroup actually writes to wouldn't be the one anyone
+    // was granted access to. Fail fast instead of synthesizing that
+    // mismatch silently.
+    if (!createAthenaWorkGroup && !existingAthenaResultsBucketName) {
+      throw new Error(
+        'AutoSocSecurityLake: createAthenaWorkGroup=false requires ' +
+          'existingAthenaResultsBucketName — reusing a retained workgroup ' +
+          'without also reusing its original results bucket leaves the ' +
+          'workgroup writing to a bucket this stack no longer manages.',
+      );
+    }
+
+    // S3 bucket for Athena query results, so humans with Lake Formation
+    // query access (see autosoc/README.md) can run Athena against Security
+    // Lake's tables without first having to hand-configure a results
+    // location. A lifecycle rule expires result objects automatically —
+    // they're cheap to regenerate by re-running the query — rather than
+    // accumulating indefinitely; the bucket itself is retained on stack
+    // deletion (CDK's default) since it's shared, account-wide Athena
+    // infrastructure, not something scoped to this one stack's lifecycle.
+    const athenaResultsBucket: IBucket = existingAthenaResultsBucketName
+      ? Bucket.fromBucketName(
+          this,
+          'AthenaResultsBucket',
+          existingAthenaResultsBucketName,
+        )
+      : new ExtendedBucket(this, 'AthenaResultsBucket', {
+          enforceSSL: true,
+          lifecycleRules: [
+            {
+              id: 'ExpireQueryResults',
+              expiration: Duration.days(30),
+            },
+          ],
+        });
+    if (createAthenaWorkGroup) {
+      // RemovalPolicy.RETAIN, not CfnWorkGroup's own RecursiveDeleteOption
+      // (default false): once an operator saves a named query in this
+      // workgroup, a plain `cdk destroy` fails because CloudFormation
+      // can't delete a non-empty workgroup. Retaining it — same treatment
+      // as the results bucket above — avoids that failure instead of
+      // silently discarding saved queries via RecursiveDeleteOption=true.
+      const athenaWorkGroup = new CfnWorkGroup(
+        this,
+        'AthenaSecurityLakeWorkGroup',
+        {
+          name: athenaWorkGroupName,
+          description:
+            'Default Athena workgroup for querying Security Lake tables.',
+          workGroupConfiguration: {
+            resultConfiguration: {
+              outputLocation: `s3://${athenaResultsBucket.bucketName}/athena-results/`,
+            },
+            enforceWorkGroupConfiguration: true,
+          },
+        },
+      );
+      athenaWorkGroup.applyRemovalPolicy(RemovalPolicy.RETAIN);
+    }
+    new CfnOutput(this, 'AthenaResultsBucketName', {
+      value: athenaResultsBucket.bucketName,
+      description: 'S3 bucket Athena writes query results to.',
+    });
+    new CfnOutput(this, 'AthenaWorkGroupName', {
+      value: athenaWorkGroupName,
+      description:
+        'Athena workgroup pre-configured with the results bucket above. ' +
+        'Select it explicitly when running queries — see autosoc/README.md ' +
+        'for the IAM permissions (lakeformation:GetDataAccess, Athena API ' +
+        'actions, results-bucket access) also required beyond the Lake ' +
+        'Formation table grant.',
+    });
   }
 }
