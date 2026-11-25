@@ -69,6 +69,9 @@ export async function manageInactiveTransitGatewayAlarms(
       .str('function', 'manageInactiveTransitGatewayAlarms')
       .err(e)
       .msg(`Error deleting Transit Gateway alarms: ${e}`);
+    // Rethrow so the caller fails the record and SQS retries the deletion.
+    // Returning here acknowledges the event and leaves the alarms behind.
+    throw new Error(`Error deleting Transit Gateway alarms: ${e}`);
   }
 }
 

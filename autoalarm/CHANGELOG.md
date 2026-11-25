@@ -7,6 +7,9 @@
 - The log alarms now match on the structured log level (`level >= 50`, or `ERROR` / `FATAL` from the Lambda runtime) instead of the text `ERROR`. The handlers log errors with a numeric level, so their own errors now count; before, only lines containing the word `ERROR` did.
 - The function log groups are renamed to `/aws/lambda/<stack>-<function>-<hash>`, where the hash covers the function's construct path. **On the next deploy CloudFormation replaces the five log groups, so their existing log events (3 days' retention) are deleted**, and the log metric filters and alarms are recreated. Saved queries or subscription filters that name the old groups need updating.
 
+### Fixed
+- A failed alarm deletion for a removed RDS instance, RDS cluster, CloudFront distribution, Step Functions state machine, Transit Gateway or VPN connection now fails the SQS record, so it is retried and then moved to the dead-letter queue. These six surfaces logged the error and acknowledged the event, which left the alarms behind with nothing to retry. The other surfaces already rethrew.
+
 ## v1.14.4
 ### Fixed
 - Fixed main handler not routing EC2 VPN create/delete events to the VPN module when events arrived in CloudTrail format. EventBridge sends VPN events with `detail-type` "AWS API Call via CloudTrail" and no `detail.resourceType`; the handler only routed when `resourceType === 'vpn-connection'`, so those events were treated as "Unhandled EC2 event format" and sent to the DLQ. Added an explicit branch for CloudTrail-form VPN create/delete events so they are routed to `parseVpnEventAndCreateAlarms` like the existing VPN path.

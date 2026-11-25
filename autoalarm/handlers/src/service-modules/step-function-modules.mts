@@ -64,6 +64,9 @@ export async function manageInactiveSFNAlarms(sfnArn: string): Promise<void> {
       .str('function', 'manageInactiveSFNAlarms')
       .err(e)
       .msg(`Error deleting SFN alarms: ${e}`);
+    // Rethrow so the caller fails the record and SQS retries the deletion.
+    // Returning here acknowledges the event and leaves the alarms behind.
+    throw new Error(`Error deleting SFN alarms: ${e}`);
   }
 }
 

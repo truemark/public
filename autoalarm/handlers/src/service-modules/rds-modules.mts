@@ -64,6 +64,9 @@ export async function manageInactiveRDSAlarms(
       .str('function', 'manageInactiveRDSAlarms')
       .err(e)
       .msg(`Error deleting RDS alarms: ${e}`);
+    // Rethrow so the caller fails the record and SQS retries the deletion.
+    // Returning here acknowledges the event and leaves the alarms behind.
+    throw new Error(`Error deleting RDS alarms: ${e}`);
   }
 }
 

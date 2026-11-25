@@ -75,6 +75,9 @@ export async function manageInactiveCloudFrontAlarms(
       .str('function', 'manageInactiveCloudFrontAlarms')
       .err(e)
       .msg(`Error deleting CloudFront alarms: ${e}`);
+    // Rethrow so the caller fails the record and SQS retries the deletion.
+    // Returning here acknowledges the event and leaves the alarms behind.
+    throw new Error(`Error deleting CloudFront alarms: ${e}`);
   }
 }
 
