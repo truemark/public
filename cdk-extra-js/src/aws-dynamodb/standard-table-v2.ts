@@ -6,7 +6,10 @@ import {
   type GlobalSecondaryIndexPropsV2,
 } from 'aws-cdk-lib/aws-dynamodb';
 import type {Construct} from 'constructs';
-import {type ExtendedTablePropsV2, ExtendedTableV2} from './extended-table-v2';
+import {
+  type ExtendedTablePropsV2,
+  ExtendedTableV2,
+} from 'truemark-cdk-lib/aws-dynamodb';
 
 type StandardGlobalSecondaryIndexPropsV2 = Partial<GlobalSecondaryIndexPropsV2>;
 

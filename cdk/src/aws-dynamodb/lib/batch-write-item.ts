@@ -29,9 +29,11 @@ export type BatchWriteItemRequestItems = {
  */
 export interface BatchWriteItemProps {
   /**
-   * The items to write.
+   * The items to write, in the shape of a DynamoDB BatchWriteItem request,
+   * for example `{RequestItems: {MyTable: [{PutRequest: {Item: {...}}}]}}`.
+   * TypeScript users can build this with the BatchWriteItemRequestItems type.
    */
-  readonly items: BatchWriteItemRequestItems;
+  readonly items: Record<string, any>;
 
   /**
    * The timeout for the Lambda function. Default is 2 minutes.

@@ -1,11 +1,10 @@
-import type {Duration} from 'aws-cdk-lib';
-import type {IAlarmAction, TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
+import type {IAlarmAction} from 'aws-cdk-lib/aws-cloudwatch';
 import {SnsAction} from 'aws-cdk-lib/aws-cloudwatch-actions';
 import type {ITopic} from 'aws-cdk-lib/aws-sns';
-import type {CustomAlarmThreshold} from 'cdk-monitoring-constructs';
-import {AlarmFacadeSet} from './alarm-facade';
-import type {AlarmsCategoryOptions, AlarmsOptions} from './alarms-base';
 
+/**
+ * Helper methods for working with alarms.
+ */
 export class AlarmHelper {
   /**
    * Helper function to combine an array if IAlarmAction and ITopic objects into a single IAlarmAction array.
@@ -21,37 +20,5 @@ export class AlarmHelper {
     actions?.forEach((action) => combined.push(action));
     topics?.forEach((topic) => combined.push(new SnsAction(topic)));
     return combined;
-  }
-
-  /**
-   * Helper function to generate categorized alarms.
-   *
-   * @param options the AlarmsOptions instance
-   * @param oprop property from the AlarmsCategoryOptions instance
-   * @param tprop property from the CustomAlarmThreshold instance
-   * @param defaultCriticalThreshold optional default value for the critical threshold
-   * @param defaultWarningThreshold optional default value for the warning threshold
-   * @param treatMissingDataOverride optional override for the treat missing data setting
-   */
-  static toRecord<
-    O extends AlarmsCategoryOptions,
-    T extends CustomAlarmThreshold,
-  >(
-    options: AlarmsOptions<O>,
-    oprop: keyof O,
-    tprop: keyof T,
-    defaultCriticalThreshold?: number | Duration,
-    defaultWarningThreshold?: number | Duration,
-    treatMissingDataOverride?: TreatMissingData,
-  ): Record<string, T> | undefined {
-    return new AlarmFacadeSet<O, T>(options)
-      .addAlarms(
-        oprop,
-        tprop,
-        defaultCriticalThreshold,
-        defaultWarningThreshold,
-        treatMissingDataOverride,
-      )
-      .toRecord();
   }
 }

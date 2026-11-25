@@ -19,6 +19,9 @@ export interface SingleEnvAppProps extends ExtendedAppProps {
  * Extension of ExtendedApp that supports a standard way to declare environment names.
  */
 export class SingleEnvApp extends ExtendedApp {
+  /**
+   * The name of the environment.
+   */
   readonly environmentName: string;
 
   constructor(props?: SingleEnvAppProps) {
@@ -43,16 +46,9 @@ export class SingleEnvApp extends ExtendedApp {
   }
 
   /**
-   * Returns the name of the environment.
+   * The name of the environment in title case.
    */
-  getEnvironmentName(): string {
-    return this.environmentName;
-  }
-
-  /**
-   * Returns the name of the environment in title case.
-   */
-  getEnvironmentNameTitleCase(): string {
+  get environmentNameTitleCase(): string {
     return toPascalCase(this.environmentName);
   }
 }

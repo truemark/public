@@ -46,7 +46,10 @@ export class ParameterReader extends AwsCustomResource {
     });
   }
 
-  getStringValue(): string {
+  /**
+   * The value of the parameter.
+   */
+  get stringValue(): string {
     return this.getResponseField('Parameter.Value').toString();
   }
 

@@ -5,7 +5,7 @@ import {
   type TableProps,
 } from 'aws-cdk-lib/aws-dynamodb';
 import type {Construct} from 'constructs';
-import {ExtendedTable} from './extended-table';
+import {ExtendedTable} from 'truemark-cdk-lib/aws-dynamodb';
 
 type StandardGlobalSecondaryIndexProps = Partial<GlobalSecondaryIndexProps>;
 

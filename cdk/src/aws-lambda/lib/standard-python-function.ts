@@ -55,7 +55,7 @@ export interface BundledPythonFunctionProps
  */
 export class StandardPythonFunction extends StandardFunction {
   static isLocalBundlingSupported(): boolean {
-    return ShellHelper.pythonVersion() !== null;
+    return ShellHelper.pythonVersion() !== undefined;
   }
 
   /**
@@ -94,7 +94,10 @@ export class StandardPythonFunction extends StandardFunction {
       handler,
       defaultBundlingScript,
       defaultBundlingImage: runtime.bundlingImage,
-      isLocalBundlingSupported: StandardPythonFunction.isLocalBundlingSupported,
+      localBundlingSupport: {
+        isLocalBundlingSupported:
+          StandardPythonFunction.isLocalBundlingSupported,
+      },
     });
   }
 }

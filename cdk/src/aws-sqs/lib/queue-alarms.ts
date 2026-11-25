@@ -1,11 +1,13 @@
 import type {Duration} from 'aws-cdk-lib';
 import {TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
 import type {Queue} from 'aws-cdk-lib/aws-sqs';
+import type {CustomAlarmThreshold} from 'cdk-monitoring-constructs';
 import type {Construct} from 'constructs';
 import {
   AlarmsBase,
   type AlarmsCategoryOptions,
   type AlarmsOptions,
+  toAlarmRecord,
 } from '../../aws-monitoring/index';
 
 /**
@@ -65,8 +67,21 @@ export interface QueueAlarmsCategoryOptions extends AlarmsCategoryOptions {
 /**
  * Options for CloudWatch alarms for Queues.
  */
-export interface QueueAlarmsOptions
-  extends AlarmsOptions<QueueAlarmsCategoryOptions> {
+export interface QueueAlarmsOptions extends AlarmsOptions {
+  /**
+   * Alarm thresholds for critical alarms.
+   *
+   * If no properties are provided, a set of default alarms are created.
+   */
+  readonly criticalAlarmOptions?: QueueAlarmsCategoryOptions;
+
+  /**
+   * Alarm thresholds for warning alarms.
+   *
+   * If no properties are provided, a set of default alarms are created.
+   */
+  readonly warningAlarmOptions?: QueueAlarmsCategoryOptions;
+
   /**
    * Flag to create alarms.
    *
@@ -93,10 +108,26 @@ export interface QueueAlarmsProps extends QueueAlarmsOptions {
 /**
  * Creates CloudWatch alarms for Queues.
  */
-export class QueueAlarms extends AlarmsBase<
-  QueueAlarmsCategoryOptions,
-  QueueAlarmsProps
-> {
+export class QueueAlarms extends AlarmsBase {
+  private readonly props: QueueAlarmsProps;
+
+  private toRecord<T extends CustomAlarmThreshold>(
+    oprop: keyof QueueAlarmsCategoryOptions,
+    tprop: keyof T,
+    defaultCriticalThreshold?: number | Duration,
+    defaultWarningThreshold?: number | Duration,
+    treatMissingDataOverride?: TreatMissingData,
+  ) {
+    return toAlarmRecord<QueueAlarmsCategoryOptions, T>(
+      this.props,
+      oprop,
+      tprop,
+      defaultCriticalThreshold,
+      defaultWarningThreshold,
+      treatMissingDataOverride,
+    );
+  }
+
   private addQueueMonitoring() {
     if (this.monitoringFacade === undefined) {
       throw new Error('monitoringFacade is undefined');
@@ -175,6 +206,7 @@ export class QueueAlarms extends AlarmsBase<
 
   constructor(scope: Construct, id: string, props: QueueAlarmsProps) {
     super(scope, id, props);
+    this.props = props;
     if (props.createAlarms ?? true) {
       this.addQueueMonitoring();
     }

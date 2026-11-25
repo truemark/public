@@ -32,14 +32,18 @@ export class DistributionBuilder extends ExtendedConstruct {
     return this.behaviors[path];
   }
 
-  getBehaviorPaths(): string[] {
+  /**
+   * The paths of the behaviors added to this builder.
+   */
+  get behaviorPaths(): string[] {
     return Object.keys(this.behaviors);
   }
 
-  getOrigins(): IOrigin[] {
-    return Object.values(this.behaviors).map((behavior) =>
-      behavior.getOrigin(),
-    );
+  /**
+   * The origins of the behaviors added to this builder.
+   */
+  get origins(): IOrigin[] {
+    return Object.values(this.behaviors).map((behavior) => behavior.origin);
   }
 
   behavior(origin: IOrigin, path?: string): BehaviorBuilder {
@@ -299,7 +303,10 @@ export class DistributionBuilder extends ExtendedConstruct {
     return this;
   }
 
-  build(): DistributionProps {
+  /**
+   * Builds the DistributionProps from the settings applied to this builder.
+   */
+  buildDistributionProps(): DistributionProps {
     if (this.behaviors[''] === undefined) {
       throw new Error('Default behavior with no path is required');
     }
@@ -341,6 +348,6 @@ export class DistributionBuilder extends ExtendedConstruct {
   }
 
   toDistribution(): Distribution {
-    return new Distribution(this, 'Default', this.build());
+    return new Distribution(this, 'Default', this.buildDistributionProps());
   }
 }

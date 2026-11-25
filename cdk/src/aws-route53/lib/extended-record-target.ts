@@ -50,7 +50,7 @@ export class ExtendedRecordTarget extends RecordTarget {
    * @param aliasTarget the alias to target
    * @param evaluateTargetHealth determines if Route53 should evaluate target health
    */
-  static fromAlias(
+  static fromAliasTarget(
     aliasTarget: IAliasRecordTarget,
     evaluateTargetHealth?: boolean,
   ): RecordTarget {

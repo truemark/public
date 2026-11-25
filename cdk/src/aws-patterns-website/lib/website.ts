@@ -39,10 +39,10 @@ import {DomainName, type DomainNameProps} from '../../aws-route53/index';
 import {LibStandardTags} from '../../truemark';
 
 export enum SourceType {
-  Custom = 'Custom',
-  Hugo = 'Hugo',
-  NpmDist = 'NpmDist',
-  Static = 'Static',
+  CUSTOM = 'Custom',
+  HUGO = 'Hugo',
+  NPM_DIST = 'NpmDist',
+  STATIC = 'Static',
 }
 
 /**
@@ -117,7 +117,7 @@ export interface WebsiteProps extends ExtendedConstructProps {
   /**
    * The source type of the website.
    *
-   * @default SourceType.Static
+   * @default SourceType.STATIC
    */
   readonly sourceType?: SourceType;
 
@@ -128,14 +128,14 @@ export interface WebsiteProps extends ExtendedConstructProps {
 
   /**
    * Custom bundling options to use to bundle website sources. The sourceType
-   * must be set to SourceType.Custom.
+   * must be set to SourceType.CUSTOM.
    */
   readonly sourceBundlingOptions?: BundlingOptions;
 }
 
 export class Website extends ExtendedConstruct {
   /**
-   * The default bundling options for SourceType.Hugo.
+   * The default bundling options for SourceType.HUGO.
    */
   static readonly HUGO_BUNDLING_OPTIONS: BundlingOptions = {
     image: DockerImage.fromRegistry('public.ecr.aws/truemark/hugo:latest'),
@@ -143,7 +143,7 @@ export class Website extends ExtendedConstruct {
   };
 
   /**
-   * The default bundling options for SourceType.NpmDist. It"s expected that "npm run dist" command
+   * The default bundling options for SourceType.NPM_DIST. It"s expected that "npm run dist" command
    * will place files in ${CDK_BUNDLING_OUTPUT_DIR}. Example: "ng build --output-path=/asset-output"
    */
   static readonly NPM_DIST_BUNDLING_OPTIONS: BundlingOptions = {
@@ -317,7 +317,7 @@ function handler(event) {
 
     let bundlingOptions: BundlingOptions | undefined;
 
-    if (props.sourceType === SourceType.Custom) {
+    if (props.sourceType === SourceType.CUSTOM) {
       if (!props.sourceBundlingOptions) {
         throw new Error(
           'sourceBundlingOptions is required if source type is Custom',
@@ -326,7 +326,7 @@ function handler(event) {
       bundlingOptions = props.sourceBundlingOptions;
     }
 
-    if (props.sourceType === SourceType.Static) {
+    if (props.sourceType === SourceType.STATIC) {
       if (props.sourceBundlingOptions) {
         throw new Error(
           'Cannot use sourceBundlingOptions with source type Static',
@@ -334,14 +334,14 @@ function handler(event) {
       }
     }
 
-    if (props.sourceType === SourceType.Hugo) {
+    if (props.sourceType === SourceType.HUGO) {
       bundlingOptions = Website.HUGO_BUNDLING_OPTIONS;
       if (props.sourceBundlingOptions) {
         throw new Error(
           'Cannot use sourceBundlingOptions with source type Hugo',
         );
       }
-    } else if (props.sourceType === SourceType.NpmDist) {
+    } else if (props.sourceType === SourceType.NPM_DIST) {
       bundlingOptions = Website.NPM_DIST_BUNDLING_OPTIONS;
       if (props.sourceBundlingOptions) {
         throw new Error(

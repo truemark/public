@@ -83,10 +83,10 @@ export class ExtendedFunction extends Function {
         function: this,
       });
       if (props.deploymentOptions?.includeCriticalAlarms ?? false) {
-        this.deployment.addAlarms(...this.alarms.getCriticalAlarms());
+        this.deployment.addAlarms(...this.alarms.criticalAlarms);
       }
       if (props.deploymentOptions?.includeWarningAlarms ?? false) {
-        this.deployment.addAlarms(...this.alarms.getWarningAlarms());
+        this.deployment.addAlarms(...this.alarms.warningAlarms);
       }
     }
   }

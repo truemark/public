@@ -125,26 +125,26 @@ export enum DataClassification {
    * Used when data may not leave the geographic region in which it is stored.
    * This is usually related to government restrictions applied to the data.
    */
-  ExportRestricted = 'export-restricted',
+  EXPORT_RESTRICTED = 'export-restricted',
 
   /**
    * Used when unauthorized disclosure, alteration or destruction of data would
    * result in a significant risk to the organization. This includes PII, PHI
    * and PCI data.
    */
-  Restricted = 'restricted',
+  RESTRICTED = 'restricted',
 
   /**
    * Used when unauthorized disclosure, alteration or destruction of the data would
    * result in moderate risk. This includes all data that is not in one of the other
    * classifications.
    */
-  Controlled = 'controlled',
+  CONTROLLED = 'controlled',
 
   /**
    * Used when handled or stored data readily available to the public.
    */
-  Public = 'public',
+  PUBLIC = 'public',
 }
 
 /**
@@ -547,81 +547,82 @@ export class StandardTags {
   /**
    * Returns a merged StandardTagsProps.
    *
-   * @param from properties to source from
-   * @param to properties to source to
+   * @param source properties to source from
+   * @param target properties to source to
    */
   static merge(
-    from?: StandardTagsProps,
-    to?: StandardTagsProps,
+    source?: StandardTagsProps,
+    target?: StandardTagsProps,
   ): StandardTagsProps {
     let excludeResourceTypes: string[] | undefined;
-    if (from?.excludeResourceTypes || to?.excludeResourceTypes) {
+    if (source?.excludeResourceTypes || target?.excludeResourceTypes) {
       excludeResourceTypes = [
-        ...(from?.excludeResourceTypes ?? []),
-        ...(to?.excludeResourceTypes ?? []),
+        ...(source?.excludeResourceTypes ?? []),
+        ...(target?.excludeResourceTypes ?? []),
       ];
     }
     let automationComponentTags: AutomationComponentTagsProps | undefined;
-    if (from?.automationComponentTags || to?.automationComponentTags) {
+    if (source?.automationComponentTags || target?.automationComponentTags) {
       automationComponentTags = {
         id:
-          to?.automationComponentTags?.id ??
-          from?.automationComponentTags?.id ??
+          target?.automationComponentTags?.id ??
+          source?.automationComponentTags?.id ??
           '',
-        ...from?.automationComponentTags,
-        ...to?.automationComponentTags,
+        ...source?.automationComponentTags,
+        ...target?.automationComponentTags,
       };
     }
     let automationTags: AutomationTagsProps | undefined;
-    if (from?.automationTags || to?.automationTags) {
+    if (source?.automationTags || target?.automationTags) {
       automationTags = {
-        id: to?.automationTags?.id ?? from?.automationTags?.id ?? '',
-        ...from?.automationTags,
-        ...to?.automationTags,
+        id: target?.automationTags?.id ?? source?.automationTags?.id ?? '',
+        ...source?.automationTags,
+        ...target?.automationTags,
       };
     }
     let costCenterTags: CostCenterTagsProps | undefined;
-    if (from?.costCenterTags || to?.costCenterTags) {
+    if (source?.costCenterTags || target?.costCenterTags) {
       costCenterTags = {
         businessUnitName:
-          to?.costCenterTags?.businessUnitName ??
-          from?.costCenterTags?.businessUnitName ??
+          target?.costCenterTags?.businessUnitName ??
+          source?.costCenterTags?.businessUnitName ??
           '',
         projectName:
-          to?.costCenterTags?.projectName ??
-          from?.costCenterTags?.projectName ??
+          target?.costCenterTags?.projectName ??
+          source?.costCenterTags?.projectName ??
           '',
-        ...from?.costCenterTags,
-        ...to?.costCenterTags,
+        ...source?.costCenterTags,
+        ...target?.costCenterTags,
       };
     }
     let securityTags: SecurityTagsProps | undefined;
-    if (from?.securityTags || to?.securityTags) {
+    if (source?.securityTags || target?.securityTags) {
       securityTags = {
         dataClassification:
-          to?.securityTags?.dataClassification ??
-          from?.securityTags?.dataClassification ??
-          DataClassification.Controlled,
-        ...from?.securityTags,
-        ...to?.securityTags,
+          target?.securityTags?.dataClassification ??
+          source?.securityTags?.dataClassification ??
+          DataClassification.CONTROLLED,
+        ...source?.securityTags,
+        ...target?.securityTags,
       };
     }
     let teamTags: TeamTagsProps | undefined;
-    if (from?.teamTags || to?.teamTags) {
+    if (source?.teamTags || target?.teamTags) {
       teamTags = {
-        name: to?.teamTags?.name ?? from?.teamTags?.name ?? '',
-        ...from?.teamTags,
-        ...to?.teamTags,
+        name: target?.teamTags?.name ?? source?.teamTags?.name ?? '',
+        ...source?.teamTags,
+        ...target?.teamTags,
       };
     }
     return {
-      mapMigrated: to?.mapMigrated ?? from?.mapMigrated,
+      mapMigrated: target?.mapMigrated ?? source?.mapMigrated,
       automationComponentTags,
       automationTags,
       costCenterTags,
       securityTags,
       teamTags,
-      suppressTagging: to?.suppressTagging ?? from?.suppressTagging ?? false,
+      suppressTagging:
+        target?.suppressTagging ?? source?.suppressTagging ?? false,
       excludeResourceTypes,
     };
   }

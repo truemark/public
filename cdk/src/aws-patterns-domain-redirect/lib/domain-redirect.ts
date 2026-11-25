@@ -27,8 +27,8 @@ import {DomainName} from '../../aws-route53/index';
 import {LibStandardTags} from '../../truemark';
 
 export enum RedirectType {
-  Permanent = 301,
-  Temporary = 302,
+  PERMANENT = 301,
+  TEMPORARY = 302,
 }
 
 /**
@@ -90,9 +90,9 @@ export class DomainRedirect extends ExtendedConstruct {
       ),
     });
 
-    const redirectType = props.type || RedirectType.Permanent;
+    const redirectType = props.type || RedirectType.PERMANENT;
     const statusDescription =
-      redirectType === RedirectType.Permanent
+      redirectType === RedirectType.PERMANENT
         ? 'Permanently Moved'
         : 'Temporarily Moved';
     const targetLiteral = JSON.stringify(props.target);

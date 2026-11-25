@@ -195,13 +195,25 @@ export class ExtendedStack extends Stack {
    * @param name the parameter name
    * @param value the parameter value
    */
-  exportAndOutputParameter(
-    name: string,
-    value: string,
-  ): [StringParameter, CfnOutput] {
-    return [
-      this.exportParameter(name, value),
-      this.outputParameter(name, value),
-    ];
+  exportAndOutputParameter(name: string, value: string): ExportedParameter {
+    return {
+      parameter: this.exportParameter(name, value),
+      output: this.outputParameter(name, value),
+    };
   }
+}
+
+/**
+ * The resources created by ExtendedStack.exportAndOutputParameter.
+ */
+export interface ExportedParameter {
+  /**
+   * The SSM parameter the value was exported to.
+   */
+  readonly parameter: StringParameter;
+
+  /**
+   * The CloudFormation output holding the value.
+   */
+  readonly output: CfnOutput;
 }

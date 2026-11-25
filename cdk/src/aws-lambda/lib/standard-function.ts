@@ -60,6 +60,17 @@ export interface StandardFunctionOptions {
 }
 
 /**
+ * Determines if a function can be bundled on the local machine instead of
+ * inside a Docker container.
+ */
+export interface ILocalBundlingSupport {
+  /**
+   * Returns true if the tools needed to bundle locally are available.
+   */
+  isLocalBundlingSupported(): boolean;
+}
+
+/**
  * Properties for BundledFunction
  */
 export interface BundledFunctionProps
@@ -68,9 +79,9 @@ export interface BundledFunctionProps
     DeployedFunctionOptions,
     StandardFunctionOptions {
   /**
-   * Callback function to check if local bundling is supported.
+   * Checks if local bundling is supported.
    */
-  readonly isLocalBundlingSupported: () => boolean;
+  readonly localBundlingSupport: ILocalBundlingSupport;
 
   /**
    * The default bundling script to use.
@@ -100,7 +111,7 @@ export class StandardFunction extends ExtendedFunction {
       : {
           tryBundle(outputDir: string, options: BundlingOptions): boolean {
             try {
-              if (!props.isLocalBundlingSupported()) {
+              if (!props.localBundlingSupport.isLocalBundlingSupported()) {
                 return false;
               }
             } catch {

@@ -13,7 +13,7 @@ import {
   type AwsWorkspacesStorageProps,
   AwsWorkspacesUser,
   type AwsWorkspacesUserProps,
-} from 'truemark-cdk-lib/aws-patterns-workspaces';
+} from 'truemark-cdk-lib/aws-workspaces';
 
 /**
  * Networking configuration for the blueprint foundation stack.

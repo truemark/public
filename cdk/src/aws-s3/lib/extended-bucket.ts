@@ -38,7 +38,7 @@ export interface BucketDeploymentConfig {
   /**
    * The paths or sources to deploy.
    */
-  readonly source: string | string[] | ISource | ISource[];
+  readonly source: string | ISource | (string | ISource)[];
 
   /**
    * Prefix to add to the deployment path in the bucket.

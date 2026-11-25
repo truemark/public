@@ -1,14 +1,22 @@
 import {Template} from 'aws-cdk-lib/assertions';
+import {ExtendedApp, ExtendedStack} from 'truemark-cdk-lib/aws-cdk';
 import {expect, test} from 'vitest';
-import {HelperTest, ResourceType} from '../../helper.test';
 import {getGlobalIndexes, StandardTableV2} from './standard-table-v2';
 
+const DYNAMODB_GLOBAL_TABLE = 'AWS::DynamoDB::GlobalTable';
+const CLOUDWATCH_ALARM = 'AWS::CloudWatch::Alarm';
+
+function testStack() {
+  const app = new ExtendedApp({account: '100000000000', region: 'us-east-2'});
+  return new ExtendedStack(app, 'TestStack');
+}
+
 test('Create StandardTableV2', () => {
-  const stack = HelperTest.stack();
+  const stack = testStack();
   new StandardTableV2(stack, 'TestTable');
   const template = Template.fromStack(stack);
-  template.resourceCountIs(ResourceType.DYNAMODB_GLOBAL_TABLE, 1);
-  template.resourceCountIs(ResourceType.CLOUDWATCH_ALARM, 3);
+  template.resourceCountIs(DYNAMODB_GLOBAL_TABLE, 1);
+  template.resourceCountIs(CLOUDWATCH_ALARM, 3);
 });
 
 test('getGlobalIndexes returns sequential index names', () => {

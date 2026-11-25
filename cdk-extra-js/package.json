@@ -1,0 +1,58 @@
+{
+  "name": "truemark-cdk-extra-js",
+  "description": "TypeScript and JavaScript only AWS CDK constructs created by TrueMark that cannot be offered through jsii",
+  "version": "0.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "author": "TrueMark Technologies, Inc.",
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/truemark/public.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "fix": "biome check --write .",
+    "fmt": "biome format --write .",
+    "prebuild": "biome check",
+    "test": "vitest run --testTimeout=30000 src/*",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "cdk-monitoring-constructs": "catalog:",
+    "constructs": "catalog:",
+    "truemark-cdk-lib": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "catalog:",
+    "constructs": "catalog:",
+    "truemark-cdk-lib": "workspace:^"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./aws-cdk": {
+      "types": "./dist/aws-cdk/index.d.ts",
+      "default": "./dist/aws-cdk/index.js"
+    },
+    "./aws-dynamodb": {
+      "types": "./dist/aws-dynamodb/index.d.ts",
+      "default": "./dist/aws-dynamodb/index.js"
+    }
+  }
+}

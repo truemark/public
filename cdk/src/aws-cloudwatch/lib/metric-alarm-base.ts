@@ -26,10 +26,7 @@ export interface MetricAlarmBaseProps extends ExtendedCreateAlarmOptions {
   readonly alarmDescription?: string;
 }
 
-export abstract class MetricAlarmBase<P extends MetricAlarmBaseProps>
-  extends Construct
-  implements IAlarm
-{
+export abstract class MetricAlarmBase extends Construct implements IAlarm {
   readonly alarm: ExtendedAlarm;
   readonly metric: Metric;
 
@@ -43,11 +40,25 @@ export abstract class MetricAlarmBase<P extends MetricAlarmBaseProps>
     return this.alarm.alarmRef;
   }
 
-  protected abstract createMetric(props: P): Metric;
+  /**
+   * Creates the metric to alarm on.
+   *
+   * @param props the properties passed to the constructor
+   */
+  protected abstract createMetric(props: MetricAlarmBaseProps): Metric;
 
-  protected abstract createAlarm(metric: Metric, props: P): ExtendedAlarm;
+  /**
+   * Creates the alarm.
+   *
+   * @param metric the metric returned by createMetric
+   * @param props the properties passed to the constructor
+   */
+  protected abstract createAlarm(
+    metric: Metric,
+    props: MetricAlarmBaseProps,
+  ): ExtendedAlarm;
 
-  constructor(scope: Construct, id: string, props: P) {
+  constructor(scope: Construct, id: string, props: MetricAlarmBaseProps) {
     super(scope, id);
     this.metric = this.createMetric(props);
     this.alarm = this.createAlarm(this.metric, props);

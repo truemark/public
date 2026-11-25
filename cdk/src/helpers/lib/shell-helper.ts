@@ -14,32 +14,32 @@ export interface BashExecutionProps {
  * Simple helper class for executing shell scripts and commands
  */
 export class ShellHelper {
-  static version(command: string, args: string[]): string | null {
+  static version(command: string, args: string[]): string | undefined {
     const res = spawnSync(command, args);
     if (res.status !== 0) {
-      return null;
+      return undefined;
     }
     const match = String(res.stdout).match(/[\d\\.]+/);
-    return match ? match.toString() : null;
+    return match ? match.toString() : undefined;
   }
 
-  static bashVersion(): string | null {
+  static bashVersion(): string | undefined {
     return ShellHelper.version('bash', ['--version']);
   }
 
-  static pythonVersion(): string | null {
+  static pythonVersion(): string | undefined {
     return ShellHelper.version('python', ['-V']);
   }
 
-  static nodeVersion(): string | null {
+  static nodeVersion(): string | undefined {
     return ShellHelper.version('node', ['--version']);
   }
 
-  static goVersion(): string | null {
+  static goVersion(): string | undefined {
     return ShellHelper.version('go', ['version']);
   }
 
-  static dotnetVersion(): string | null {
+  static dotnetVersion(): string | undefined {
     return ShellHelper.version('dotnet', ['--version']);
   }
 

@@ -21,3 +21,6 @@ updates:
         update-types: [ "version-update:semver-major" ]
       - dependency-name: "@opensearch-project/opensearch"
         update-types: [ "version-update:semver-major" ]
+      # jsii minor versions track the TypeScript minor version, so jsii moves with typescript
+      - dependency-name: "jsii"
+        update-types: [ "version-update:semver-major", "version-update:semver-minor" ]

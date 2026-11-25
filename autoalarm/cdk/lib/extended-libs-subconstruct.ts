@@ -36,8 +36,8 @@ export class NoBreachingExtendedQueue extends ExtendedQueue {
    */
   private setAlarmsMissingDataTreatment(): void {
     // Get all alarms managed by ExtendedQueue
-    const criticalAlarms = this.queueAlarms.getCriticalAlarms();
-    const warningAlarms = this.queueAlarms.getWarningAlarms();
+    const criticalAlarms = this.queueAlarms.criticalAlarms;
+    const warningAlarms = this.queueAlarms.warningAlarms;
 
     //console.log('CriticalAlarm:', criticalAlarms);
     //console.log('warningAlarms:', warningAlarms);

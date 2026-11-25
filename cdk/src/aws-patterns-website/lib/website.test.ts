@@ -12,7 +12,7 @@ test('Empty Test', () => {
 // test('Hugo Website Test', () => {
 //   const stack = HelperTest.stack();
 //   new Website(stack, 'TestWebsite', {
-//     sourceType: SourceType.Hugo,
+//     sourceType: SourceType.HUGO,
 //     sourceDirectory: HelperTest.resolveTestFiles('hugo-website'),
 //   });
 //   const template = Template.fromStack(stack);
@@ -22,7 +22,7 @@ test('Empty Test', () => {
 // test('ARecord Created for Website', () => {
 //   const stack = HelperTest.stack();
 //   new Website(stack, 'TestWebsite', {
-//     sourceType: SourceType.Hugo,
+//     sourceType: SourceType.HUGO,
 //     sourceDirectory: HelperTest.resolveTestFiles('hugo-website'),
 //     certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/XXXX',
 //     domainNames: [
@@ -43,7 +43,7 @@ test('Empty Test', () => {
 // test("Npm Dist Website Test", () => {
 //   const stack = HelperTest.stack();
 //   new Website(stack, "TestWebsite", {
-//     sourceType: SourceType.NpmDist,
+//     sourceType: SourceType.NPM_DIST,
 //     sourceDirectory: HelperTest.resolveTestFiles("angular-website")
 //   });
 //   const template = Template.fromStack(stack);
@@ -54,7 +54,7 @@ test('Empty Test', () => {
 // test("Website Certificate Test", () => {
 //   const stack = HelperTest.stack();
 //   new Website(stack, "TestWebsite", {
-//     sourceType: SourceType.Hugo,
+//     sourceType: SourceType.HUGO,
 //     sourceDirectory: HelperTest.resolveTestFiles("hugo-website"),
 //     domainNames: [
 //       new DomainName("test", "example.com"),
