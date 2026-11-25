@@ -1,6 +1,5 @@
 import {createHash} from 'node:crypto';
 import {Stack} from 'aws-cdk-lib';
-import {FilterPattern} from 'aws-cdk-lib/aws-logs';
 import {Construct} from 'constructs';
 import {LogMetricAlarm} from 'truemark-cdk-lib/aws-cloudwatch';
 import {
@@ -9,18 +8,25 @@ import {
 } from 'truemark-cdk-lib/aws-lambda';
 
 /**
- * Matches a log event on its structured level, not on the text "ERROR".
+ * Matches an error line from either of the two sources a function has, as one
+ * regular expression over the raw text of the log event.
  *
- * The handlers log through pino, which writes a numeric level (50 = error,
- * 60 = fatal), so their own errors never contain the word ERROR and a text
- * match misses them. The Lambda runtime writes a string level instead when it
- * reports an uncaught exception. Both forms are needed to cover a function.
+ * `ERROR` covers lines the handlers do not write themselves: the Lambda
+ * runtime reporting an uncaught exception (`"level":"ERROR"`), and a
+ * dependency printing the word, which Lambda records at INFO when it comes
+ * through `console.log`. A match on the level field alone would miss the
+ * second kind.
+ *
+ * `"level":50` and `"level":60` cover the handlers' own errors. They log
+ * through pino, which writes a numeric level (50 = error, 60 = fatal) and
+ * messages such as "Error deleting alarms". Filter patterns are case
+ * sensitive, so the word alone would miss every one of them.
+ *
+ * The quote is written as `\x22` because CloudWatch's regex syntax accepts no
+ * literal double quote. A log group may have at most 5 filters that use a
+ * regex; each function's group has this one.
  */
-export const ERROR_LEVEL_LOG_PATTERN = FilterPattern.any(
-  FilterPattern.numberValue('$.level', '>=', 50),
-  FilterPattern.stringValue('$.level', '=', 'ERROR'),
-  FilterPattern.stringValue('$.level', '=', 'FATAL'),
-).logPatternString;
+export const ERROR_LOG_PATTERN = '%ERROR|\\x22level\\x22:[56]0%';
 
 /**
  * Builds the name shared by a function's log group and its log metric.
@@ -76,9 +82,9 @@ export class AutoAlarmFunction extends ExtendedNodejsFunction {
     });
     this.criticalLogAlarm = new LogMetricAlarm(this, 'CriticalLogCount', {
       logGroup: this.logGroup,
-      pattern: ERROR_LEVEL_LOG_PATTERN,
+      pattern: ERROR_LOG_PATTERN,
       metricName: `${name}-CriticalLogCount`,
-      alarmDescription: `${id} logged at error level or above. Covers only this function; see ${logGroupName}.`,
+      alarmDescription: `${id} logged an error. Covers only this function; see ${logGroupName}.`,
     });
   }
 }

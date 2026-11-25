@@ -253,7 +253,7 @@ describe('AutoAlarm handler function logs', () => {
     expect(new Set(suffixes).size).toBe(names.length);
   });
 
-  test('each function counts error-level events on a metric of its own', () => {
+  test('each function counts error lines on a metric of its own', () => {
     const filters = Object.values(
       template.findResources('AWS::Logs::MetricFilter'),
     );
@@ -261,7 +261,7 @@ describe('AutoAlarm handler function logs', () => {
     const metricNames: string[] = [];
     for (const filter of filters) {
       expect(filter.Properties.FilterPattern).toBe(
-        '{ ($.level >= 50) || ($.level = "ERROR") || ($.level = "FATAL") }',
+        '%ERROR|\\x22level\\x22:[56]0%',
       );
       expect(filter.Properties.MetricTransformations).toHaveLength(1);
       metricNames.push(filter.Properties.MetricTransformations[0].MetricName);
