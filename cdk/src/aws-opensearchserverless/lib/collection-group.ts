@@ -75,8 +75,10 @@ export class CollectionGroup
   readonly collectionGroupName: string;
   readonly collectionGroupId: string;
   readonly collectionGroupArn: string;
-  readonly generation: CollectionGeneration;
-  readonly standbyReplicas: boolean;
+  /** Always set on a created group. */
+  readonly generation?: CollectionGeneration;
+  /** Always set on a created group. */
+  readonly standbyReplicas?: boolean;
 
   constructor(scope: Construct, id: string, props: CollectionGroupProps) {
     super(scope, id, props);

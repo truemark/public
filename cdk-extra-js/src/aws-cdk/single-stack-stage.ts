@@ -1,6 +1,10 @@
 import type {Construct} from 'constructs';
-import type {ExtendedStack, ExtendedStackProps} from './extended-stack';
-import {ExtendedStage, type ExtendedStageProps} from './extended-stage';
+import {
+  type ExtendedStack,
+  type ExtendedStackProps,
+  ExtendedStage,
+  type ExtendedStageProps,
+} from 'truemark-cdk-lib/aws-cdk';
 
 /**
  * Constructor properties for SingleStackStage

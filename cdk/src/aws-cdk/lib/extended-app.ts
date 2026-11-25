@@ -27,8 +27,17 @@ export interface ExtendedAppProps extends AppProps {
  * CDK process.
  */
 export class ExtendedApp extends App {
-  readonly account: string;
-  readonly region: string;
+  /**
+   * The account being used to execute the CDK process. Always set; typed as
+   * optional because it overrides the optional property on Stage.
+   */
+  readonly account?: string;
+
+  /**
+   * The region being used to execute the CDK process. Always set; typed as
+   * optional because it overrides the optional property on Stage.
+   */
+  readonly region?: string;
 
   constructor(props?: ExtendedAppProps) {
     super({

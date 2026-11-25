@@ -101,7 +101,7 @@ class TestApp extends ExtendedApp {
           departmentId: 'test-department',
         },
         securityTags: {
-          dataClassification: DataClassification.Restricted,
+          dataClassification: DataClassification.RESTRICTED,
           dataSensitivity: DataSensitivity.PII,
         },
         teamTags: {

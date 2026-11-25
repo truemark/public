@@ -4,13 +4,19 @@ import type {Construct} from 'constructs';
 import {ExtendedConstruct, type ExtendedConstructProps} from '../../aws-cdk';
 import type {Collection} from './collection';
 
-export interface CollectionIndexProps extends ExtendedConstructProps {
-  readonly collection: Collection;
+/**
+ * Options for an index, excluding the collection it belongs to.
+ */
+export interface CollectionIndexOptions extends ExtendedConstructProps {
   readonly indexName: string;
   /** User-defined index schema. Objects are serialized with CDK token-aware JSON. @default AWS service default */
-  readonly indexSchema?: string | Readonly<Record<string, unknown>>;
+  readonly indexSchema?: string | Record<string, any>;
   /** @default RemovalPolicy.RETAIN */
   readonly removalPolicy?: RemovalPolicy;
+}
+
+export interface CollectionIndexProps extends CollectionIndexOptions {
+  readonly collection: Collection;
 }
 
 /** Optional index resource; collections do not create indexes automatically. */
@@ -60,6 +66,6 @@ export class CollectionIndex extends ExtendedConstruct {
     });
     this.index.addDependency(props.collection.collection);
     this.index.applyRemovalPolicy(props.removalPolicy ?? RemovalPolicy.RETAIN);
-    props.collection.registerIndex(this);
+    props.collection._registerIndex(this);
   }
 }

@@ -3,23 +3,42 @@ import type {IAlarmAction, TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
 import type {ITopic} from 'aws-cdk-lib/aws-sns';
 import type {CustomAlarmThreshold} from 'cdk-monitoring-constructs';
 import {AlarmHelper} from './alarm-helper';
-import {
-  AlarmCategory,
-  type AlarmsCategoryOptions,
-  type AlarmsOptions,
-} from './alarms-base';
+import {AlarmCategory, type AlarmsCategoryOptions} from './alarms-base';
 import {StandardAlarmActionsStrategy} from './standard-alarm-actions-strategy';
 
 /**
  * Properties for AlarmFacade
  */
 export interface AlarmFacadeProps {
-  prop: string;
-  threshold?: number | Duration;
-  defaultThreshold?: number | Duration;
-  topics?: ITopic[];
-  actions?: IAlarmAction[];
-  treatMissingDataOverride?: TreatMissingData;
+  /**
+   * Name of the threshold property on the CustomAlarmThreshold to set.
+   */
+  readonly prop: string;
+
+  /**
+   * Threshold for the alarm.
+   */
+  readonly threshold?: number | Duration;
+
+  /**
+   * Threshold to use if threshold is not set.
+   */
+  readonly defaultThreshold?: number | Duration;
+
+  /**
+   * Topics to send alarm notifications.
+   */
+  readonly topics?: ITopic[];
+
+  /**
+   * Actions to send alarm notifications.
+   */
+  readonly actions?: IAlarmAction[];
+
+  /**
+   * Optional override for the treat missing data setting.
+   */
+  readonly treatMissingDataOverride?: TreatMissingData;
 }
 
 /**
@@ -62,7 +81,27 @@ export class AlarmFacade {
 }
 
 /**
+ * The critical and warning options alarms are generated from.
+ */
+export type CategorizedAlarmsOptions<O extends AlarmsCategoryOptions> = {
+  /**
+   * Alarm thresholds for critical alarms.
+   */
+  readonly criticalAlarmOptions?: O;
+
+  /**
+   * Alarm thresholds for warning alarms.
+   */
+  readonly warningAlarmOptions?: O;
+};
+
+/**
  * Facade to assist in creating Record instances containing alarms.
+ *
+ * This class relies on generics and is only available to TypeScript and
+ * JavaScript users.
+ *
+ * @internal
  */
 export class AlarmFacadeSet<
   O extends AlarmsCategoryOptions,
@@ -72,7 +111,7 @@ export class AlarmFacadeSet<
   private readonly warningOptions?: O;
   private readonly record: Record<string, T>;
 
-  constructor(props: AlarmsOptions<O>) {
+  constructor(props: CategorizedAlarmsOptions<O>) {
     this.criticalOptions = props.criticalAlarmOptions;
     this.warningOptions = props.warningAlarmOptions;
     this.record = {};
@@ -95,7 +134,7 @@ export class AlarmFacadeSet<
     treatMissingDataOverride?: TreatMissingData,
   ): AlarmFacadeSet<O, T> {
     const options =
-      category === AlarmCategory.Critical
+      category === AlarmCategory.CRITICAL
         ? this.criticalOptions
         : this.warningOptions;
     const customAlarmThreshold = new AlarmFacade({
@@ -127,7 +166,7 @@ export class AlarmFacadeSet<
     treatMissingDataOverride?: TreatMissingData,
   ): AlarmFacadeSet<O, T> {
     return this.addAlarm(
-      AlarmCategory.Critical,
+      AlarmCategory.CRITICAL,
       oprop,
       tprop,
       defaultThreshold,
@@ -150,7 +189,7 @@ export class AlarmFacadeSet<
     treatMissingDataOverride?: TreatMissingData,
   ): AlarmFacadeSet<O, T> {
     return this.addAlarm(
-      AlarmCategory.Warning,
+      AlarmCategory.WARNING,
       oprop,
       tprop,
       defaultThreshold,
@@ -195,4 +234,39 @@ export class AlarmFacadeSet<
   toRecord(): Record<string, T> | undefined {
     return Object.keys(this.record).length > 0 ? this.record : undefined;
   }
+}
+
+/**
+ * Helper function to generate categorized alarms.
+ *
+ * This function relies on generics and is only available to TypeScript and
+ * JavaScript users.
+ *
+ * @param options the critical and warning alarm options
+ * @param oprop property from the AlarmsCategoryOptions instance
+ * @param tprop property from the CustomAlarmThreshold instance
+ * @param defaultCriticalThreshold optional default value for the critical threshold
+ * @param defaultWarningThreshold optional default value for the warning threshold
+ * @param treatMissingDataOverride optional override for the treat missing data setting
+ */
+export function toAlarmRecord<
+  O extends AlarmsCategoryOptions,
+  T extends CustomAlarmThreshold,
+>(
+  options: CategorizedAlarmsOptions<O>,
+  oprop: keyof O,
+  tprop: keyof T,
+  defaultCriticalThreshold?: number | Duration,
+  defaultWarningThreshold?: number | Duration,
+  treatMissingDataOverride?: TreatMissingData,
+): Record<string, T> | undefined {
+  return new AlarmFacadeSet<O, T>(options)
+    .addAlarms(
+      oprop,
+      tprop,
+      defaultCriticalThreshold,
+      defaultWarningThreshold,
+      treatMissingDataOverride,
+    )
+    .toRecord();
 }

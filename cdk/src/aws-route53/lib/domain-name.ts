@@ -114,11 +114,22 @@ export interface ARecordOptions {
  * doing useful things with it.
  */
 export class DomainName {
-  protected readonly prefix: string;
-  protected readonly zone: string;
+  /**
+   * The prefix of this domain name.
+   */
+  readonly prefix: string;
+
+  /**
+   * The name of the zone associated with this domain name.
+   */
+  readonly zone: string;
   protected hostedZone?: IHostedZone;
   protected readonly privateZone: boolean;
-  protected readonly vpcId?: string;
+
+  /**
+   * The vpc ID for this zone or undefined if one does not exist.
+   */
+  readonly vpcId?: string;
 
   /**
    * Creates a new DomainName.
@@ -138,24 +149,10 @@ export class DomainName {
   }
 
   /**
-   * Returns the prefix for this domain name.
-   */
-  getPrefix(): string {
-    return this.prefix;
-  }
-
-  /**
    * Returns true if the zone is private. False if otherwise.
    */
   inPrivateZone(): boolean {
     return this.privateZone;
-  }
-
-  /**
-   * Returns the vpc ID for this zone or undefined if one does not exist
-   */
-  getVpcId(): string | undefined {
-    return this.vpcId;
   }
 
   /**
@@ -191,13 +188,6 @@ export class DomainName {
         .replace(/\*/g, 'wildcard')
         .replace(/\./g, '-'),
     );
-  }
-
-  /**
-   * Returns the zone associated with this domain name.
-   */
-  getZone(): string {
-    return this.zone;
   }
 
   /**
@@ -480,7 +470,7 @@ export class DomainName {
    * @param id the identifier to use in the scope for the certificate
    * @param domainNames the domain names to use in the certificate
    */
-  static createCertificate(
+  static createCertificateForDomains(
     scope: Construct,
     id: string,
     domainNames: DomainName[],

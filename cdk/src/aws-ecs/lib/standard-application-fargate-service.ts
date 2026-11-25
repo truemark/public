@@ -26,6 +26,21 @@ import {
 } from './standard-fargate-service';
 
 /**
+ * Options for scaling on the target response time of the load balancer.
+ */
+export interface ScaleOnTargetResponseTimeOptions {
+  /**
+   * Threshold in seconds
+   */
+  readonly threshold: number;
+
+  /**
+   * Options applied to the target response time metric.
+   */
+  readonly metricOptions?: MetricOptions;
+}
+
+/**
  * Properties for StandardApplicationFargateService
  */
 export interface StandardApplicationFargateServiceProps
@@ -135,11 +150,7 @@ export interface StandardApplicationFargateServiceProps
    * Target response time for scaling
    * Disabled by default
    */
-  readonly scaleOnTargetResponseTime?: {
-    /** Threshold in seconds */
-    threshold: number;
-    metricOptions?: MetricOptions;
-  };
+  readonly scaleOnTargetResponseTime?: ScaleOnTargetResponseTimeOptions;
 
   /**
    * Domain name associated with this service.

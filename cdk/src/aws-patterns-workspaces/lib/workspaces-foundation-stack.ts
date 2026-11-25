@@ -172,7 +172,7 @@ export class WorkspacesFoundationStack extends ExtendedStack {
 
     // Standard TrueMark security tags
     this.standardTags.addSecurityTags({
-      dataClassification: DataClassification.Restricted,
+      dataClassification: DataClassification.RESTRICTED,
       dataSensitivity: DataSensitivity.PHI,
     });
 

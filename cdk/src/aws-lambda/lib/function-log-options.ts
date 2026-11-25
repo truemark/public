@@ -28,7 +28,7 @@ export interface FunctionLogOptions {
   /**
    * The configuration for the function logs.
    */
-  logConfig?: FunctionLogConfig;
+  readonly logConfig?: FunctionLogConfig;
 }
 
 /**

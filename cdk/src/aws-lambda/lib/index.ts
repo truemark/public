@@ -5,5 +5,7 @@ export * from './extended-nodejs-function';
 export * from './extended-python-function';
 export * from './function-alarms';
 export * from './function-deployment';
+export * from './function-log-options';
+export * from './otel/otel-types';
 export * from './standard-function';
 export * from './standard-python-function';

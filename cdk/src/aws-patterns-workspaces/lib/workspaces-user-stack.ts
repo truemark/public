@@ -131,7 +131,7 @@ export class WorkspacesUserStack extends ExtendedStack {
     });
 
     this.standardTags.addSecurityTags({
-      dataClassification: DataClassification.Restricted,
+      dataClassification: DataClassification.RESTRICTED,
       dataSensitivity: DataSensitivity.PHI,
     });
 

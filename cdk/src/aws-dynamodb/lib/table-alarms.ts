@@ -1,5 +1,7 @@
 import type {Duration} from 'aws-cdk-lib';
+import type {TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
 import type {ITable} from 'aws-cdk-lib/aws-dynamodb';
+import type {CustomAlarmThreshold} from 'cdk-monitoring-constructs';
 import type {
   ConsumedCapacityThreshold,
   ErrorCountThreshold,
@@ -11,6 +13,7 @@ import {
   AlarmsBase,
   type AlarmsCategoryOptions,
   type AlarmsOptions,
+  toAlarmRecord,
 } from '../../aws-monitoring/index';
 
 /**
@@ -36,8 +39,21 @@ export interface TableAlarmsCategoryOptions extends AlarmsCategoryOptions {
 /**
  * Options for TableAlarms
  */
-export interface TableAlarmsOptions
-  extends AlarmsOptions<TableAlarmsCategoryOptions> {
+export interface TableAlarmsOptions extends AlarmsOptions {
+  /**
+   * Alarm thresholds for critical alarms.
+   *
+   * If no properties are provided, a set of default alarms are created.
+   */
+  readonly criticalAlarmOptions?: TableAlarmsCategoryOptions;
+
+  /**
+   * Alarm thresholds for warning alarms.
+   *
+   * If no properties are provided, a set of default alarms are created.
+   */
+  readonly warningAlarmOptions?: TableAlarmsCategoryOptions;
+
   /**
    * Flag to create alarms.
    *
@@ -59,14 +75,31 @@ export interface TableAlarmsProps extends TableAlarmsOptions {
 /**
  * Creates CloudWatch alarms for DynamoDB Tables.
  */
-export class TableAlarms extends AlarmsBase<
-  TableAlarmsCategoryOptions,
-  TableAlarmsProps
-> {
+export class TableAlarms extends AlarmsBase {
+  private readonly props: TableAlarmsProps;
+
+  private toRecord<T extends CustomAlarmThreshold>(
+    oprop: keyof TableAlarmsCategoryOptions,
+    tprop: keyof T,
+    defaultCriticalThreshold?: number | Duration,
+    defaultWarningThreshold?: number | Duration,
+    treatMissingDataOverride?: TreatMissingData,
+  ) {
+    return toAlarmRecord<TableAlarmsCategoryOptions, T>(
+      this.props,
+      oprop,
+      tprop,
+      defaultCriticalThreshold,
+      defaultWarningThreshold,
+      treatMissingDataOverride,
+    );
+  }
+
   protected readonly createAlarms: boolean;
 
   constructor(scope: Construct, id: string, props: TableAlarmsProps) {
     super(scope, id, props);
+    this.props = props;
     this.createAlarms = props.createAlarms ?? true;
     if (this.createAlarms) {
       if (this.monitoringFacade === undefined) {

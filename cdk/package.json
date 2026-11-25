@@ -92,7 +92,9 @@
       ]
     }
   },
-  "author": "TrueMark Technologies, Inc.",
+  "author": {
+    "name": "TrueMark Technologies, Inc."
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -102,36 +104,46 @@
     "url": "https://github.com/truemark/public.git"
   },
   "files": [
-    "dist"
+    "dist",
+    ".jsii"
   ],
   "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf dist",
+    "build": "jsii --silence-warnings=JSII6",
+    "clean": "rm -rf dist dist-jsii .jsii",
     "fix": "biome check --write .",
     "fmt": "biome format --write .",
+    "package": "jsii-pacmak",
     "prebuild": "biome check",
     "test": "vitest run --testTimeout=30000 src/*",
-    "watch": "tsc -w"
+    "watch": "jsii -w --silence-warnings=JSII6"
   },
   "devDependencies": {
+    "@aws-cdk/aws-lambda-go-alpha": "catalog:",
+    "@aws-cdk/aws-lambda-python-alpha": "catalog:",
+    "@aws-cdk/aws-redshift-alpha": "catalog:",
     "@aws-sdk/client-dynamodb": "catalog:",
     "@aws-sdk/client-elastic-load-balancing-v2": "catalog:",
     "@aws-sdk/util-dynamodb": "catalog:",
     "@biomejs/biome": "catalog:",
     "@opensearch-project/opensearch": "catalog:",
     "@types/node": "catalog:",
+    "aws-cdk-lib": "catalog:",
+    "cdk-monitoring-constructs": "catalog:",
+    "constructs": "catalog:",
     "esbuild": "catalog:",
+    "jsii": "catalog:",
+    "jsii-pacmak": "catalog:",
     "ts-node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@aws-cdk/aws-lambda-go-alpha": "catalog:",
-    "@aws-cdk/aws-lambda-python-alpha": "catalog:",
-    "@aws-cdk/aws-redshift-alpha": "catalog:",
-    "aws-cdk-lib": "catalog:",
-    "cdk-monitoring-constructs": "catalog:",
-    "constructs": "catalog:"
+    "@aws-cdk/aws-lambda-go-alpha": "^2.272.0-alpha.0",
+    "@aws-cdk/aws-lambda-python-alpha": "^2.272.0-alpha.0",
+    "@aws-cdk/aws-redshift-alpha": "^2.272.0-alpha.0",
+    "aws-cdk-lib": "^2.272.0",
+    "cdk-monitoring-constructs": "10.3.1",
+    "constructs": "^10.8.1"
   },
   "exports": {
     ".": {
@@ -258,6 +270,29 @@
     "./aws-opensearchserverless": {
       "types": "./dist/aws-opensearchserverless/index.d.ts",
       "default": "./dist/aws-opensearchserverless/index.js"
+    }
+  },
+  "jsii": {
+    "outdir": "dist-jsii",
+    "versionFormat": "full",
+    "tsconfig": "tsconfig.json",
+    "validateTsconfig": "strict",
+    "targets": {
+      "python": {
+        "distName": "truemark-cdk-lib",
+        "module": "truemark_cdk_lib"
+      },
+      "java": {
+        "package": "io.truemark.cdk",
+        "maven": {
+          "groupId": "io.truemark",
+          "artifactId": "truemark-cdk-lib"
+        }
+      },
+      "dotnet": {
+        "namespace": "TrueMark.Cdk",
+        "packageId": "TrueMark.Cdk.Lib"
+      }
     }
   }
 }

@@ -66,7 +66,10 @@ export class StandardDomainName extends ExtendedConstruct {
       this.gatewayDomainName.regionalHostedZoneId,
     );
     return evaluateTargetHealth
-      ? ExtendedRecordTarget.fromAlias(domainProperties, evaluateTargetHealth)
+      ? ExtendedRecordTarget.fromAliasTarget(
+          domainProperties,
+          evaluateTargetHealth,
+        )
       : RecordTarget.fromAlias(domainProperties);
   }
 

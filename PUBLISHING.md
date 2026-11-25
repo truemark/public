@@ -24,11 +24,14 @@ This is a pnpm workspace. The packages are declared in `pnpm-workspace.yaml`:
 | Package | Directory | Published to npm? |
 |---|---|---|
 | `truemark-cdk-lib` | `cdk/` | **Yes** — public |
+| `truemark-cdk-extra-js` | `cdk-extra-js/` | **Yes** — public |
 | `autobackup` | `autobackup/` | No — `"private": true` |
 | `autosoc` | `autosoc/` | No — `"private": true` |
 | `aws-workspaces` | `blueprints/aws-workspaces/` | No — `"private": true` |
 
-Only `truemark-cdk-lib` reaches the registry. With Changesets 3 (currently resolved by CI's
+Only `truemark-cdk-lib` and `truemark-cdk-extra-js` reach the registry, and only as npm packages.
+`truemark-cdk-lib` is compiled with jsii, but the Python, Java and .NET packages that
+`pnpm run package` builds are not published by CI. With Changesets 3 (currently resolved by CI's
 unpinned command), private packages are excluded from versioning and changelog generation by
 default. Set `"privatePackages": {"version": true}` in `.changeset/config.json` to opt in.
 

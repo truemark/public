@@ -24,7 +24,7 @@ const PROVIDER_ID = 'PriorityAllocatorProvider';
 const SERVICE_ID_DISALLOWED_CHARS = /[^a-zA-Z0-9-]/g;
 
 function sanitizeStackNameForServiceId(stackName: string): string {
-  return stackName.replaceAll(SERVICE_ID_DISALLOWED_CHARS, '-').toLowerCase();
+  return stackName.replace(SERVICE_ID_DISALLOWED_CHARS, '-').toLowerCase();
 }
 
 function generateShortHash(input: string): string {
@@ -50,7 +50,6 @@ export interface PriorityAllocatorProps {
  * creation and avoid priority conflicts.
  *
  * @example
- * ```typescript
  * const service1 = new StandardApplicationFargateService(this, 'Service1', {
  *   listener,
  *   // No targetGroupPriority - automatically allocated
@@ -63,7 +62,6 @@ export interface PriorityAllocatorProps {
  *
  * // Force sequential creation to avoid priority conflicts
  * service2.node.addDependency(service1);
- * ```
  */
 export class PriorityAllocator extends Construct {
   /**

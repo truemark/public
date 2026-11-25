@@ -44,10 +44,10 @@ export class ExtendedDockerImageFunction extends DockerImageFunction {
         function: this,
       });
       if (props.deploymentOptions?.includeCriticalAlarms ?? true) {
-        this.deployment.addAlarms(...this.alarms.getCriticalAlarms());
+        this.deployment.addAlarms(...this.alarms.criticalAlarms);
       }
       if (props.deploymentOptions?.includeWarningAlarms ?? false) {
-        this.deployment.addAlarms(...this.alarms.getWarningAlarms());
+        this.deployment.addAlarms(...this.alarms.warningAlarms);
       }
     }
   }

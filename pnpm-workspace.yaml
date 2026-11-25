@@ -9,6 +9,7 @@ packages:
   - 'autosoc'
   - 'blueprints/aws-workspaces'
   - 'cdk'
+  - 'cdk-extra-js'
   - '!**/cdk.out/**'
   - '!**/dist/**'
 catalog:
@@ -54,6 +55,8 @@ catalog:
   "esbuild": "^0.28.1"
   "eslint": "^9.39.4"
   "js-yaml": "^4.3.2"
+  "jsii": "~5.9.62"
+  "jsii-pacmak": "^1.143.0"
   "luxon": "^3.3.0"
   "prettier": "^3.8.1"
   "source-map-support": "^0.5.21"

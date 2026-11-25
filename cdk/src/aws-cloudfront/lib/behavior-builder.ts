@@ -66,7 +66,10 @@ export class BehaviorBuilder extends ExtendedConstruct {
     };
   }
 
-  getOrigin(): IOrigin {
+  /**
+   * The origin of this behavior.
+   */
+  get origin(): IOrigin {
     return this.options.origin;
   }
 
@@ -76,7 +79,7 @@ export class BehaviorBuilder extends ExtendedConstruct {
   ): BehaviorBuilder {
     if (fallbackOrigin) {
       // We need to reuse OriginGroups or it will complain about duplicate origins
-      for (const origin of this.scope.getOrigins()) {
+      for (const origin of this.scope.origins) {
         if (
           isExtendedOriginGroup(origin) &&
           origin.primaryOrigin === this.options.origin &&
@@ -296,8 +299,11 @@ export class BehaviorBuilder extends ExtendedConstruct {
     return this.options;
   }
 
-  build(): DistributionProps {
-    return this.scope.build();
+  /**
+   * Builds the DistributionProps of the parent DistributionBuilder.
+   */
+  buildDistributionProps(): DistributionProps {
+    return this.scope.buildDistributionProps();
   }
 
   behavior(origin: IOrigin, path: string): BehaviorBuilder {

@@ -49,12 +49,12 @@ test('Test findDomainName', () => {
     [domainName1, domainName2, domainName3],
   );
   expect(foundDomainName).toBeDefined();
-  expect(foundDomainName?.getPrefix()).toEqual('test2');
-  expect(foundDomainName?.getZone()).toEqual('example.com');
+  expect(foundDomainName?.prefix).toEqual('test2');
+  expect(foundDomainName?.zone).toEqual('example.com');
 });
 
 test('Test fromFqdn', () => {
   const domainName1 = DomainName.fromFqdn('www.example.com', 'example.com');
-  expect(domainName1.getPrefix()).toEqual('www');
-  expect(domainName1.getZone()).toEqual('example.com');
+  expect(domainName1.prefix).toEqual('www');
+  expect(domainName1.zone).toEqual('example.com');
 });

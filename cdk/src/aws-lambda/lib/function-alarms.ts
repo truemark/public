@@ -1,8 +1,9 @@
 import type {Duration} from 'aws-cdk-lib';
-import type {AlarmBase} from 'aws-cdk-lib/aws-cloudwatch';
+import type {AlarmBase, TreatMissingData} from 'aws-cdk-lib/aws-cloudwatch';
 import type {IFunction} from 'aws-cdk-lib/aws-lambda';
 import type {ILogGroup} from 'aws-cdk-lib/aws-logs';
 import type {
+  CustomAlarmThreshold,
   DurationThreshold,
   ErrorCountThreshold,
   ErrorRateThreshold,
@@ -20,6 +21,7 @@ import {
   AlarmsBase,
   type AlarmsCategoryOptions,
   type AlarmsOptions,
+  toAlarmRecord,
 } from '../../aws-monitoring/index';
 
 /**
@@ -155,8 +157,21 @@ export interface FunctionAlarmsCategoryOptions extends AlarmsCategoryOptions {
 /**
  * Options for CloudWatch alarms for Lambda Functions
  */
-export interface FunctionAlarmsOptions
-  extends AlarmsOptions<FunctionAlarmsCategoryOptions> {
+export interface FunctionAlarmsOptions extends AlarmsOptions {
+  /**
+   * Alarm thresholds for critical alarms.
+   *
+   * If no properties are provided, a set of default alarms are created.
+   */
+  readonly criticalAlarmOptions?: FunctionAlarmsCategoryOptions;
+
+  /**
+   * Alarm thresholds for warning alarms.
+   *
+   * If no properties are provided, a set of default alarms are created.
+   */
+  readonly warningAlarmOptions?: FunctionAlarmsCategoryOptions;
+
   /**
    * Flag to create alarms.
    *
@@ -206,10 +221,26 @@ export interface FunctionAlarmsProps extends FunctionAlarmsOptions {
 /**
  * Creates CloudWatch alarms for a Lambda Function.
  */
-export class FunctionAlarms extends AlarmsBase<
-  FunctionAlarmsCategoryOptions,
-  FunctionAlarmsProps
-> {
+export class FunctionAlarms extends AlarmsBase {
+  private readonly props: FunctionAlarmsProps;
+
+  private toRecord<T extends CustomAlarmThreshold>(
+    oprop: keyof FunctionAlarmsCategoryOptions,
+    tprop: keyof T,
+    defaultCriticalThreshold?: number | Duration,
+    defaultWarningThreshold?: number | Duration,
+    treatMissingDataOverride?: TreatMissingData,
+  ) {
+    return toAlarmRecord<FunctionAlarmsCategoryOptions, T>(
+      this.props,
+      oprop,
+      tprop,
+      defaultCriticalThreshold,
+      defaultWarningThreshold,
+      treatMissingDataOverride,
+    );
+  }
+
   /**
    * Default pattern used for the critical log metric.
    */
@@ -302,12 +333,12 @@ export class FunctionAlarms extends AlarmsBase<
 
   private addLogAlarm(category: AlarmCategory, defaultThreshold?: number) {
     const fprops =
-      category === AlarmCategory.Critical
+      category === AlarmCategory.CRITICAL
         ? this.props.criticalAlarmOptions
         : this.props.warningAlarmOptions;
     const threshold = fprops?.maxLogCount ?? defaultThreshold;
     const pattern =
-      (fprops?.metricLogPattern ?? category === AlarmCategory.Critical)
+      (fprops?.metricLogPattern ?? category === AlarmCategory.CRITICAL)
         ? FunctionAlarms.DEFAULT_CRITICAL_LOG_METRIC_PATTERN
         : FunctionAlarms.DEFAULT_WARNING_LOG_METRIC_PATTERN;
     const evaluationPeriods = fprops?.logEvaluationPeriods ?? 2;
@@ -321,7 +352,7 @@ export class FunctionAlarms extends AlarmsBase<
         datapointsToAlarm,
         metricName: `${category}LogCount`,
       });
-      if (category === AlarmCategory.Critical) {
+      if (category === AlarmCategory.CRITICAL) {
         this.criticalLogAlarm = logAlarm;
       } else {
         this.warningLogAlarm = logAlarm;
@@ -360,18 +391,19 @@ export class FunctionAlarms extends AlarmsBase<
 
   constructor(scope: Construct, id: string, props: FunctionAlarmsProps) {
     super(scope, id, props);
+    this.props = props;
     if (props.createAlarms ?? true) {
       this.addFunctionMonitoring();
       this.addLogMonitoringToDashboard();
-      this.addLogAlarm(AlarmCategory.Critical, 1);
-      this.addLogAlarm(AlarmCategory.Warning);
+      this.addLogAlarm(AlarmCategory.CRITICAL, 1);
+      this.addLogAlarm(AlarmCategory.WARNING);
     }
   }
 
   getAlarms(category: AlarmCategory): AlarmBase[] {
     const alarms = super.getAlarms(category);
     const logAlarm =
-      category === AlarmCategory.Critical
+      category === AlarmCategory.CRITICAL
         ? this.criticalLogAlarm?.alarm
         : this.warningLogAlarm?.alarm;
     if (logAlarm !== undefined) {

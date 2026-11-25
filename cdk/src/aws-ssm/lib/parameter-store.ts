@@ -71,7 +71,7 @@ export class ParameterStore extends Construct {
         parameterName: this.prefix + name + this.suffix,
         region: this.region,
       },
-    ).getStringValue();
+    ).stringValue;
   }
 
   /**

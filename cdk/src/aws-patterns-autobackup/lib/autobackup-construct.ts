@@ -16,13 +16,13 @@ export interface AutoBackupProps {
    * If true, applies AWS Backup Vault Lock to the AutoBackup vault.
    * Note: Vault Lock applies to all recovery points in the vault.
    */
-  enableImmutable?: boolean;
+  readonly enableImmutable?: boolean;
 
   /**
    * When provided (min 3), Vault Lock is Compliance mode.
    * When omitted, Vault Lock is Governance mode.
    */
-  vaultLockChangeableForDays?: number;
+  readonly vaultLockChangeableForDays?: number;
 }
 
 export class AutoBackup extends ExtendedConstruct {

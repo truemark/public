@@ -1,21 +1,13 @@
-import {type Duration, Stack} from 'aws-cdk-lib';
-import type {
-  AlarmBase,
-  IAlarmAction,
-  TreatMissingData,
-} from 'aws-cdk-lib/aws-cloudwatch';
+import {Stack} from 'aws-cdk-lib';
+import type {AlarmBase, IAlarmAction} from 'aws-cdk-lib/aws-cloudwatch';
 import type {ITopic} from 'aws-cdk-lib/aws-sns';
-import type {
-  CustomAlarmThreshold,
-  MonitoringFacade,
-} from 'cdk-monitoring-constructs';
+import type {MonitoringFacade} from 'cdk-monitoring-constructs';
 import {Construct} from 'constructs';
 import type {ExtendedStack} from '../../aws-cdk/index';
-import {AlarmHelper} from './alarm-helper';
 
 export enum AlarmCategory {
-  Critical = 'Critical',
-  Warning = 'Warning',
+  CRITICAL = 'Critical',
+  WARNING = 'Warning',
 }
 
 export interface AlarmsCategoryOptions {
@@ -30,21 +22,11 @@ export interface AlarmsCategoryOptions {
   readonly notifyActions?: IAlarmAction[];
 }
 
-export interface AlarmsOptions<T extends AlarmsCategoryOptions> {
-  /**
-   * Alarm thresholds for critical alarms.
-   *
-   * If no properties are provided, a set of default alarms are created.
-   */
-  readonly criticalAlarmOptions?: T;
-
-  /**
-   * Alarm thresholds for warning alarms.
-   *
-   * If no properties are provided, a set of default alarms are created.
-   */
-  readonly warningAlarmOptions?: T;
-
+/**
+ * Options shared by all Alarms constructs. Each construct adds its own
+ * criticalAlarmOptions and warningAlarmOptions.
+ */
+export interface AlarmsOptions {
   /**
    * Main entry point for monitoring.
    */
@@ -82,52 +64,14 @@ export interface AlarmsOptions<T extends AlarmsCategoryOptions> {
 /**
  * Base class for all Alarms constructs.
  */
-export abstract class AlarmsBase<
-  C extends AlarmsCategoryOptions,
-  P extends AlarmsOptions<C>,
-> extends Construct {
+export abstract class AlarmsBase extends Construct {
   /**
    * The MonitoringFacade instance either passed in or generated.
    */
   readonly monitoringFacade?: MonitoringFacade;
 
-  /**
-   * The properties passed into the constructor.
-   *
-   * @protected
-   */
-  protected readonly props: P;
-
-  /**
-   * Helper method to generate alarm records.
-   *
-   * @param oprop property from the AlarmsCategoryOptions instance
-   * @param tprop property from the CustomAlarmThreshold instance
-   * @param defaultCriticalThreshold optional default value for the critical threshold
-   * @param defaultWarningThreshold optional default value for the warning threshold
-   * @param treatMissingDataOverride optional override for the treat missing data setting
-   * @protected
-   */
-  protected toRecord<T extends CustomAlarmThreshold>(
-    oprop: keyof C,
-    tprop: keyof T,
-    defaultCriticalThreshold?: number | Duration | undefined,
-    defaultWarningThreshold?: number | Duration | undefined,
-    treatMissingDataOverride?: TreatMissingData,
-  ) {
-    return AlarmHelper.toRecord<C, T>(
-      this.props,
-      oprop,
-      tprop,
-      defaultCriticalThreshold,
-      defaultWarningThreshold,
-      treatMissingDataOverride,
-    );
-  }
-
-  protected constructor(scope: Construct, id: string, props: P) {
+  protected constructor(scope: Construct, id: string, props: AlarmsOptions) {
     super(scope, id);
-    this.props = props;
 
     if (props.monitoringFacade !== undefined) {
       this.monitoringFacade = props.monitoringFacade;
@@ -161,11 +105,17 @@ export abstract class AlarmsBase<
     ];
   }
 
-  getCriticalAlarms(): AlarmBase[] {
-    return this.getAlarms(AlarmCategory.Critical);
+  /**
+   * The critical alarms created by this construct.
+   */
+  get criticalAlarms(): AlarmBase[] {
+    return this.getAlarms(AlarmCategory.CRITICAL);
   }
 
-  getWarningAlarms(): AlarmBase[] {
-    return this.getAlarms(AlarmCategory.Warning);
+  /**
+   * The warning alarms created by this construct.
+   */
+  get warningAlarms(): AlarmBase[] {
+    return this.getAlarms(AlarmCategory.WARNING);
   }
 }

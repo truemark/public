@@ -27,7 +27,7 @@ test('Test fromAlias', () => {
     zoneName: 'example.com',
   });
 
-  const target = ExtendedRecordTarget.fromAlias(
+  const target = ExtendedRecordTarget.fromAliasTarget(
     new TestAliasRecordTarget(),
     true,
   );

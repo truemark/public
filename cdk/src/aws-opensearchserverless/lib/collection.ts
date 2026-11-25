@@ -15,7 +15,7 @@ import {
   CollectionGroup,
   type ICollectionGroup,
 } from './collection-group';
-import {CollectionIndex, type CollectionIndexProps} from './collection-index';
+import {CollectionIndex, type CollectionIndexOptions} from './collection-index';
 
 export enum CollectionType {
   SEARCH = 'SEARCH',
@@ -300,15 +300,16 @@ export class Collection extends ExtendedConstruct {
   }
 
   /** Creates an optional child index with a user-defined schema. */
-  addIndex(
-    id: string,
-    props: Omit<CollectionIndexProps, 'collection'>,
-  ): CollectionIndex {
+  addIndex(id: string, props: CollectionIndexOptions): CollectionIndex {
     return new CollectionIndex(this, id, {collection: this, ...props});
   }
 
-  /** @internal Registers indexes for existing and deferred data policy dependencies. */
-  registerIndex(index: CollectionIndex): void {
+  /**
+   * Registers indexes for existing and deferred data policy dependencies.
+   *
+   * @internal
+   */
+  _registerIndex(index: CollectionIndex): void {
     this.indexes.push(index);
     if (this.accessPolicy) index.index.addDependency(this.accessPolicy);
   }
