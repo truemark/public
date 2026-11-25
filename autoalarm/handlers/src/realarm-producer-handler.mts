@@ -365,12 +365,22 @@ async function sendAlarmsToSQS(
 
     try {
       metrics.totalCalls++;
-      await sqs.send(
+      const response = await sqs.send(
         new SendMessageBatchCommand({
           QueueUrl: queueUrl,
           Entries: entries,
         }),
       );
+      // SendMessageBatch returns 200 even when it rejects individual entries
+      // and lists them in Failed. Without this check those alarms are dropped
+      // with no error and no failed invocation.
+      const failed = response.Failed ?? [];
+      if (failed.length > 0) {
+        const codes = [...new Set(failed.map((entry) => entry.Code))];
+        throw new Error(
+          `SQS rejected ${failed.length} of ${entries.length} messages: ${codes.join(', ')}`,
+        );
+      }
     } catch (error) {
       metrics.totalErrors++;
       if (isThrottlingError(error)) {

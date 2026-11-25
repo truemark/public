@@ -10,6 +10,7 @@ import {
   PutAnomalyDetectorCommandInput,
   PutMetricAlarmCommand,
   PutMetricAlarmCommandInput,
+  ResourceNotFound,
   Statistic,
   MetricDataQuery,
   Tag as CloudWatchTag,
@@ -457,12 +458,26 @@ export async function deleteAlarm(alarmName: string) {
       .str('AlarmName', alarmName)
       .msg('Successfully deleted alarm');
   } catch (e) {
+    // This is called for alarms that may never have been created (a config
+    // with no threshold for a classification), so an alarm that is already
+    // gone is the wanted end state, not a failure.
+    if (e instanceof ResourceNotFound) {
+      log
+        .info()
+        .str('function', 'deleteAlarm')
+        .str('AlarmName', alarmName)
+        .msg('Alarm does not exist. Nothing to delete');
+      return;
+    }
     log
       .error()
       .str('function', 'deleteAlarm')
       .str('AlarmName', alarmName)
       .err(e)
       .msg('Error deleting alarm');
+    // Rethrow so callers can fail the record instead of acknowledging the
+    // event with the alarm still in place.
+    throw e;
   }
 }
 
