@@ -24,28 +24,23 @@ const elbClient: ElasticLoadBalancingV2Client =
 const metricConfigs = ALB_CONFIGS;
 
 export async function fetchALBTags(loadBalancerArn: string): Promise<Tag> {
-  return fetchResourceTags(
-    'ALB',
-    loadBalancerArn,
-    async () => {
-      const command = new DescribeTagsCommand({
-        ResourceArns: [loadBalancerArn],
-      });
-      const response = await elbClient.send(command);
-      const tags: Tag = {};
+  return fetchResourceTags('ALB', loadBalancerArn, async () => {
+    const command = new DescribeTagsCommand({
+      ResourceArns: [loadBalancerArn],
+    });
+    const response = await elbClient.send(command);
+    const tags: Tag = {};
 
-      response.TagDescriptions?.forEach((tagDescription) => {
-        tagDescription.Tags?.forEach((tag) => {
-          if (tag.Key && tag.Value) {
-            tags[tag.Key] = tag.Value;
-          }
-        });
+    response.TagDescriptions?.forEach((tagDescription) => {
+      tagDescription.Tags?.forEach((tag) => {
+        if (tag.Key && tag.Value) {
+          tags[tag.Key] = tag.Value;
+        }
       });
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 export async function manageALBAlarms(

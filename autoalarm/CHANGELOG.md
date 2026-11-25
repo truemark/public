@@ -11,6 +11,9 @@
 - A failed alarm deletion for a removed RDS instance, RDS cluster, CloudFront distribution, Step Functions state machine, Transit Gateway or VPN connection now fails the SQS record, so it is retried and then moved to the dead-letter queue. These six surfaces logged the error and acknowledged the event, which left the alarms behind with nothing to retry. The other surfaces already rethrew.
 - A single alarm that cannot be deleted (for example when a tag removes one threshold) now fails the SQS record instead of being logged and acknowledged. An alarm that is already gone still counts as deleted.
 - The ReAlarm producer now fails its run when SQS rejects individual entries of a `SendMessageBatch` call. SQS reports those inside a successful response, so the alarms were dropped with no error.
+- A failed tag lookup now fails the SQS record on every surface. ALB, CloudFront, OpenSearch, Route 53 Resolver, Step Functions, Target Group, Transit Gateway and VPN treated the failure as "no tags", so a tagged resource got no alarms at creation, and a Step Functions tag change could delete the state machine's alarms.
+- An ECS service ARN with no cluster segment now fails the record. It was logged as an error and then skipped as "not a service event".
+- A tag event for a CloudWatch Logs resource that is not a log group (a destination or delivery, for example) is now skipped. It was logged as a malformed log group ARN and then failed the record with a `TypeError`, so it was retried and sent to the dead-letter queue.
 
 ## v1.14.4
 ### Fixed

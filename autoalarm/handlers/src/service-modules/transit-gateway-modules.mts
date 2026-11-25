@@ -22,27 +22,22 @@ const metricConfigs = TRANSIT_GATEWAY_CONFIGS;
 export async function fetchTransitGatewayTags(
   transitGatewayId: string,
 ): Promise<{[key: string]: string}> {
-  return fetchResourceTags(
-    'TGW',
-    transitGatewayId,
-    async () => {
-      const response = await ec2Client.send(
-        new DescribeTagsCommand({
-          Filters: [{Name: 'resource-id', Values: [transitGatewayId]}],
-        }),
-      );
+  return fetchResourceTags('TGW', transitGatewayId, async () => {
+    const response = await ec2Client.send(
+      new DescribeTagsCommand({
+        Filters: [{Name: 'resource-id', Values: [transitGatewayId]}],
+      }),
+    );
 
-      const tags: {[key: string]: string} = {};
-      response.Tags?.forEach((tag) => {
-        if (tag.Key && tag.Value) {
-          tags[tag.Key] = tag.Value;
-        }
-      });
+    const tags: {[key: string]: string} = {};
+    response.Tags?.forEach((tag) => {
+      if (tag.Key && tag.Value) {
+        tags[tag.Key] = tag.Value;
+      }
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 export async function manageTransitGatewayAlarms(

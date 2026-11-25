@@ -20,26 +20,21 @@ const sfnClient: SFNClient = new SFNClient({
 const metricConfigs = STEP_FUNCTION_CONFIGS;
 
 export async function fetchSFNTags(sfnArn: string): Promise<Tag> {
-  return fetchResourceTags(
-    'SFN',
-    sfnArn,
-    async () => {
-      const command = new ListTagsForResourceCommand({
-        resourceArn: sfnArn,
-      });
-      const response = await sfnClient.send(command);
-      const tags: Tag = {};
+  return fetchResourceTags('SFN', sfnArn, async () => {
+    const command = new ListTagsForResourceCommand({
+      resourceArn: sfnArn,
+    });
+    const response = await sfnClient.send(command);
+    const tags: Tag = {};
 
-      response.tags?.forEach((tag) => {
-        if (tag.key && tag.value) {
-          tags[tag.key] = tag.value;
-        }
-      });
+    response.tags?.forEach((tag) => {
+      if (tag.key && tag.value) {
+        tags[tag.key] = tag.value;
+      }
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 async function checkAndManageSFNStatusAlarms(

@@ -20,26 +20,21 @@ const openSearchClient: OpenSearchClient = new OpenSearchClient({
 const metricConfigs = OPENSEARCH_CONFIGS;
 
 export async function fetchOpenSearchTags(domainArn: string): Promise<Tag> {
-  return fetchResourceTags(
-    'OpenSearch',
-    domainArn,
-    async () => {
-      const command = new ListTagsCommand({
-        ARN: domainArn,
-      });
-      const response = await openSearchClient.send(command);
-      const tags: Tag = {};
+  return fetchResourceTags('OpenSearch', domainArn, async () => {
+    const command = new ListTagsCommand({
+      ARN: domainArn,
+    });
+    const response = await openSearchClient.send(command);
+    const tags: Tag = {};
 
-      response.TagList?.forEach((tag) => {
-        if (tag.Key && tag.Value) {
-          tags[tag.Key] = tag.Value;
-        }
-      });
+    response.TagList?.forEach((tag) => {
+      if (tag.Key && tag.Value) {
+        tags[tag.Key] = tag.Value;
+      }
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 export async function manageOpenSearchAlarms(

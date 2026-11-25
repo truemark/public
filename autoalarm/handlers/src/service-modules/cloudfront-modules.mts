@@ -25,27 +25,22 @@ const metricConfigs = CLOUDFRONT_CONFIGS;
 export async function fetchCloudFrontTags(
   distributionArn: string,
 ): Promise<Tag> {
-  return fetchResourceTags(
-    'CloudFront',
-    distributionArn,
-    async () => {
-      // Use the distributionArn directly as it's already an ARN
-      const command = new ListTagsForResourceCommand({
-        Resource: distributionArn,
-      });
-      const response = await cloudFrontClient.send(command);
+  return fetchResourceTags('CloudFront', distributionArn, async () => {
+    // Use the distributionArn directly as it's already an ARN
+    const command = new ListTagsForResourceCommand({
+      Resource: distributionArn,
+    });
+    const response = await cloudFrontClient.send(command);
 
-      const tags: {[key: string]: string} = {};
-      response.Tags?.Items?.forEach((tag) => {
-        if (tag.Key && tag.Value) {
-          tags[tag.Key] = tag.Value;
-        }
-      });
+    const tags: {[key: string]: string} = {};
+    response.Tags?.Items?.forEach((tag) => {
+      if (tag.Key && tag.Value) {
+        tags[tag.Key] = tag.Value;
+      }
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 export async function manageCloudFrontAlarms(

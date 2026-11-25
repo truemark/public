@@ -23,26 +23,21 @@ const route53ResolverClient = new Route53ResolverClient({
 const metricConfigs = ROUTE53_RESOLVER_CONFIGS;
 
 export async function fetchR53ResolverTags(endpointId: string): Promise<Tag> {
-  return fetchResourceTags(
-    'R53R',
-    endpointId,
-    async () => {
-      const command = new ListTagsForResourceCommand({
-        ResourceArn: endpointId,
-      });
-      const response = await route53ResolverClient.send(command);
-      const tags: Tag = {};
+  return fetchResourceTags('R53R', endpointId, async () => {
+    const command = new ListTagsForResourceCommand({
+      ResourceArn: endpointId,
+    });
+    const response = await route53ResolverClient.send(command);
+    const tags: Tag = {};
 
-      response.Tags?.forEach((tag) => {
-        if (tag.Key && tag.Value) {
-          tags[tag.Key] = tag.Value;
-        }
-      });
+    response.Tags?.forEach((tag) => {
+      if (tag.Key && tag.Value) {
+        tags[tag.Key] = tag.Value;
+      }
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 export async function manageR53ResolverAlarms(

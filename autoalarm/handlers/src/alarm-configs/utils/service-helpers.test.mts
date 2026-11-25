@@ -1,6 +1,8 @@
 import {test, expect, describe} from 'vitest';
+import * as logging from '@nr1e/logging';
 import {
   buildAlarmsToDelete,
+  fetchResourceTags,
   filterAlarmsToDelete,
   findArnInEvent,
 } from './service-helpers.mjs';
@@ -191,5 +193,28 @@ describe('findArnInEvent', () => {
 
   test('returns an empty string when no ARN with the prefix exists', () => {
     expect(findArnInEvent({foo: 'bar'}, 'arn:aws:rds')).toBe('');
+  });
+});
+
+describe('fetchResourceTags', () => {
+  // service-helpers only gets a child logger; a handler initializes the root.
+  logging.initialize({svc: 'AutoAlarm', name: 'test', level: 'fatal'});
+
+  test('rejects when the tag lookup fails', async () => {
+    // An empty tag set here would read as "autoalarm:enabled is absent", and
+    // the caller would delete the alarms or skip creating them.
+    await expect(
+      fetchResourceTags('VPN', 'vpn-123', async () => {
+        throw new Error('Throttling');
+      }),
+    ).rejects.toThrow('Throttling');
+  });
+
+  test('returns the fetched tags', async () => {
+    await expect(
+      fetchResourceTags('VPN', 'vpn-123', async () => ({
+        'autoalarm:enabled': 'true',
+      })),
+    ).resolves.toEqual({'autoalarm:enabled': 'true'});
   });
 });
