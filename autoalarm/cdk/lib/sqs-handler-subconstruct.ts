@@ -1,4 +1,5 @@
 import {ExtendedNodejsFunction} from 'truemark-cdk-lib/aws-lambda';
+import {AutoAlarmFunction} from './auto-alarm-function';
 import {
   Effect,
   IRole,
@@ -169,7 +170,7 @@ export class SqsHandlerSubConstruct extends Construct {
     role: IRole,
     mainFunctionQueueURL: string,
   ): ExtendedNodejsFunction {
-    return new ExtendedNodejsFunction(this, 'SQSHandlerFunction', {
+    return new AutoAlarmFunction(this, 'SQSHandlerFunction', {
       entry: path.join(
         __dirname,
         '..',

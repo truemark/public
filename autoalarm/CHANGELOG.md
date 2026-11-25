@@ -3,6 +3,9 @@
 ## Unreleased
 ### Changed
 - Moved into the [truemark/public](https://github.com/truemark/public) monorepo as `autoalarm/`. `cdk` and `handlers` are now pnpm workspace packages: versions come from the workspace catalog and `truemark-cdk-lib` is linked from the workspace. The cdk tests run under vitest instead of jest. The package is private and is no longer published to GitHub Packages.
+- Each AutoAlarm Lambda function's log alarm now watches a metric of its own (`TrueMark/Logs` / `<stack>-<function>-<hash>-CriticalLogCount`) instead of the `CriticalLogCount` metric that every `truemark-cdk-lib` function in the account shares.
+- The log alarms now match on the structured log level (`level >= 50`, or `ERROR` / `FATAL` from the Lambda runtime) instead of the text `ERROR`. The handlers log errors with a numeric level, so their own errors now count; before, only lines containing the word `ERROR` did.
+- The function log groups are renamed to `/aws/lambda/<stack>-<function>-<hash>`, where the hash covers the function's construct path. **On the next deploy CloudFormation replaces the five log groups, so their existing log events (3 days' retention) are deleted**, and the log metric filters and alarms are recreated. Saved queries or subscription filters that name the old groups need updating.
 
 ## v1.14.4
 ### Fixed

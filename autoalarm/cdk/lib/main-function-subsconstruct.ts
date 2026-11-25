@@ -1,4 +1,5 @@
 import {ExtendedNodejsFunction} from 'truemark-cdk-lib/aws-lambda';
+import {AutoAlarmFunction} from './auto-alarm-function';
 import {
   Effect,
   IRole,
@@ -356,7 +357,7 @@ export class AutoAlarm extends Construct {
     accountId: string,
   ): ExtendedNodejsFunction {
     // Create the main function
-    return new ExtendedNodejsFunction(this, 'mainFunction', {
+    return new AutoAlarmFunction(this, 'mainFunction', {
       entry: path.join(
         __dirname,
         '..',
