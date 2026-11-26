@@ -109,7 +109,22 @@ export async function parseOSEventAndCreateAlarms(event: any): Promise<{
     case 'AWS API Call via CloudTrail':
       switch (event.detail.eventName) {
         case 'CreateDomain':
-          domainArn = event.detail.responseElements?.domain?.arn; //deprecated domain convention still in use in event. Safe to ignore.
+          // A failed call (AccessDenied, etc.) created nothing and carries no
+          // ARN. Skip it so the record is not retried into the failed queue.
+          if (event.detail.errorCode) {
+            log
+              .info()
+              .str('function', 'parseOSEventAndCreateAlarms')
+              .str('errorCode', event.detail.errorCode)
+              .msg('Skipping failed CreateDomain event');
+            return {domainArn, accountID: '', eventType, tags};
+          }
+          // CloudTrail records the response's DomainStatus.ARN as
+          // domainStatus.aRN. domain.arn is the path this code read before; no
+          // observed event uses it, and it is kept only as a fallback.
+          domainArn =
+            event.detail.responseElements?.domainStatus?.aRN ??
+            event.detail.responseElements?.domain?.arn;
           eventType = 'Create';
           log
             .info()
