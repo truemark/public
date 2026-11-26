@@ -4,6 +4,10 @@
 ### Changed
 - Moved into the [truemark/public](https://github.com/truemark/public) monorepo as `autoalarm/`. `cdk` and `handlers` are now pnpm workspace packages: versions come from the workspace catalog and `truemark-cdk-lib` is linked from the workspace. The cdk tests run under vitest instead of jest. The package is private and is no longer published to GitHub Packages.
 
+### Fixed
+- OpenSearch `CreateDomain` events no longer fail. The handler read the new domain's ARN from `responseElements.domain.arn`, but CloudTrail records it at `responseElements.domainStatus.aRN`, so every domain creation ended with "Resolved OpenSearch domain name is empty". Since v1.14.5 that failed the record, which was received three times and then moved to the failed queue. Before v1.14.5 the event was logged and dropped, so the create event has never produced alarms.
+- A failed `CreateDomain` call (for example `AccessDenied`) is now skipped instead of being retried into the failed queue.
+
 ## v1.14.4
 ### Fixed
 - Fixed main handler not routing EC2 VPN create/delete events to the VPN module when events arrived in CloudTrail format. EventBridge sends VPN events with `detail-type` "AWS API Call via CloudTrail" and no `detail.resourceType`; the handler only routed when `resourceType === 'vpn-connection'`, so those events were treated as "Unhandled EC2 event format" and sent to the DLQ. Added an explicit branch for CloudTrail-form VPN create/delete events so they are routed to `parseVpnEventAndCreateAlarms` like the existing VPN path.
