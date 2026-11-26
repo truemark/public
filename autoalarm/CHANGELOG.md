@@ -14,6 +14,8 @@
 - A failed tag lookup now fails the SQS record on every surface. ALB, CloudFront, OpenSearch, Route 53 Resolver, Step Functions, Target Group, Transit Gateway and VPN treated the failure as "no tags", so a tagged resource got no alarms at creation, and a Step Functions tag change could delete the state machine's alarms.
 - An ECS service ARN with no cluster segment now fails the record. It was logged as an error and then skipped as "not a service event".
 - A tag event for a CloudWatch Logs resource that is not a log group (a destination or delivery, for example) is now skipped. It was logged as a malformed log group ARN and then failed the record with a `TypeError`, so it was retried and sent to the dead-letter queue.
+- OpenSearch `CreateDomain` events no longer fail. The handler read the new domain's ARN from `responseElements.domain.arn`, but CloudTrail records it at `responseElements.domainStatus.aRN`, so every domain creation ended with "Resolved OpenSearch domain name is empty". Since v1.14.5 that failed the record, which was received three times and then moved to the failed queue. Before v1.14.5 the event was logged and dropped, so the create event has never produced alarms.
+- A failed `CreateDomain` call (for example `AccessDenied`) is now skipped instead of being retried into the failed queue.
 
 ## v1.14.4
 ### Fixed
