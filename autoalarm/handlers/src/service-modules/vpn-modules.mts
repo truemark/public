@@ -22,27 +22,22 @@ const metricConfigs = VPN_CONFIGS;
 export async function fetchVpnTags(
   vpnId: string,
 ): Promise<{[key: string]: string}> {
-  return fetchResourceTags(
-    'VPN',
-    vpnId,
-    async () => {
-      const response = await ec2Client.send(
-        new DescribeTagsCommand({
-          Filters: [{Name: 'resource-id', Values: [vpnId]}],
-        }),
-      );
+  return fetchResourceTags('VPN', vpnId, async () => {
+    const response = await ec2Client.send(
+      new DescribeTagsCommand({
+        Filters: [{Name: 'resource-id', Values: [vpnId]}],
+      }),
+    );
 
-      const tags: {[key: string]: string} = {};
-      response.Tags?.forEach((tag) => {
-        if (tag.Key && tag.Value) {
-          tags[tag.Key] = tag.Value;
-        }
-      });
+    const tags: {[key: string]: string} = {};
+    response.Tags?.forEach((tag) => {
+      if (tag.Key && tag.Value) {
+        tags[tag.Key] = tag.Value;
+      }
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 export async function manageVpnAlarms(vpnId: string, tags: Tag): Promise<void> {
@@ -64,6 +59,9 @@ export async function manageInactiveVpnAlarms(vpnId: string): Promise<void> {
       .str('function', 'manageInactiveVpnAlarms')
       .err(e)
       .msg(`Error deleting VPN alarms: ${e}`);
+    // Rethrow so the caller fails the record and SQS retries the deletion.
+    // Returning here acknowledges the event and leaves the alarms behind.
+    throw new Error(`Error deleting VPN alarms: ${e}`);
   }
 }
 

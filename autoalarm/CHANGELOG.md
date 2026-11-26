@@ -3,6 +3,19 @@
 ## Unreleased
 ### Changed
 - Moved into the [truemark/public](https://github.com/truemark/public) monorepo as `autoalarm/`. `cdk` and `handlers` are now pnpm workspace packages: versions come from the workspace catalog and `truemark-cdk-lib` is linked from the workspace. The cdk tests run under vitest instead of jest. The package is private and is no longer published to GitHub Packages.
+- Each AutoAlarm Lambda function's log alarm now watches a metric of its own (`TrueMark/Logs` / `<stack>-<function>-<hash>-CriticalLogCount`) instead of the `CriticalLogCount` metric that every `truemark-cdk-lib` function in the account shares.
+- The log alarms now match a handler error as well as the word `ERROR`. The filter was the text `ERROR`, which the handlers' own errors never contain: they log a numeric level (`"level":50`) and messages such as "Error deleting alarms". The filter is now the regex `%ERROR|\x22level\x22:[56]0%`, so it still counts any line containing `ERROR` and also counts the handlers' error and fatal lines. Expect these alarms to fire more often.
+- The function log groups are renamed to `/aws/lambda/<stack>-<function>-<hash>`, where the hash covers the function's construct path. **On the next deploy CloudFormation replaces the five log groups, so their existing log events (3 days' retention) are deleted**, and the log metric filters and alarms are recreated. Saved queries or subscription filters that name the old groups need updating.
+
+### Fixed
+- A failed alarm deletion for a removed RDS instance, RDS cluster, CloudFront distribution, Step Functions state machine, Transit Gateway or VPN connection now fails the SQS record, so it is retried and then moved to the dead-letter queue. These six surfaces logged the error and acknowledged the event, which left the alarms behind with nothing to retry. The other surfaces already rethrew.
+- A single alarm that cannot be deleted (for example when a tag removes one threshold) now fails the SQS record instead of being logged and acknowledged. An alarm that is already gone still counts as deleted.
+- The ReAlarm producer now fails its run when SQS rejects individual entries of a `SendMessageBatch` call. SQS reports those inside a successful response, so the alarms were dropped with no error.
+- A failed tag lookup now fails the SQS record on every surface. ALB, CloudFront, OpenSearch, Route 53 Resolver, Step Functions, Target Group, Transit Gateway and VPN treated the failure as "no tags", so a tagged resource got no alarms at creation, and a Step Functions tag change could delete the state machine's alarms.
+- An ECS service ARN with no cluster segment now fails the record. It was logged as an error and then skipped as "not a service event".
+- A tag event for a CloudWatch Logs resource that is not a log group (a destination or delivery, for example) is now skipped. It was logged as a malformed log group ARN and then failed the record with a `TypeError`, so it was retried and sent to the dead-letter queue.
+- OpenSearch `CreateDomain` events no longer fail. The handler read the new domain's ARN from `responseElements.domain.arn`, but CloudTrail records it at `responseElements.domainStatus.aRN`, so every domain creation ended with "Resolved OpenSearch domain name is empty". Since v1.14.5 that failed the record, which was received three times and then moved to the failed queue. Before v1.14.5 the event was logged and dropped, so the create event has never produced alarms.
+- A failed `CreateDomain` call (for example `AccessDenied`) is now skipped instead of being retried into the failed queue.
 
 ## v1.14.4
 ### Fixed

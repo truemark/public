@@ -60,7 +60,10 @@ function extractECSServiceInfo(
       .str('function', 'extractECSServiceInfo')
       .str('arn', arn)
       .msg('Invalid ECS service ARN format - missing cluster or service name');
-    return void 0;
+    // The event does name a service, so returning here would let the caller
+    // report it as "not a service event" and acknowledge it. Fail the record
+    // so it reaches the dead-letter queue instead of disappearing.
+    throw new Error(`Invalid ECS service ARN format: ${arn}`);
   }
 
   const clusterName = arnParts[1].trim();

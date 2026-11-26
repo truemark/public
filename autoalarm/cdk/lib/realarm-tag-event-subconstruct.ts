@@ -1,4 +1,5 @@
 import {ExtendedNodejsFunction} from 'truemark-cdk-lib/aws-lambda';
+import {AutoAlarmFunction} from './auto-alarm-function';
 import {
   Effect,
   IRole,
@@ -191,7 +192,7 @@ export class ReAlarmTagEventHandler extends Construct {
     role: IRole,
     reAlarmProducerQueueArn: string,
   ): ExtendedNodejsFunction {
-    return new ExtendedNodejsFunction(this, 'ReAlarmTagEventFunction', {
+    return new AutoAlarmFunction(this, 'ReAlarmTagEventFunction', {
       entry: path.join(
         __dirname,
         '..',

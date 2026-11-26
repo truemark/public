@@ -224,3 +224,68 @@ describe('AutoAlarm stack', () => {
     expect(caps).toEqual([10, 10, 20]);
   });
 });
+
+describe('AutoAlarm handler function logs', () => {
+  const FUNCTION_IDS = [
+    'mainFunction',
+    'SQSHandlerFunction',
+    'ReAlarmProducerFunction',
+    'ConsumerFunction',
+    'ReAlarmTagEventFunction',
+  ];
+
+  test('each function logs to its own log group with a hashed name', () => {
+    const names = Object.values(
+      template.findResources('AWS::Logs::LogGroup'),
+    ).map((logGroup) => logGroup.Properties?.LogGroupName as string);
+    expect(names.length).toBe(FUNCTION_IDS.length);
+    expect(new Set(names).size).toBe(names.length);
+    for (const id of FUNCTION_IDS) {
+      // The role policies only allow writes under /aws/lambda/.
+      const pattern = new RegExp(
+        `^/aws/lambda/AutoAlarmTest-${id}-[0-9A-F]{8}$`,
+      );
+      expect(names.filter((name) => pattern.test(name))).toHaveLength(1);
+    }
+    // Guards against the library default, whose suffix is the first 8
+    // characters of the stack path and so is the same for every function.
+    const suffixes = names.map((name) => name.slice(-8));
+    expect(new Set(suffixes).size).toBe(names.length);
+  });
+
+  test('each function counts error lines on a metric of its own', () => {
+    const filters = Object.values(
+      template.findResources('AWS::Logs::MetricFilter'),
+    );
+    expect(filters.length).toBe(FUNCTION_IDS.length);
+    const metricNames: string[] = [];
+    for (const filter of filters) {
+      expect(filter.Properties.FilterPattern).toBe(
+        '%ERROR|\\x22level\\x22:[56]0%',
+      );
+      expect(filter.Properties.MetricTransformations).toHaveLength(1);
+      metricNames.push(filter.Properties.MetricTransformations[0].MetricName);
+    }
+    expect(new Set(metricNames).size).toBe(metricNames.length);
+    for (const metricName of metricNames) {
+      expect(metricName).toMatch(
+        /^AutoAlarmTest-[A-Za-z]+-[0-9A-F]{8}-CriticalLogCount$/,
+      );
+    }
+  });
+
+  test('each log alarm watches the metric of exactly one function', () => {
+    const filterMetrics = Object.values(
+      template.findResources('AWS::Logs::MetricFilter'),
+    ).map((filter) => filter.Properties.MetricTransformations[0].MetricName);
+    const alarmMetrics = Object.values(
+      template.findResources('AWS::CloudWatch::Alarm'),
+    )
+      .map((alarm) => alarm.Properties?.MetricName as string | undefined)
+      .filter((metricName) => metricName?.endsWith('CriticalLogCount'));
+    expect(alarmMetrics.sort()).toEqual(filterMetrics.sort());
+    // No alarm may be left on the metric that every truemark-cdk-lib function
+    // in the account shares.
+    expect(alarmMetrics).not.toContain('CriticalLogCount');
+  });
+});

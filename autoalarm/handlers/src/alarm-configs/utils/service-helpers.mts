@@ -258,16 +258,15 @@ export async function manageServiceAlarms(
  * @param service - Service label used in log messages (e.g. 'SQS').
  * @param resourceId - Resource identifier/ARN, for log context only.
  * @param fetchFn - Closure performing the SDK call and Tag extraction.
- * @param onError - 'rethrow' (default) propagates fetch errors so a transient
- * API error fails the record (and is retried) instead of being treated as
- * "no tags" and deleting the alarms. 'return-empty' preserves the legacy
- * behavior of some modules that treat fetch errors as an empty tag set.
+ *
+ * A fetch error is rethrown so the record fails and is retried. Returning an
+ * empty tag set instead would read as "autoalarm:enabled is absent", which
+ * deletes the resource's alarms or skips creating them.
  */
 export async function fetchResourceTags(
   service: string,
   resourceId: string,
   fetchFn: () => Promise<Tag>,
-  onError: 'rethrow' | 'return-empty' = 'rethrow',
 ): Promise<Tag> {
   try {
     const tags = await fetchFn();
@@ -289,11 +288,6 @@ export async function fetchResourceTags(
       .str('ResourceId', resourceId)
       .err(error)
       .msg(`Error fetching ${service} tags`);
-    if (onError === 'return-empty') {
-      return {};
-    }
-    // Rethrow so a transient API error fails the record (and is retried)
-    // instead of being treated as "no tags" and deleting the alarms.
     throw error;
   }
 }

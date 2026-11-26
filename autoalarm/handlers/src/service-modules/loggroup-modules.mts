@@ -107,11 +107,14 @@ function extractLogGroupIdentifiers(
   // Extract LogGroup name from ARN
   const arnParts = arn.split('log-group:');
   if (arnParts.length < 2) {
+    // TagResource and UntagResource are routed for every CloudWatch Logs
+    // resource (destinations, deliveries, anomaly detectors), so an ARN with
+    // no log-group segment is another resource type, not a malformed one.
     log
-      .error()
+      .debug()
       .str('function', 'extractLogGroupIdentifiers')
       .str('arn', arn)
-      .msg('Invalid LogGroup ARN format - missing cluster name');
+      .msg('ARN is not a log group');
     return void 0;
   }
 
@@ -175,26 +178,26 @@ export async function parseLogGroupEventAndCreateAlarms(
       return;
     }
 
-    try {
-      resourceName = body.detail.requestParameters.logGroupName;
-      arn = `arn:aws:logs:${body.region}:${body.account}:log-group:${resourceName}`;
+    resourceName = body.detail.requestParameters.logGroupName;
+    // CreateLogGroup and DeleteLogGroup always carry logGroupName. Without
+    // one, this is a tag event for a Logs resource that is not a log group,
+    // which AutoAlarm does not manage.
+    if (!resourceName) {
       log
         .info()
         .str('function', 'parseLogGroupEventAndCreateAlarms')
         .str('eventName', eventName)
-        .str('logGroupArn', arn)
-        .str('logGroupName', resourceName)
-        .msg('Extracted LogGroup ARN and LogGroup name');
-    } catch {
-      log
-        .error()
-        .str('function', 'parseLogGroupEventAndCreateAlarms')
-        .str('eventName', eventName)
-        .msg('Failed to extract log group identifiers');
-      throw new Error('Failed to extract log group identifiers', {
-        cause: record,
-      });
+        .msg('Event is not for a log group - skipping');
+      return;
     }
+    arn = `arn:aws:logs:${body.region}:${body.account}:log-group:${resourceName}`;
+    log
+      .info()
+      .str('function', 'parseLogGroupEventAndCreateAlarms')
+      .str('eventName', eventName)
+      .str('logGroupArn', arn)
+      .str('logGroupName', resourceName)
+      .msg('Extracted LogGroup ARN and LogGroup name');
   }
 
   // bedrock-agentcore creates and destroys log groups continuously; skip all

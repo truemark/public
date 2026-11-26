@@ -28,28 +28,23 @@ const elbClient: ElasticLoadBalancingV2Client =
 const metricConfigs = TARGET_GROUP_CONFIGS;
 
 export async function fetchTGTags(targetGroupArn: string): Promise<Tag> {
-  return fetchResourceTags(
-    'TG',
-    targetGroupArn,
-    async () => {
-      const command = new DescribeTagsCommand({
-        ResourceArns: [targetGroupArn],
-      });
-      const response = await elbClient.send(command);
-      const tags: Tag = {};
+  return fetchResourceTags('TG', targetGroupArn, async () => {
+    const command = new DescribeTagsCommand({
+      ResourceArns: [targetGroupArn],
+    });
+    const response = await elbClient.send(command);
+    const tags: Tag = {};
 
-      response.TagDescriptions?.forEach((tagDescription) => {
-        tagDescription.Tags?.forEach((tag) => {
-          if (tag.Key && tag.Value) {
-            tags[tag.Key] = tag.Value;
-          }
-        });
+    response.TagDescriptions?.forEach((tagDescription) => {
+      tagDescription.Tags?.forEach((tag) => {
+        if (tag.Key && tag.Value) {
+          tags[tag.Key] = tag.Value;
+        }
       });
+    });
 
-      return tags;
-    },
-    'return-empty',
-  );
+    return tags;
+  });
 }
 
 async function manageTGAlarms(
