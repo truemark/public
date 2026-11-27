@@ -9,6 +9,10 @@
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       }
+    },
+    "dev": {
+      "type": "http",
+      "url": "https://devplaybook.nr1e.com"
     }
   }
 }

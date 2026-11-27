@@ -24,7 +24,11 @@
       "Bash(date:*)",
       "Bash(sleep:*)",
       "Bash(wc:*)",
-      "Bash(tr:*)"
+      "Bash(tr:*)",
+      "mcp__dev__rules_for_files",
+      "mcp__dev__get_rules",
+      "mcp__dev__search_rules",
+      "mcp__dev__list_domains"
     ],
     "deny": [
       "Bash(git push --force:*)",
@@ -36,5 +40,8 @@
       "Bash(gh pr merge:*)",
       "Bash(gh repo delete:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "dev"
+  ]
 }
