@@ -36,5 +36,8 @@
       "Bash(gh pr merge:*)",
       "Bash(gh repo delete:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "dev"
+  ]
 }
